@@ -334,6 +334,7 @@ export class GameEngine {
     this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
     this.state = this.createInitialState();
     this.initializePaladinAuras();  // Set up default auras for all paladins
+    this.initializeShamanTotems();  // Set up default totems for all NPC shamans
   }
 
   private createInitialState(): GameState {
@@ -397,6 +398,7 @@ export class GameEngine {
       // Raid management and party auras
       raidManagementMode: false,
       paladinAuraAssignments: [],  // Will be initialized with default auras for each paladin
+      shamanTotemAssignments: [],  // Will be initialized with default totems for each shaman
       // Mouseover healing - cast spells on whoever the mouse is hovering over
       mouseoverTargetId: null,
       // Faction and class system
@@ -832,13 +834,18 @@ export class GameEngine {
     this.state.maxPaladinBlessings = newFaction === 'alliance' ? this.getPaladinCountForRaidSize(raidSize) : 0;
 
     // Clear paladin aura assignments for Horde (they don't have paladins)
+    // Clear shaman totem assignments for Alliance (they don't have shamans in Vanilla)
     if (newFaction === 'horde') {
       this.state.paladinAuraAssignments = [];
       this.state.activePaladinBlessings = [];
+      // Reinitialize shaman totems for Horde
+      this.initializeShamanTotems();
     } else {
       // Reinitialize paladin auras for Alliance
       this.initializePaladinAuras();
       this.state.activePaladinBlessings = ['blessing_of_kings', 'blessing_of_wisdom'];
+      // Clear shaman totem assignments for Alliance
+      this.state.shamanTotemAssignments = [];
     }
 
     this.addCombatLogEntry({
@@ -899,29 +906,70 @@ export class GameEngine {
       return;
     }
 
+    // Check if an NPC shaman in the player's group already has this totem assigned
+    const player = this.state.raid.find(m => m.id === this.state.playerId);
+    const playerGroup = player?.group || 1;
+
+    const npcShamanWithSameTotem = this.state.shamanTotemAssignments.find(assignment => {
+      const shaman = this.state.raid.find(m => m.id === assignment.shamanId);
+      if (!shaman || shaman.group !== playerGroup) return false;
+
+      return assignment.earthTotemId === totemId ||
+             assignment.fireTotemId === totemId ||
+             assignment.waterTotemId === totemId ||
+             assignment.airTotemId === totemId;
+    });
+
+    if (npcShamanWithSameTotem) {
+      const npcShaman = this.state.raid.find(m => m.id === npcShamanWithSameTotem.shamanId);
+      this.addCombatLogEntry({
+        message: `${npcShaman?.name || 'Another shaman'} already has ${totem.name} in your group!`,
+        type: 'system'
+      });
+      this.notify();
+      return;
+    }
+
     // Deduct mana
     this.state.playerMana -= totem.manaCost;
     this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
     this.state.globalCooldown = 1.5; // Totems trigger GCD
 
-    // Remove any existing totem of the same element
+    // Remove any existing totem of the same element and its buffs
     const existingTotemIndex = this.state.activeTotems.findIndex(at => at.element === totem.element);
     if (existingTotemIndex !== -1) {
       const oldTotem = this.state.activeTotems[existingTotemIndex];
       this.addCombatLogEntry({ message: `${oldTotem.name} fades.`, type: 'system' });
+      // Remove old totem buffs from party members
+      const partyMembers = this.state.raid.filter(m => m.group === oldTotem.group);
+      partyMembers.forEach(member => {
+        member.buffs = member.buffs.filter(b => b.id !== `totem_${oldTotem.element}_${oldTotem.id}`);
+      });
       this.state.activeTotems.splice(existingTotemIndex, 1);
     }
 
-    // Add the new totem - totems affect the player's group (group 1 for healers typically)
-    // Find the player's group from the raid
-    const player = this.state.raid.find(m => m.id === this.state.playerId);
-    const playerGroup = player?.group || 1;
-
+    // Add the new totem - totems affect the player's group
     this.state.activeTotems.push({
       ...totem,
       remainingDuration: totem.duration,
-      lastTickTime: this.state.elapsedTime,
+      lastTickTime: this.state.elapsedTime * 1000, // Convert to milliseconds for tick tracking
       group: playerGroup,
+    });
+
+    // Apply totem buff to all party members
+    const partyMembers = this.state.raid.filter(m => m.group === playerGroup && m.isAlive);
+    partyMembers.forEach(member => {
+      // Remove any existing buff from same element (shouldn't exist, but safety check)
+      member.buffs = member.buffs.filter(b => !b.id.startsWith(`totem_${totem.element}_`));
+      // Add new totem buff
+      member.buffs.push({
+        id: `totem_${totem.element}_${totem.id}`,
+        name: totem.name,
+        icon: totem.icon,
+        duration: totem.duration,
+        maxDuration: totem.duration,
+        effect: totem.effect,
+      });
     });
 
     // Set cooldown if the totem has one
@@ -944,6 +992,11 @@ export class GameEngine {
     if (totemIndex !== -1) {
       const totem = this.state.activeTotems[totemIndex];
       this.addCombatLogEntry({ message: `${totem.name} destroyed.`, type: 'system' });
+      // Remove totem buff from party members
+      const partyMembers = this.state.raid.filter(m => m.group === totem.group);
+      partyMembers.forEach(member => {
+        member.buffs = member.buffs.filter(b => b.id !== `totem_${totem.element}_${totem.id}`);
+      });
       this.state.activeTotems.splice(totemIndex, 1);
       this.notify();
     }
@@ -962,30 +1015,44 @@ export class GameEngine {
 
     // Process each active totem
     const expiredTotems: number[] = [];
+    const now = this.state.elapsedTime * 1000; // Convert to milliseconds
 
     this.state.activeTotems.forEach((activeTotem, index) => {
       // Reduce duration
       activeTotem.remainingDuration -= delta;
 
+      // Get party members affected by this totem
+      const partyMembers = this.state.raid.filter(m => m.group === activeTotem.group);
+
+      // Update buff durations on party members
+      partyMembers.forEach(member => {
+        const buff = member.buffs.find(b => b.id === `totem_${activeTotem.element}_${activeTotem.id}`);
+        if (buff) {
+          buff.duration = activeTotem.remainingDuration;
+        }
+      });
+
       if (activeTotem.remainingDuration <= 0) {
         expiredTotems.push(index);
         this.addCombatLogEntry({ message: `${activeTotem.name} fades.`, type: 'system' });
+        // Remove totem buffs from party members
+        partyMembers.forEach(member => {
+          member.buffs = member.buffs.filter(b => b.id !== `totem_${activeTotem.element}_${activeTotem.id}`);
+        });
         return;
       }
 
-      // Process totem effects (tick every 2 seconds for most totems)
-      const tickInterval = 2; // seconds
-      if (this.state.elapsedTime - activeTotem.lastTickTime >= tickInterval) {
-        activeTotem.lastTickTime = this.state.elapsedTime;
+      // Process totem tick effects based on tickRate (default 2 seconds)
+      const tickRate = (activeTotem.tickRate || 2) * 1000; // Convert to milliseconds
+      if (now - activeTotem.lastTickTime >= tickRate) {
+        activeTotem.lastTickTime = now;
 
-        // Find the player's party members (in a 40-man raid, totems affect party of 5)
-        // For simplicity, we'll affect all raid members since this is a healing simulator
-        const partyMembers = this.state.raid.filter(m => m.isAlive);
+        // Get alive party members for tick effects
+        const alivePartyMembers = partyMembers.filter(m => m.isAlive);
 
-        // Apply totem effects based on type
+        // HEALING STREAM TOTEM - heals party every tick
         if (activeTotem.effect.healingReceivedBonus && activeTotem.id === 'healing_stream_totem') {
-          // Healing Stream Totem - heals party for small amount every tick
-          partyMembers.forEach(member => {
+          alivePartyMembers.forEach(member => {
             const healAmount = activeTotem.effect.healingReceivedBonus || 0;
             const actualHeal = Math.min(healAmount, member.maxHealth - member.currentHealth);
             if (actualHeal > 0) {
@@ -995,10 +1062,45 @@ export class GameEngine {
           });
         }
 
+        // MANA REGEN TOTEMS (Mana Spring, Mana Tide) - restore mana per tick
         if (activeTotem.effect.manaRegenBonus) {
-          // Mana Spring Totem / Mana Tide Totem - restore mana to casters
-          const manaPerTick = (activeTotem.effect.manaRegenBonus / 5) * tickInterval;
-          this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + manaPerTick);
+          // Mana is restored directly per tick (not mp5 formula)
+          const manaGain = activeTotem.effect.manaRegenBonus;
+          this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + manaGain);
+        }
+
+        // TREMOR TOTEM - removes Fear/Charm/Sleep every tick
+        if (activeTotem.effect.fearImmunity) {
+          alivePartyMembers.forEach(member => {
+            const beforeCount = member.debuffs.length;
+            member.debuffs = member.debuffs.filter(d =>
+              d.type !== 'magic' || (d.name?.toLowerCase().indexOf('fear') === -1 &&
+                                     d.name?.toLowerCase().indexOf('charm') === -1 &&
+                                     d.name?.toLowerCase().indexOf('sleep') === -1));
+            if (member.debuffs.length < beforeCount) {
+              // TODO: Could add combat log entry for fear removal
+            }
+          });
+        }
+
+        // POISON CLEANSING TOTEM - removes 1 poison per member every tick
+        if (activeTotem.effect.cleansesPoison) {
+          alivePartyMembers.forEach(member => {
+            const poisonIdx = member.debuffs.findIndex(d => d.type === 'poison');
+            if (poisonIdx >= 0) {
+              member.debuffs.splice(poisonIdx, 1);
+            }
+          });
+        }
+
+        // DISEASE CLEANSING TOTEM - removes 1 disease per member every tick
+        if (activeTotem.effect.cleansesDisease) {
+          alivePartyMembers.forEach(member => {
+            const diseaseIdx = member.debuffs.findIndex(d => d.type === 'disease');
+            if (diseaseIdx >= 0) {
+              member.debuffs.splice(diseaseIdx, 1);
+            }
+          });
         }
       }
     });
@@ -1007,6 +1109,91 @@ export class GameEngine {
     for (let i = expiredTotems.length - 1; i >= 0; i--) {
       this.state.activeTotems.splice(expiredTotems[i], 1);
     }
+  }
+
+  // Track last tick time for NPC shaman totems
+  private npcShamanTotemLastTick: Record<string, number> = {};
+
+  // Tick NPC shaman totem effects (mana regen, healing stream, cleansing, etc.)
+  private tickNpcShamanTotems(_delta: number): void {
+    if (this.state.faction !== 'horde') return; // Only Horde has NPC shamans
+
+    const now = Date.now();
+    const player = this.state.raid.find(m => m.name === this.state.playerName);
+    if (!player) return;
+
+    // Process each NPC shaman's totem assignments
+    this.state.shamanTotemAssignments.forEach(assignment => {
+      const shaman = this.state.raid.find(m => m.id === assignment.shamanId);
+      if (!shaman?.isAlive || shaman.name === this.state.playerName) return;
+
+      // Only affect party members in same group as the shaman
+      if (player.group !== shaman.group) return;
+
+      const totemIds = [
+        assignment.earthTotemId,
+        assignment.fireTotemId,
+        assignment.waterTotemId,
+        assignment.airTotemId,
+      ].filter(Boolean) as string[];
+
+      totemIds.forEach(totemId => {
+        const totem = getTotemById(totemId);
+        if (!totem) return;
+
+        const tickKey = `${shaman.id}_${totemId}`;
+        const tickRate = (totem.tickRate || 2) * 1000; // Convert to ms
+        const lastTick = this.npcShamanTotemLastTick[tickKey] || 0;
+
+        if (now - lastTick >= tickRate) {
+          this.npcShamanTotemLastTick[tickKey] = now;
+
+          // Get party members in shaman's group
+          const partyMembers = this.state.raid.filter(m => m.group === shaman.group && m.isAlive);
+
+          // MANA REGEN (Mana Spring: +10/2s, Mana Tide: +170/3s)
+          if (totem.effect.manaRegenBonus) {
+            // Only player gets mana (NPCs don't have mana pools)
+            if (player.group === shaman.group) {
+              this.state.playerMana = Math.min(this.state.maxMana,
+                this.state.playerMana + totem.effect.manaRegenBonus);
+            }
+          }
+
+          // HEALING STREAM (+14 HP/2s to party)
+          if (totem.effect.healingReceivedBonus) {
+            partyMembers.forEach(member => {
+              const healAmount = totem.effect.healingReceivedBonus || 0;
+              member.currentHealth = Math.min(member.maxHealth, member.currentHealth + healAmount);
+              this.state.healingDone += healAmount;
+            });
+          }
+
+          // TREMOR TOTEM - would remove fear/charm/sleep if those debuff types existed
+          // Currently the game doesn't have fear mechanics implemented as debuffs
+
+          // POISON CLEANSING (removes 1 poison per member every 5s)
+          if (totem.effect.cleansesPoison) {
+            partyMembers.forEach(member => {
+              const poisonIdx = member.debuffs.findIndex(d => d.type === 'poison');
+              if (poisonIdx >= 0) {
+                member.debuffs.splice(poisonIdx, 1);
+              }
+            });
+          }
+
+          // DISEASE CLEANSING (removes 1 disease per member every 5s)
+          if (totem.effect.cleansesDisease) {
+            partyMembers.forEach(member => {
+              const diseaseIdx = member.debuffs.findIndex(d => d.type === 'disease');
+              if (diseaseIdx >= 0) {
+                member.debuffs.splice(diseaseIdx, 1);
+              }
+            });
+          }
+        }
+      });
+    });
   }
 
   private notify() {
@@ -1835,9 +2022,9 @@ export class GameEngine {
 
   // Recalculate and apply all party aura buffs
   public recalculateAuras() {
-    // Clear existing aura buffs
+    // Clear existing aura buffs (paladin auras and shaman totem auras)
     this.state.raid.forEach(m => {
-      m.buffs = m.buffs.filter(b => !b.id.startsWith('aura_'));
+      m.buffs = m.buffs.filter(b => !b.id.startsWith('aura_') && !b.id.startsWith('shaman_totem_'));
     });
 
     // Apply automatic party auras
@@ -1890,6 +2077,42 @@ export class GameEngine {
             effect: aura.effect,
           });
         }
+      });
+    });
+
+    // Apply NPC shaman totem auras (party-scoped, persistent buffs)
+    this.state.shamanTotemAssignments.forEach(assignment => {
+      const shaman = this.state.raid.find(m => m.id === assignment.shamanId);
+      if (!shaman?.isAlive || shaman.name === this.state.playerName) return; // Skip dead shamans and player (player has active totems instead)
+
+      // Get all assigned totems for this shaman
+      const totemIds = [
+        assignment.earthTotemId,
+        assignment.fireTotemId,
+        assignment.waterTotemId,
+        assignment.airTotemId,
+      ].filter(Boolean) as string[];
+
+      totemIds.forEach(totemId => {
+        const totem = getTotemById(totemId);
+        if (!totem) return;
+
+        // NPC Shaman totems are party-scoped (only affect their party group)
+        const partyMembers = this.state.raid.filter(m => m.group === shaman.group);
+        partyMembers.forEach(target => {
+          // Use unique buff ID per shaman to allow multiple shaman totems
+          const buffId = `shaman_totem_${shaman.id}_${totem.id}`;
+          if (!target.buffs.find(b => b.id === buffId)) {
+            target.buffs.push({
+              id: buffId,
+              name: totem.name,
+              icon: totem.icon,
+              duration: Infinity, // NPC totems are persistent (like auras)
+              maxDuration: Infinity,
+              effect: totem.effect,
+            });
+          }
+        });
       });
     });
 
@@ -1975,6 +2198,98 @@ export class GameEngine {
     this.recalculateAuras();
   }
 
+  // Initialize default shaman totem assignments for NPC shamans
+  private initializeShamanTotems() {
+    const shamans = this.state.raid.filter(m => m.class === 'shaman' && m.name !== this.state.playerName);
+
+    // Default totems for each element - sensible raid setup
+    // Water: Mana Spring (for healer mana), Earth: Stoneskin (for tanks),
+    // Air: Varies by group role, Fire: Fire Resistance (for MC/BWL)
+    this.state.shamanTotemAssignments = shamans.map((shaman) => {
+      // Vary air totem based on which group - melee groups get Windfury, caster groups get Tranquil Air
+      const isMeleeGroup = shaman.group <= 2; // Groups 1-2 are typically melee
+      return {
+        shamanId: shaman.id,
+        earthTotemId: 'stoneskin_totem',
+        fireTotemId: 'fire_resistance_totem',
+        waterTotemId: 'mana_spring_totem',
+        airTotemId: isMeleeGroup ? 'windfury_totem' : 'tranquil_air_totem',
+      };
+    });
+
+    this.recalculateAuras();
+  }
+
+  // Set a specific totem for a shaman (element-based)
+  public setShamanTotem(shamanId: string, element: TotemElement, totemId: string | null) {
+    const shaman = this.state.raid.find(m => m.id === shamanId && m.class === 'shaman');
+    if (!shaman) return;
+
+    // Validate that totem belongs to the correct element
+    if (totemId) {
+      const totem = getTotemById(totemId);
+      if (!totem || totem.element !== element) return;
+    }
+
+    // Check for duplicates in same group (no two shamans can have same totem in same party)
+    if (totemId) {
+      const otherShamansInGroup = this.state.shamanTotemAssignments.filter(a => {
+        const otherShaman = this.state.raid.find(m => m.id === a.shamanId);
+        return otherShaman && otherShaman.group === shaman.group && a.shamanId !== shamanId;
+      });
+
+      for (const otherAssignment of otherShamansInGroup) {
+        if (otherAssignment.earthTotemId === totemId ||
+            otherAssignment.fireTotemId === totemId ||
+            otherAssignment.waterTotemId === totemId ||
+            otherAssignment.airTotemId === totemId) {
+          // Can't assign - another shaman in same group already has this totem
+          this.addCombatLogEntry({
+            message: `Cannot assign ${getTotemById(totemId)?.name} - another shaman in the group already has it!`,
+            type: 'system',
+          });
+          return;
+        }
+      }
+    }
+
+    let existing = this.state.shamanTotemAssignments.find(a => a.shamanId === shamanId);
+    if (!existing) {
+      existing = {
+        shamanId,
+        earthTotemId: null,
+        fireTotemId: null,
+        waterTotemId: null,
+        airTotemId: null,
+      };
+      this.state.shamanTotemAssignments.push(existing);
+    }
+
+    // Set the totem for the appropriate element
+    switch (element) {
+      case 'earth':
+        existing.earthTotemId = totemId;
+        break;
+      case 'fire':
+        existing.fireTotemId = totemId;
+        break;
+      case 'water':
+        existing.waterTotemId = totemId;
+        break;
+      case 'air':
+        existing.airTotemId = totemId;
+        break;
+    }
+
+    this.recalculateAuras();
+  }
+
+  // Get a shaman's current totem assignments
+  public getShamanTotems(shamanId: string): import('./types').ShamanTotemAssignment | null {
+    const assignment = this.state.shamanTotemAssignments.find(a => a.shamanId === shamanId);
+    return assignment || null;
+  }
+
   private startGameLoop() {
     let lastTick = Date.now();
 
@@ -2009,8 +2324,11 @@ export class GameEngine {
         this.state.manaPotionCooldown = Math.max(0, this.state.manaPotionCooldown - delta);
       }
 
-      // Update totem ticks (Shaman)
+      // Update totem ticks (Shaman player totems)
       this.tickTotems(delta);
+
+      // Update NPC shaman totem effects (mana regen, healing, cleansing)
+      this.tickNpcShamanTotems(delta);
 
       // Mana regen with Five-Second Rule (FSR)
       if (!this.state.isCasting) {
@@ -2448,7 +2766,7 @@ export class GameEngine {
   // Equip an item on the player
   equipItem(item: GearItem) {
     // Check if player can equip
-    if (!this.canEquip('paladin', item)) {
+    if (!this.canEquip(this.state.playerClass, item)) {
       this.addCombatLogEntry({ message: `Cannot equip ${item.name} (wrong class)`, type: 'system' });
       return;
     }
@@ -2492,7 +2810,7 @@ export class GameEngine {
     const item = this.state.playerBag[bagIndex];
 
     // Check if player can equip
-    if (!this.canEquip('paladin', item)) {
+    if (!this.canEquip(this.state.playerClass, item)) {
       this.addCombatLogEntry({ message: `Cannot equip ${item.name} (wrong class)`, type: 'system' });
       return;
     }
@@ -2542,7 +2860,7 @@ export class GameEngine {
     const cost = calculateDKPCost(item);
 
     // Check if player can equip
-    if (!this.canEquip('paladin', item)) {
+    if (!this.canEquip(this.state.playerClass, item)) {
       this.addCombatLogEntry({ message: `Cannot equip ${item.name} (wrong class)`, type: 'system' });
       this.notify();
       return;
@@ -2662,6 +2980,7 @@ export class GameEngine {
       firstKills: this.state.firstKills, // Permanent boss kills for world buff unlocks (v4+)
       activePaladinBlessings: this.state.activePaladinBlessings,
       paladinAuraAssignments: this.state.paladinAuraAssignments, // v6: Paladin aura assignments
+      shamanTotemAssignments: this.state.shamanTotemAssignments, // v7: Shaman totem assignments
       unlockedWorldBuffs: this.state.unlockedWorldBuffs, // Persist world buff unlocks
       bossKillsWithoutPaladinLoot: this.state.bossKillsWithoutPaladinLoot, // Bad luck protection
     };
@@ -2755,6 +3074,11 @@ export class GameEngine {
         // Restore paladin aura assignments (v6+)
         if (data.paladinAuraAssignments) {
           this.state.paladinAuraAssignments = data.paladinAuraAssignments;
+        }
+
+        // Restore shaman totem assignments (v7+)
+        if (data.shamanTotemAssignments) {
+          this.state.shamanTotemAssignments = data.shamanTotemAssignments;
         }
 
         // Update max paladin blessings based on raid size

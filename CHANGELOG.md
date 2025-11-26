@@ -2,6 +2,36 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.8.0] - 2025-11-26
+
+### Added
+- **Complete Shaman Totem System**: All 14 Vanilla WoW Restoration Shaman totems now functional
+  - Water Totems: Mana Spring, Mana Tide, Healing Stream, Poison Cleansing, Disease Cleansing
+  - Earth Totems: Strength of Earth, Stoneskin, Tremor
+  - Air Totems: Grace of Air, Windfury, Tranquil Air
+  - Fire Totems: Fire Resistance, Frost Resistance, Nature Resistance
+- **NPC Shaman Totem Assignments**: Click on NPC Shamans in Raid Group Manager to assign their totems (like Paladin auras)
+- **Totem Effects Actually Work**: NPC Shaman totems provide real benefits to party members
+  - Mana Spring/Mana Tide regenerate mana for the player
+  - Healing Stream heals party members over time
+  - Cleansing totems remove poison/disease debuffs
+  - Stat totems provide buffs visible on raid frames
+- **Chain Heal Bounce Preview**: Visual indicator shows which targets Chain Heal will bounce to (spell icon on raid frames)
+- **Totem Buff Display**: Totem buffs now appear on raid frames for affected party members
+- **Duplicate Totem Prevention**: Cannot drop a totem that an NPC Shaman in your group already has active
+
+### Fixed
+- **Loot System Class Detection**: Shaman items now correctly show as equippable when playing as Horde (was hardcoded to Paladin)
+- Loot warning message now shows correct class name based on faction
+
+## [0.7.0] - 2025-11-26
+
+### Added
+- **Horde Restoration Shaman**: Switch between Alliance (Holy Paladin) and Horde (Restoration Shaman) factions
+- Complete Shaman spell kit: Healing Wave, Lesser Healing Wave, Chain Heal
+- Shaman totem system with 4 element slots (Earth, Fire, Water, Air)
+- Faction-appropriate raid compositions with Shaman/Paladin class distribution
+
 ## [0.6.0] - 2025-11-26
 
 ### Added

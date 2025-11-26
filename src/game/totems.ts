@@ -15,11 +15,12 @@ export const MANA_SPRING_TOTEM: Totem = {
   name: 'Mana Spring Totem',
   icon: `${ICON_BASE}/spell_nature_manaregentotem.jpg`,
   element: 'water',
-  manaCost: 85,
+  manaCost: 100,
   duration: 60, // 1 minute
   cooldown: 0,
-  effect: { manaRegenBonus: 10 }, // ~10 mp5 to party
+  effect: { manaRegenBonus: 10 }, // +10 mana every 2 seconds to party
   scope: 'party',
+  tickRate: 2,
 };
 
 export const MANA_TIDE_TOTEM: Totem = {
@@ -27,11 +28,12 @@ export const MANA_TIDE_TOTEM: Totem = {
   name: 'Mana Tide Totem',
   icon: `${ICON_BASE}/spell_frost_summonwaterelemental.jpg`,
   element: 'water',
-  manaCost: 0, // No mana cost
+  manaCost: 20,
   duration: 12, // Short duration but powerful
   cooldown: 300, // 5 minute cooldown
-  effect: { manaRegenBonus: 200 }, // Restores ~24% max mana over duration
+  effect: { manaRegenBonus: 170 }, // +170 mana every 3 seconds to party
   scope: 'party',
+  tickRate: 3,
 };
 
 export const HEALING_STREAM_TOTEM: Totem = {
@@ -39,11 +41,38 @@ export const HEALING_STREAM_TOTEM: Totem = {
   name: 'Healing Stream Totem',
   icon: `${ICON_BASE}/inv_spear_04.jpg`,
   element: 'water',
-  manaCost: 50,
+  manaCost: 80,
   duration: 60,
   cooldown: 0,
-  effect: { healingReceivedBonus: 12 }, // Heals party for ~12 hp every 2 sec
+  effect: { healingReceivedBonus: 14 }, // Heals party for 14 hp every 2 sec
   scope: 'party',
+  tickRate: 2,
+};
+
+export const POISON_CLEANSING_TOTEM: Totem = {
+  id: 'poison_cleansing_totem',
+  name: 'Poison Cleansing Totem',
+  icon: `${ICON_BASE}/spell_nature_poisoncleansingtotem.jpg`,
+  element: 'water',
+  manaCost: 80, // ~10% base mana
+  duration: 120,
+  cooldown: 0,
+  effect: { cleansesPoison: true },
+  scope: 'party',
+  tickRate: 5, // Pulses every 5 seconds
+};
+
+export const DISEASE_CLEANSING_TOTEM: Totem = {
+  id: 'disease_cleansing_totem',
+  name: 'Disease Cleansing Totem',
+  icon: `${ICON_BASE}/spell_nature_diseasecleansingtotem.jpg`,
+  element: 'water',
+  manaCost: 80,
+  duration: 120,
+  cooldown: 0,
+  effect: { cleansesDisease: true },
+  scope: 'party',
+  tickRate: 5,
 };
 
 // ============================================
@@ -82,8 +111,9 @@ export const TREMOR_TOTEM: Totem = {
   manaCost: 60,
   duration: 120,
   cooldown: 0,
-  effect: { fearImmunity: true }, // Removes fear every 5 sec (good for Onyxia!)
+  effect: { fearImmunity: true }, // Removes fear/charm/sleep every 4 sec (good for Onyxia!)
   scope: 'party',
+  tickRate: 4,
 };
 
 // ============================================
@@ -174,6 +204,8 @@ export const WATER_TOTEMS: Totem[] = [
   MANA_SPRING_TOTEM,
   MANA_TIDE_TOTEM,
   HEALING_STREAM_TOTEM,
+  POISON_CLEANSING_TOTEM,
+  DISEASE_CLEANSING_TOTEM,
 ];
 
 export const EARTH_TOTEMS: Totem[] = [
@@ -208,6 +240,8 @@ export const SHAMAN_TOTEMS: Record<string, Totem> = {
   mana_spring_totem: MANA_SPRING_TOTEM,
   mana_tide_totem: MANA_TIDE_TOTEM,
   healing_stream_totem: HEALING_STREAM_TOTEM,
+  poison_cleansing_totem: POISON_CLEANSING_TOTEM,
+  disease_cleansing_totem: DISEASE_CLEANSING_TOTEM,
   // Earth
   strength_of_earth_totem: STRENGTH_OF_EARTH_TOTEM,
   stoneskin_totem: STONESKIN_TOTEM,

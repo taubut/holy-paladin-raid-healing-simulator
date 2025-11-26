@@ -10,7 +10,7 @@ import { calculateDKPCost } from './game/lootTables';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
 import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
-import { TOTEMS_BY_ELEMENT } from './game/totems';
+import { TOTEMS_BY_ELEMENT, getTotemById } from './game/totems';
 import type { TotemElement } from './game/types';
 import './App.css';
 
@@ -50,6 +50,7 @@ function App() {
   // Raid management state
   const [showRaidGroupManager, setShowRaidGroupManager] = useState(false);
   const [selectedPaladinForAura, setSelectedPaladinForAura] = useState<string | null>(null);
+  const [selectedShamanForTotems, setSelectedShamanForTotems] = useState<string | null>(null);
   const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
   const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
@@ -211,18 +212,34 @@ function App() {
   // Format aura effect for display
   const formatAuraEffect = (effect: BuffEffect): string => {
     const parts: string[] = [];
+    // Stat bonuses
     if (effect.armorBonus) parts.push(`+${effect.armorBonus} Armor`);
+    if (effect.strengthBonus) parts.push(`+${effect.strengthBonus} Strength`);
+    if (effect.agilityBonus) parts.push(`+${effect.agilityBonus} Agility`);
+    if (effect.staminaBonus) parts.push(`+${effect.staminaBonus} Stamina`);
+    if (effect.intellectBonus) parts.push(`+${effect.intellectBonus} Intellect`);
+    if (effect.spiritBonus) parts.push(`+${effect.spiritBonus} Spirit`);
+    // Resistances
     if (effect.fireResistance) parts.push(`+${effect.fireResistance} Fire Resist`);
     if (effect.frostResistance) parts.push(`+${effect.frostResistance} Frost Resist`);
     if (effect.shadowResistance) parts.push(`+${effect.shadowResistance} Shadow Resist`);
     if (effect.natureResistance) parts.push(`+${effect.natureResistance} Nature Resist`);
     if (effect.arcaneResistance) parts.push(`+${effect.arcaneResistance} Arcane Resist`);
+    // Combat bonuses
     if (effect.spellCritBonus) parts.push(`+${effect.spellCritBonus}% Spell Crit`);
     if (effect.meleeCritBonus) parts.push(`+${effect.meleeCritBonus}% Melee Crit`);
     if (effect.attackPowerBonus) parts.push(`+${effect.attackPowerBonus} Attack Power`);
-    if (effect.staminaBonus) parts.push(`+${effect.staminaBonus} Stamina`);
     if (effect.healingPower) parts.push(`+${effect.healingPower} Healing`);
-    return parts.join(', ') || 'Utility';
+    // Mana/healing regen
+    if (effect.manaRegenBonus) parts.push(`+${effect.manaRegenBonus} Mana per tick`);
+    if (effect.healingReceivedBonus) parts.push(`+${effect.healingReceivedBonus} HP per tick`);
+    // Threat
+    if (effect.threatReduction) parts.push(`-${effect.threatReduction}% Threat`);
+    // Immunities and cleansing
+    if (effect.fearImmunity) parts.push('Removes Fear/Charm/Sleep');
+    if (effect.cleansesPoison) parts.push('Removes Poison');
+    if (effect.cleansesDisease) parts.push('Removes Disease');
+    return parts.join(', ') || 'Party buff';
   };
 
   return (
@@ -443,7 +460,7 @@ function App() {
                             )}
                             {member.buffs.length > 0 && (
                               <div className="buff-container">
-                                {member.buffs.filter(b => b.id.startsWith('aura_')).slice(0, 3).map((buff, idx) => (
+                                {member.buffs.filter(b => b.id.startsWith('aura_') || b.id.startsWith('shaman_totem_') || b.id.startsWith('totem_')).slice(0, 5).map((buff, idx) => (
                                   <img key={idx} src={buff.icon} alt={buff.name} className="aura-buff-icon" title={buff.name} />
                                 ))}
                               </div>
@@ -1030,7 +1047,8 @@ function App() {
               {state.pendingLoot.map(item => {
                 const cost = calculateDKPCost(item);
                 const canAfford = state.playerDKP.points >= cost;
-                const canEquip = item.classes.includes('paladin') || item.classes.includes('all');
+                const playerClass = state.faction === 'alliance' ? 'paladin' : 'shaman';
+                const canEquip = item.classes.includes(playerClass) || item.classes.includes('all');
 
                 return (
                   <div key={item.id} className="loot-item">
@@ -1050,7 +1068,7 @@ function App() {
                         {item.stats.mp5 && <span>+{item.stats.mp5} MP5</span>}
                         {item.stats.critChance && <span>+{item.stats.critChance}% Crit</span>}
                       </div>
-                      {!canEquip && <div className="loot-item-warning">Cannot equip (Paladin only)</div>}
+                      {!canEquip && <div className="loot-item-warning">Cannot equip ({playerClass === 'paladin' ? 'Paladin' : 'Shaman'} cannot use)</div>}
                     </div>
                     <div className="loot-item-actions">
                       <div className="loot-item-cost">{cost} DKP</div>
@@ -1392,8 +1410,12 @@ function App() {
                           const isPlayer = member.id === state.playerId;
                           // Paladins only exist in Alliance raids - Horde has Shamans instead
                           const isPaladin = member.class === 'paladin' && state.faction === 'alliance';
+                          // NPC Shamans in Horde raids can have totems assigned (player shaman uses active totems)
+                          const isNpcShaman = member.class === 'shaman' && state.faction === 'horde' && !isPlayer;
                           const paladinAuraId = isPaladin ? engine.getPaladinAura(member.id) : null;
                           const paladinAura = paladinAuraId ? PARTY_AURAS[paladinAuraId] : null;
+                          // Get shaman totem assignments for NPC shamans
+                          const shamanTotems = isNpcShaman ? engine.getShamanTotems(member.id) : null;
                           const specDef = member.spec ? getSpecById(member.spec) : null;
                           const specName = specDef?.name || member.class;
 
@@ -1405,7 +1427,7 @@ function App() {
                           return (
                             <div
                               key={member.id}
-                              className={`rgm-member ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${selectedMemberForClassSpec === member.id ? 'selected-for-class-spec' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
+                              className={`rgm-member ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${isNpcShaman ? 'is-shaman' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${selectedShamanForTotems === member.id ? 'selected-for-totems' : ''} ${selectedMemberForClassSpec === member.id ? 'selected-for-class-spec' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
                               draggable
                               onDragStart={(e) => {
                                 e.dataTransfer.setData('memberId', member.id);
@@ -1435,6 +1457,11 @@ function App() {
                               onClick={() => {
                                 if (isPaladin && !draggedMemberId) {
                                   setSelectedPaladinForAura(selectedPaladinForAura === member.id ? null : member.id);
+                                  setSelectedShamanForTotems(null);
+                                  setSelectedMemberForClassSpec(null);
+                                } else if (isNpcShaman && !draggedMemberId) {
+                                  setSelectedShamanForTotems(selectedShamanForTotems === member.id ? null : member.id);
+                                  setSelectedPaladinForAura(null);
                                   setSelectedMemberForClassSpec(null);
                                 }
                               }}
@@ -1443,6 +1470,7 @@ function App() {
                                 if (!isPlayer && !draggedMemberId) {
                                   setSelectedMemberForClassSpec(selectedMemberForClassSpec === member.id ? null : member.id);
                                   setSelectedPaladinForAura(null);
+                                  setSelectedShamanForTotems(null);
                                 }
                               }}
                             >
@@ -1475,6 +1503,43 @@ function App() {
                                       onMouseEnter={() => setHoveredAura({ aura: paladinAura, providerName: member.name })}
                                       onMouseLeave={() => setHoveredAura(null)}
                                     />
+                                  )}
+                                  {/* Show NPC Shaman totem assignments */}
+                                  {isNpcShaman && shamanTotems && (
+                                    <>
+                                      {shamanTotems.earthTotemId && getTotemById(shamanTotems.earthTotemId) && (
+                                        <img
+                                          src={getTotemById(shamanTotems.earthTotemId)!.icon}
+                                          alt={getTotemById(shamanTotems.earthTotemId)!.name}
+                                          className="rgm-member-aura-icon shaman-totem"
+                                          title={getTotemById(shamanTotems.earthTotemId)!.name}
+                                        />
+                                      )}
+                                      {shamanTotems.fireTotemId && getTotemById(shamanTotems.fireTotemId) && (
+                                        <img
+                                          src={getTotemById(shamanTotems.fireTotemId)!.icon}
+                                          alt={getTotemById(shamanTotems.fireTotemId)!.name}
+                                          className="rgm-member-aura-icon shaman-totem"
+                                          title={getTotemById(shamanTotems.fireTotemId)!.name}
+                                        />
+                                      )}
+                                      {shamanTotems.waterTotemId && getTotemById(shamanTotems.waterTotemId) && (
+                                        <img
+                                          src={getTotemById(shamanTotems.waterTotemId)!.icon}
+                                          alt={getTotemById(shamanTotems.waterTotemId)!.name}
+                                          className="rgm-member-aura-icon shaman-totem"
+                                          title={getTotemById(shamanTotems.waterTotemId)!.name}
+                                        />
+                                      )}
+                                      {shamanTotems.airTotemId && getTotemById(shamanTotems.airTotemId) && (
+                                        <img
+                                          src={getTotemById(shamanTotems.airTotemId)!.icon}
+                                          alt={getTotemById(shamanTotems.airTotemId)!.name}
+                                          className="rgm-member-aura-icon shaman-totem"
+                                          title={getTotemById(shamanTotems.airTotemId)!.name}
+                                        />
+                                      )}
+                                    </>
                                   )}
                                 </div>
                                 <span className={`rgm-role-tag ${member.role}`}>
@@ -1542,6 +1607,67 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Shaman Totem Selection Panel - Horde only */}
+              {selectedShamanForTotems && state.faction === 'horde' && (() => {
+                const shamanTotems = engine.getShamanTotems(selectedShamanForTotems);
+                const selectedShaman = state.raid.find(m => m.id === selectedShamanForTotems);
+                const elementColors: Record<TotemElement, string> = {
+                  earth: '#8B4513',
+                  fire: '#FF4500',
+                  water: '#4169E1',
+                  air: '#87CEEB',
+                };
+
+                return (
+                  <div className="rgm-aura-panel rgm-totem-panel">
+                    <div className="rgm-aura-header">
+                      <h3>Assign Totems for {selectedShaman?.name}</h3>
+                      <button className="close-panel-btn" onClick={() => setSelectedShamanForTotems(null)}>×</button>
+                    </div>
+                    <div className="rgm-totem-elements-horizontal">
+                      {(['earth', 'fire', 'water', 'air'] as TotemElement[]).map(element => {
+                        const elementTotems = TOTEMS_BY_ELEMENT[element];
+                        const currentTotemId = shamanTotems?.[`${element}TotemId` as keyof typeof shamanTotems] as string | null;
+
+                        return (
+                          <div key={element} className="rgm-totem-element-column">
+                            <div className="rgm-totem-element-header-h" style={{ backgroundColor: elementColors[element] }}>
+                              {element.charAt(0).toUpperCase() + element.slice(1)}
+                            </div>
+                            <div className="rgm-totem-options-vertical">
+                              {elementTotems.map(totem => {
+                                const isSelected = currentTotemId === totem.id;
+                                // Get short name (remove "Totem" suffix)
+                                const shortName = totem.name.replace(' Totem', '');
+                                return (
+                                  <div
+                                    key={totem.id}
+                                    className={`rgm-totem-row ${isSelected ? 'selected' : ''}`}
+                                    onClick={() => {
+                                      engine.setShamanTotem(selectedShamanForTotems, element, isSelected ? null : totem.id);
+                                    }}
+                                  >
+                                    <img src={totem.icon} alt={totem.name} className="rgm-totem-row-icon" />
+                                    <span className="rgm-totem-row-name">{shortName}</span>
+                                    {isSelected && <span className="totem-check">✓</span>}
+                                    <div className="rgm-totem-tooltip">
+                                      <div className="rgm-totem-tooltip-name">{totem.name}</div>
+                                      <div className="rgm-totem-tooltip-effect">{formatAuraEffect(totem.effect)}</div>
+                                      <div className="rgm-totem-tooltip-duration">Duration: {totem.duration}s</div>
+                                      {totem.tickRate && <div className="rgm-totem-tooltip-tick">Pulses every {totem.tickRate}s</div>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Class/Spec Selection Panel */}
               {selectedMemberForClassSpec && (

@@ -176,6 +176,9 @@ export interface BuffEffect {
   agilityBonus?: number;
   threatReduction?: number;
   fearImmunity?: boolean;
+  // Cleansing totem effects
+  cleansesPoison?: boolean;
+  cleansesDisease?: boolean;
 }
 
 // Consumable buff definition
@@ -218,6 +221,15 @@ export interface PaladinAuraAssignment {
   auraId: string | null;  // Selected aura ID or null for no aura
 }
 
+// Track shaman totem assignments (each shaman can have one totem per element)
+export interface ShamanTotemAssignment {
+  shamanId: string;  // Member ID of the shaman
+  earthTotemId: string | null;
+  fireTotemId: string | null;
+  waterTotemId: string | null;
+  airTotemId: string | null;
+}
+
 // Shaman totem definition
 export interface Totem {
   id: string;
@@ -229,6 +241,7 @@ export interface Totem {
   cooldown: number; // Cooldown in seconds (0 for most totems)
   effect: BuffEffect;
   scope: 'party' | 'raid';
+  tickRate?: number; // Seconds between pulses (default 2 for most totems)
 }
 
 // Active totem tracking (runtime state) - extends Totem with runtime info
@@ -436,6 +449,7 @@ export interface GameState {
   // Raid management and party auras
   raidManagementMode: boolean;  // Toggle for drag-drop raid arrangement mode
   paladinAuraAssignments: PaladinAuraAssignment[];  // Each paladin's chosen aura
+  shamanTotemAssignments: ShamanTotemAssignment[];  // Each shaman's chosen totems
   // Mouseover healing - cast spells on whoever the mouse is hovering over
   mouseoverTargetId: string | null;  // ID of raid member currently under the mouse cursor
   // Faction and class system
