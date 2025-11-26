@@ -157,3 +157,160 @@ This project is for educational and entertainment purposes. World of Warcraft an
 ---
 
 *"Did someone say [Thunderfury, Blessed Blade of the Windseeker]?"*
+
+---
+
+## Detailed Installation Guide for Beginners
+
+If you've never used GitHub or Node.js before, follow these step-by-step instructions for your operating system.
+
+### Step 1: Install Node.js
+
+Node.js is required to run this game. Download and install it first.
+
+#### Windows
+1. Go to [https://nodejs.org](https://nodejs.org)
+2. Click the **LTS** (Long Term Support) button to download the installer
+3. Run the downloaded `.msi` file
+4. Click "Next" through the installer, accepting the defaults
+5. Make sure "Add to PATH" is checked
+6. Click "Install" and wait for it to finish
+7. Restart your computer
+
+To verify it installed correctly, open **Command Prompt** (search for "cmd" in the Start menu) and type:
+```
+node --version
+```
+You should see a version number like `v20.x.x`
+
+#### macOS
+**Option A: Download from website**
+1. Go to [https://nodejs.org](https://nodejs.org)
+2. Click the **LTS** button to download the `.pkg` installer
+3. Run the installer and follow the prompts
+
+**Option B: Using Homebrew (if you have it)**
+```bash
+brew install node
+```
+
+To verify, open **Terminal** (search for "Terminal" in Spotlight) and type:
+```
+node --version
+```
+
+#### Linux (Ubuntu/Debian)
+Open a terminal and run:
+```bash
+sudo apt update
+sudo apt install nodejs npm
+```
+
+For other Linux distributions, visit [https://nodejs.org/en/download/package-manager](https://nodejs.org/en/download/package-manager)
+
+To verify:
+```
+node --version
+```
+
+### Step 2: Download the Game
+
+You have two options: download as a ZIP file (easiest) or use Git.
+
+#### Option A: Download as ZIP (Easiest)
+1. Go to the GitHub repository page
+2. Click the green **"Code"** button near the top right
+3. Click **"Download ZIP"**
+4. Extract the ZIP file to a folder on your computer (right-click → "Extract All" on Windows, or double-click on Mac)
+5. Remember where you extracted it!
+
+#### Option B: Using Git (for more advanced users)
+
+First, install Git if you don't have it:
+
+**Windows:** Download from [https://git-scm.com/download/win](https://git-scm.com/download/win) and run the installer
+
+**macOS:** Git comes pre-installed, or install via Homebrew: `brew install git`
+
+**Linux:** `sudo apt install git`
+
+Then clone the repository:
+```bash
+git clone https://github.com/taubut/holy-paladin-raid-healing-simulator.git
+```
+
+### Step 3: Install Dependencies and Run
+
+#### Windows
+1. Open **Command Prompt** or **PowerShell**
+2. Navigate to the game folder. If you extracted to your Downloads folder, type:
+   ```
+   cd Downloads\holy-paladin-raid-healing-simulator-main
+   ```
+   (The folder name might be slightly different depending on how you downloaded it)
+3. Install the required packages:
+   ```
+   npm install
+   ```
+   Wait for this to finish (it may take a minute)
+4. Start the game:
+   ```
+   npm run dev
+   ```
+5. Open your web browser and go to: **http://localhost:5173**
+
+#### macOS
+1. Open **Terminal** (press Cmd+Space, type "Terminal", press Enter)
+2. Navigate to the game folder:
+   ```bash
+   cd ~/Downloads/holy-paladin-raid-healing-simulator-main
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Start the game:
+   ```bash
+   npm run dev
+   ```
+5. Open your web browser and go to: **http://localhost:5173**
+
+#### Linux
+1. Open a terminal
+2. Navigate to the game folder:
+   ```bash
+   cd ~/Downloads/holy-paladin-raid-healing-simulator-main
+   ```
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+4. Start the game:
+   ```bash
+   npm run dev
+   ```
+5. Open your web browser and go to: **http://localhost:5173**
+
+### Troubleshooting
+
+**"npm is not recognized" or "command not found: npm"**
+- Node.js wasn't installed correctly or isn't in your PATH
+- Try restarting your computer after installing Node.js
+- Reinstall Node.js and make sure to check "Add to PATH" during installation
+
+**"EACCES permission denied" (Mac/Linux)**
+- Don't use `sudo` with npm
+- See [npm's guide on fixing permissions](https://docs.npmjs.com/resolving-eacces-permissions-errors-when-installing-packages-globally)
+
+**Port 5173 is already in use**
+- Another application is using that port
+- Close other development servers, or the game will try to use the next available port (5174, etc.)
+
+**The page won't load**
+- Make sure `npm run dev` is still running in your terminal
+- Try refreshing the page
+- Check that you're going to the correct URL shown in the terminal
+
+### Stopping the Game
+
+To stop the game server, go to the terminal where it's running and press **Ctrl+C** (or Cmd+C on Mac).
