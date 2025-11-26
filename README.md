@@ -9,6 +9,9 @@ A browser-based Classic WoW (Vanilla) Holy Paladin raid healing simulator. Exper
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite)
 
+# CLICK THIS LINK TO PLAY WITHOUT DOWNLOADING!
+https://taubut.github.io/holy-paladin-raid-healing-simulator/
+
 ## Features
 
 ### Authentic Holy Paladin Gameplay
