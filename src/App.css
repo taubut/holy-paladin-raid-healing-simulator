@@ -4939,3 +4939,450 @@ body {
   min-width: 80px;
   max-width: 110px;
 }
+
+/* Modal overlay shared style */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Raid management button */
+.raid-management-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #4a3a6a 0%, #3a2a5a 100%);
+  border: 1px solid #6a5a8a;
+  border-radius: 4px;
+  color: #c9b8e8;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.raid-management-btn:hover {
+  background: linear-gradient(180deg, #5a4a7a 0%, #4a3a6a 100%);
+  border-color: #8a7aaa;
+  color: #fff;
+  transform: scale(1.02);
+}
+
+/* ===== Raid Group Manager Modal ===== */
+.raid-group-manager-modal {
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 2px solid #4a3a6a;
+  border-radius: 8px;
+  width: 95vw;
+  max-width: 1400px;
+  height: 90vh;
+  max-height: 900px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.rgm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 2px solid #4a3a6a;
+  background: linear-gradient(180deg, rgba(74, 58, 106, 0.3) 0%, transparent 100%);
+  position: relative;
+}
+
+.rgm-header h2 {
+  margin: 0;
+  color: #ffd700;
+  font-size: 22px;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.rgm-subtitle {
+  margin: 4px 0 0 0;
+  color: #8a7aaa;
+  font-size: 13px;
+}
+
+.rgm-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  gap: 20px;
+}
+
+.rgm-groups {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rgm-group {
+  background: rgba(30, 25, 45, 0.8);
+  border: 2px solid #3a2a5a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  transition: all 0.2s;
+}
+
+.rgm-group.drop-target {
+  border-color: #ffd700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.rgm-group-header {
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(74, 58, 106, 0.4) 0%, rgba(40, 30, 60, 0.4) 100%);
+  border-bottom: 1px solid #3a2a5a;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rgm-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rgm-group-header h3 {
+  margin: 0;
+  color: #c9b8e8;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.rgm-group-count {
+  color: #8a7aaa;
+  font-size: 12px;
+}
+
+.rgm-group-auras {
+  display: flex;
+  gap: 4px;
+}
+
+.rgm-group-aura-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #6a5a8a;
+}
+
+.rgm-group-members {
+  flex: 1;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rgm-member {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(20, 15, 30, 0.6);
+  border: 1px solid #2a1a4a;
+  border-radius: 4px;
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.rgm-member:hover {
+  background: rgba(40, 30, 60, 0.8);
+  border-color: #4a3a6a;
+  transform: translateX(2px);
+}
+
+.rgm-member.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+  cursor: grabbing;
+}
+
+.rgm-member.swap-target {
+  border-color: #ffd700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.rgm-member.swap-hover {
+  border-color: #00ff00;
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.4);
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.rgm-member.is-paladin {
+  border-color: #f58cba;
+}
+
+.rgm-member.is-paladin.selected-paladin {
+  border-color: #ffd700;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.rgm-class-bar {
+  width: 4px;
+  height: 100%;
+  min-height: 28px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.rgm-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rgm-member-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rgm-member-class {
+  font-size: 11px;
+  color: #888;
+  margin-top: 1px;
+}
+
+.rgm-member-role {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #aaa;
+  flex-shrink: 0;
+}
+
+.rgm-member-role.tank {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff6666;
+}
+
+.rgm-member-role.healer {
+  background: rgba(100, 255, 100, 0.2);
+  color: #66ff66;
+}
+
+.rgm-member-role.dps {
+  background: rgba(255, 200, 100, 0.2);
+  color: #ffcc66;
+}
+
+.rgm-member-aura-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid #f58cba;
+  flex-shrink: 0;
+}
+
+.rgm-member-aura {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Paladin Aura Selection Panel */
+.rgm-aura-panel {
+  background: rgba(245, 140, 186, 0.1);
+  border: 2px solid #f58cba;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.rgm-aura-panel h3 {
+  margin: 0 0 12px 0;
+  color: #f58cba;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rgm-aura-panel p {
+  margin: 0 0 12px 0;
+  color: #c9b8e8;
+  font-size: 13px;
+}
+
+.rgm-aura-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rgm-aura-option {
+  padding: 8px 14px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 1px solid #3a2a5a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #c9b8e8;
+}
+
+.rgm-aura-option:hover {
+  background: rgba(74, 58, 106, 0.5);
+  border-color: #5a4a8a;
+  transform: translateY(-1px);
+}
+
+.rgm-aura-option.selected {
+  background: rgba(245, 140, 186, 0.2);
+  border-color: #f58cba;
+  color: #fff;
+}
+
+.rgm-aura-icon {
+  font-size: 16px;
+}
+
+/* Footer */
+.rgm-footer {
+  padding: 16px 24px;
+  border-top: 2px solid #4a3a6a;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: linear-gradient(180deg, transparent 0%, rgba(74, 58, 106, 0.2) 100%);
+}
+
+.rgm-done-btn {
+  padding: 10px 24px;
+  background: linear-gradient(180deg, #4a6a4a 0%, #3a5a3a 100%);
+  border: 2px solid #6a8a6a;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rgm-done-btn:hover {
+  background: linear-gradient(180deg, #5a7a5a 0%, #4a6a4a 100%);
+  border-color: #8aaa8a;
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(100, 200, 100, 0.3);
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 1200px) {
+  .rgm-groups {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .rgm-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .raid-group-manager-modal {
+    width: 98vw;
+    height: 95vh;
+  }
+}
+
+/* Empty member slots */
+.rgm-member.empty {
+  background: rgba(15, 10, 25, 0.4);
+  border: 1px dashed #2a1a4a;
+  cursor: default;
+  justify-content: center;
+}
+
+.rgm-member.empty:hover {
+  background: rgba(15, 10, 25, 0.4);
+  border-color: #2a1a4a;
+  transform: none;
+}
+
+.rgm-empty-text {
+  color: #444;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Aura Tooltip - instant on hover */
+.rgm-aura-tooltip {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #1a0a2e 0%, #0f0518 100%);
+  border: 2px solid #6a5a8a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 220px;
+  max-width: 300px;
+  z-index: 1100;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.rgm-aura-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #4a3a6a;
+}
+
+.rgm-aura-tooltip-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 2px solid #6a5a8a;
+}
+
+.rgm-aura-tooltip-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffd100;
+}
+
+.rgm-aura-tooltip-effect {
+  color: #6f6;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.rgm-aura-tooltip-scope {
+  color: #aaa;
+  font-size: 12px;
+  font-style: italic;
+  margin-bottom: 6px;
+}
+
+.rgm-aura-tooltip-provider {
+  color: #c9b8e8;
+  font-size: 12px;
+}

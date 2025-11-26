@@ -2,6 +2,23 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.5.0] - 2025-11-26
+
+### Added
+- Fullscreen Raid Group Manager modal with improved UI
+- Instant aura tooltips showing effect, scope, and provider
+- DPS role tags now displayed for all raid members
+- All class auras (Leader of the Pack, Moonkin Aura, Trueshot Aura, Blood Pact) visible at top of each group
+- Aura icons displayed on individual class members who provide them
+
+### Changed
+- Role tags (Tank/Heal/DPS) moved to right side of member rows for cleaner layout
+- Manage Raid Groups button relocated under raid frames (removed duplicate from encounter area)
+
+### Fixed
+- Automatic class auras now deduplicated at group headers (auras don't stack with multiple of same class)
+- Aura icons now use actual WoW icons instead of emojis
+
 ## [0.4.0] - 2025-11-26
 
 ### Added
