@@ -1880,7 +1880,7 @@ export class GameEngine {
   }
 
   // Export all saves to a JSON file for backup
-  exportSavesToFile() {
+  exportSavesToFile(customFileName?: string) {
     const saves: Record<string, unknown> = {};
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -1906,7 +1906,11 @@ export class GameEngine {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `wow-healer-saves-${new Date().toISOString().split('T')[0]}.json`;
+    // Use custom filename if provided, otherwise use default with date
+    const fileName = customFileName?.trim()
+      ? `${customFileName.trim().replace(/\.json$/i, '')}.json`
+      : `wow-healer-saves-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

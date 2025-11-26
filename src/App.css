@@ -1918,6 +1918,68 @@ body {
   color: #666;
 }
 
+/* Export Section in Save Modal */
+.export-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #333;
+}
+
+.export-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.export-description {
+  font-size: 11px;
+  color: #666;
+  margin: 0 0 12px 0;
+}
+
+.export-name-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #888;
+}
+
+.export-name-input {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.export-name-input:focus {
+  outline: none;
+  border-color: #4a6a8a;
+}
+
+.export-name-input::placeholder {
+  color: #555;
+  font-size: 12px;
+}
+
+.export-section .export-btn {
+  width: 100%;
+}
+
+/* Import Section in Load Modal */
+.import-section {
+  margin-bottom: 12px;
+}
+
+.import-section .import-btn {
+  width: 100%;
+  display: block;
+}
+
 .load-slot-item {
   display: flex;
   justify-content: space-between;

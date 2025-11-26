@@ -21,6 +21,7 @@ function App() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState('');
   const [importExportStatus, setImportExportStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [exportFileName, setExportFileName] = useState('');
   const [hoveredSpell, setHoveredSpell] = useState<Spell | null>(null);
   const [showEncounterJournal, setShowEncounterJournal] = useState(false);
   const [selectedJournalBoss, setSelectedJournalBoss] = useState<string | null>(null);
@@ -1018,6 +1019,40 @@ function App() {
                 </div>
               </div>
             )}
+            {/* Export to File Section */}
+            <div className="export-section">
+              <h3>Export to File</h3>
+              <p className="export-description">Export all saves to a backup file you can share or import later.</p>
+              {importExportStatus && (
+                <div className={`import-export-status ${importExportStatus.type}`}>
+                  {importExportStatus.type === 'success' ? '✓' : '✗'} {importExportStatus.message}
+                </div>
+              )}
+              <label className="export-name-label">
+                File Name (optional):
+                <input
+                  type="text"
+                  className="export-name-input"
+                  value={exportFileName}
+                  onChange={e => setExportFileName(e.target.value)}
+                  placeholder={`wow-healer-saves-${new Date().toISOString().split('T')[0]}`}
+                  maxLength={50}
+                />
+              </label>
+              <button
+                className="export-btn"
+                onClick={() => {
+                  const count = engine.listSaves().length;
+                  engine.exportSavesToFile(exportFileName || undefined);
+                  setImportExportStatus({ message: `Exported ${count} save(s) to file!`, type: 'success' });
+                  setExportFileName('');
+                  setTimeout(() => setImportExportStatus(null), 4000);
+                }}
+                disabled={engine.listSaves().length === 0}
+              >
+                Export All Saves
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1080,21 +1115,9 @@ function App() {
                   {importExportStatus.type === 'success' ? '✓' : '✗'} {importExportStatus.message}
                 </div>
               )}
-              <div className="import-export-buttons">
-                <button
-                  className="export-btn"
-                  onClick={() => {
-                    const count = engine.listSaves().length;
-                    engine.exportSavesToFile();
-                    setImportExportStatus({ message: `Exported ${count} save(s) to file!`, type: 'success' });
-                    setTimeout(() => setImportExportStatus(null), 4000);
-                  }}
-                  disabled={engine.listSaves().length === 0}
-                >
-                  Export All Saves
-                </button>
+              <div className="import-section">
                 <label className="import-btn">
-                  Import Saves
+                  Import Saves from File
                   <input
                     type="file"
                     accept=".json"
