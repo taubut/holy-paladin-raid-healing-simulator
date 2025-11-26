@@ -1,5 +1,6 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect } from './types';
 import { createEmptyEquipment } from './types';
+import { PARTY_AURAS } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
 import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial } from './items';
@@ -326,6 +327,7 @@ export class GameEngine {
   constructor() {
     this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
     this.state = this.createInitialState();
+    this.initializePaladinAuras();  // Set up default auras for all paladins
   }
 
   private createInitialState(): GameState {
@@ -386,6 +388,9 @@ export class GameEngine {
       playerBag: [],
       // Five-Second Rule tracking
       lastSpellCastTime: -10, // Start with full regen (as if no spell cast in last 10 seconds)
+      // Raid management and party auras
+      raidManagementMode: false,
+      paladinAuraAssignments: [],  // Will be initialized with default auras for each paladin
     };
   }
 
@@ -409,24 +414,6 @@ export class GameEngine {
 
     let id = 0;
 
-    // Add player as first healer (paladin)
-    usedNames.add(playerName);
-    raid.push({
-      id: PLAYER_ID,
-      name: playerName,
-      class: 'paladin',
-      role: 'healer',
-      currentHealth: PLAYER_BASE_HEALTH,
-      maxHealth: PLAYER_BASE_HEALTH,
-      buffs: [],
-      debuffs: [],
-      isAlive: true,
-      dps: 0,
-      group: 1,
-      equipment: createEmptyEquipment(),
-      gearScore: 0,
-    });
-
     const getRandomName = (wowClass: WoWClass): string => {
       const names = CLASS_NAMES[wowClass];
       const available = names.filter(n => !usedNames.has(n));
@@ -444,6 +431,24 @@ export class GameEngine {
       return isTank ? Math.floor(base * 1.4) : base;
     };
 
+    // Add player as first healer (paladin) - will be assigned group at end
+    usedNames.add(playerName);
+    raid.push({
+      id: PLAYER_ID,
+      name: playerName,
+      class: 'paladin',
+      role: 'healer',
+      currentHealth: PLAYER_BASE_HEALTH,
+      maxHealth: PLAYER_BASE_HEALTH,
+      buffs: [],
+      debuffs: [],
+      isAlive: true,
+      dps: 0,
+      group: 1, // Will be reassigned
+      equipment: createEmptyEquipment(),
+      gearScore: 0,
+    });
+
     // Tanks
     for (let i = 0; i < composition.tanks; i++) {
       const maxHealth = getRandomHealth('warrior', true);
@@ -458,7 +463,7 @@ export class GameEngine {
         debuffs: [],
         isAlive: true,
         dps: 150,
-        group: Math.floor(i / 5) + 1,
+        group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
       });
@@ -478,7 +483,7 @@ export class GameEngine {
         debuffs: [],
         isAlive: true,
         dps: 0,
-        group: Math.floor((composition.tanks + i) / 5) + 1,
+        group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
       });
@@ -501,7 +506,7 @@ export class GameEngine {
         debuffs: [],
         isAlive: true,
         dps: 0,
-        group: Math.floor((composition.tanks + composition.paladins + i) / 5) + 1,
+        group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
       });
@@ -523,11 +528,16 @@ export class GameEngine {
         debuffs: [],
         isAlive: true,
         dps: 400 + Math.floor(Math.random() * 200),
-        group: Math.floor((composition.tanks + composition.healers + i) / 5) + 1,
+        group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
       });
     }
+
+    // Now assign groups properly - 5 per group, sequential
+    raid.forEach((member, index) => {
+      member.group = Math.floor(index / 5) + 1;
+    });
 
     return raid;
   }
@@ -1090,6 +1100,230 @@ export class GameEngine {
     });
   }
 
+  // === Party Aura System ===
+
+  // Calculate damage reduction based on armor and resistance from active auras
+  private calculateDamageReduction(member: RaidMember, baseDamage: number, damageType: DamageType = 'physical'): number {
+    let finalDamage = baseDamage;
+
+    // Get total armor/resistance bonuses from buffs (including aura buffs)
+    let totalArmorBonus = 0;
+    let totalResistance = 0;
+
+    const resistanceMap: Record<string, keyof BuffEffect> = {
+      fire: 'fireResistance',
+      frost: 'frostResistance',
+      shadow: 'shadowResistance',
+      nature: 'natureResistance',
+      arcane: 'arcaneResistance',
+    };
+
+    // Sum up bonuses from all buffs
+    member.buffs.forEach(buff => {
+      if (buff.effect) {
+        totalArmorBonus += buff.effect.armorBonus || 0;
+        if (resistanceMap[damageType]) {
+          totalResistance += buff.effect[resistanceMap[damageType]] as number || 0;
+        }
+      }
+    });
+
+    // Physical damage reduction from armor
+    if (damageType === 'physical') {
+      // Classic WoW armor formula: DR = Armor / (Armor + 400 + 85 * Level)
+      // At level 60: DR = Armor / (Armor + 5500)
+      const armorDR = totalArmorBonus / (totalArmorBonus + 5500);
+      finalDamage = Math.floor(baseDamage * (1 - armorDR));
+    }
+
+    // Elemental resistance reduction
+    if (resistanceMap[damageType] && totalResistance > 0) {
+      // Classic resistance formula: average 75% reduction at 315 resistance
+      // Simplified: each point of resistance = ~0.24% reduction, cap at 75%
+      const resistDR = Math.min(0.75, totalResistance * 0.0024);
+      finalDamage = Math.floor(baseDamage * (1 - resistDR));
+    }
+
+    return finalDamage;
+  }
+
+  // Get active auras affecting a specific member based on their group (used by UI)
+  public getActiveAurasForMember(member: RaidMember): PartyAura[] {
+    const activeAuras: PartyAura[] = [];
+
+    // Check automatic auras (non-paladin) - party-scoped
+    Object.values(PARTY_AURAS).forEach(aura => {
+      if (!aura.isAutomatic) return;
+
+      // Find providers of this aura in the same group
+      const provider = this.state.raid.find(m =>
+        m.isAlive &&
+        m.class === aura.providerClass &&
+        m.group === member.group
+      );
+
+      if (provider) {
+        activeAuras.push(aura);
+      }
+    });
+
+    // Check paladin auras (raid-wide)
+    this.state.paladinAuraAssignments.forEach(assignment => {
+      if (!assignment.auraId) return;
+      const paladin = this.state.raid.find(m => m.id === assignment.paladinId);
+      if (!paladin?.isAlive) return;
+
+      const aura = PARTY_AURAS[assignment.auraId];
+      if (aura) {
+        activeAuras.push(aura);
+      }
+    });
+
+    return activeAuras;
+  }
+
+  // Recalculate and apply all party aura buffs
+  public recalculateAuras() {
+    // Clear existing aura buffs
+    this.state.raid.forEach(m => {
+      m.buffs = m.buffs.filter(b => !b.id.startsWith('aura_'));
+    });
+
+    // Apply automatic party auras
+    Object.values(PARTY_AURAS).forEach(aura => {
+      if (!aura.isAutomatic) return;
+
+      // Find providers of this aura
+      const providers = this.state.raid.filter(m =>
+        m.isAlive && m.class === aura.providerClass
+      );
+
+      providers.forEach(provider => {
+        const targets = aura.scope === 'party'
+          ? this.state.raid.filter(m => m.group === provider.group)
+          : this.state.raid;
+
+        targets.forEach(target => {
+          if (!target.buffs.find(b => b.id === `aura_${aura.id}`)) {
+            target.buffs.push({
+              id: `aura_${aura.id}`,
+              name: aura.name,
+              icon: aura.icon,
+              duration: Infinity,
+              maxDuration: Infinity,
+              effect: aura.effect,
+            });
+          }
+        });
+      });
+    });
+
+    // Apply paladin auras (manual selection, raid-wide)
+    this.state.paladinAuraAssignments.forEach(assignment => {
+      if (!assignment.auraId) return;
+      const paladin = this.state.raid.find(m => m.id === assignment.paladinId);
+      if (!paladin?.isAlive) return;
+
+      const aura = PARTY_AURAS[assignment.auraId];
+      if (!aura) return;
+
+      // Paladin auras are raid-wide
+      this.state.raid.forEach(target => {
+        if (!target.buffs.find(b => b.id === `aura_${aura.id}`)) {
+          target.buffs.push({
+            id: `aura_${aura.id}`,
+            name: aura.name,
+            icon: aura.icon,
+            duration: Infinity,
+            maxDuration: Infinity,
+            effect: aura.effect,
+          });
+        }
+      });
+    });
+
+    this.notify();
+  }
+
+  // Move a raid member to a different group
+  public moveMemberToGroup(memberId: string, targetGroup: number) {
+    if (this.state.isRunning) return; // Can't move during combat
+
+    const member = this.state.raid.find(m => m.id === memberId);
+    if (member && targetGroup >= 1 && targetGroup <= 8) {
+      // Check if target group has space (max 5 per group)
+      const groupMembers = this.state.raid.filter(m => m.group === targetGroup);
+      if (groupMembers.length >= 5) {
+        this.addCombatLogEntry({
+          message: `Group ${targetGroup} is full!`,
+          type: 'system',
+        });
+        return;
+      }
+
+      member.group = targetGroup;
+      this.recalculateAuras();
+      this.notify();
+    }
+  }
+
+  // Swap two raid members' positions (groups)
+  public swapMembers(memberId1: string, memberId2: string) {
+    if (this.state.isRunning) return; // Can't swap during combat
+
+    const member1 = this.state.raid.find(m => m.id === memberId1);
+    const member2 = this.state.raid.find(m => m.id === memberId2);
+
+    if (member1 && member2 && member1.id !== member2.id) {
+      const tempGroup = member1.group;
+      member1.group = member2.group;
+      member2.group = tempGroup;
+      this.recalculateAuras();
+      this.notify();
+    }
+  }
+
+  // Set a paladin's active aura
+  public setPaladinAura(paladinId: string, auraId: string | null) {
+    const paladin = this.state.raid.find(m => m.id === paladinId && m.class === 'paladin');
+    if (!paladin) return;
+
+    const existing = this.state.paladinAuraAssignments.find(a => a.paladinId === paladinId);
+    if (existing) {
+      existing.auraId = auraId;
+    } else {
+      this.state.paladinAuraAssignments.push({ paladinId, auraId });
+    }
+
+    this.recalculateAuras();
+  }
+
+  // Get a paladin's current aura
+  public getPaladinAura(paladinId: string): string | null {
+    const assignment = this.state.paladinAuraAssignments.find(a => a.paladinId === paladinId);
+    return assignment?.auraId || null;
+  }
+
+  // Toggle raid management mode
+  public toggleRaidManagementMode() {
+    if (this.state.isRunning) return; // Can't toggle during combat
+    this.state.raidManagementMode = !this.state.raidManagementMode;
+    this.notify();
+  }
+
+  // Initialize default paladin aura assignments
+  private initializePaladinAuras() {
+    const paladins = this.state.raid.filter(m => m.class === 'paladin');
+    const defaultAuras = ['devotion_aura', 'concentration_aura', 'fire_resistance_aura', 'shadow_resistance_aura'];
+
+    this.state.paladinAuraAssignments = paladins.map((paladin, index) => ({
+      paladinId: paladin.id,
+      auraId: defaultAuras[index % defaultAuras.length],
+    }));
+
+    this.recalculateAuras();
+  }
+
   private startGameLoop() {
     let lastTick = Date.now();
 
@@ -1186,11 +1420,15 @@ export class GameEngine {
           // Apply enrage multiplier to damage
           const damage = Math.floor(event.damage * enrageMultiplier);
 
+          // Get damage type for resistance calculations (default to physical)
+          const damageType: DamageType = event.damageType || 'physical';
+
           switch (event.type) {
             case 'tank_damage': {
               const tank = this.state.raid.find(m => m.role === 'tank' && m.isAlive);
               if (tank) {
-                tank.currentHealth = Math.max(0, tank.currentHealth - damage);
+                const reducedDamage = this.calculateDamageReduction(tank, damage, damageType);
+                tank.currentHealth = Math.max(0, tank.currentHealth - reducedDamage);
                 if (tank.currentHealth === 0) {
                   tank.isAlive = false;
                   this.addCombatLogEntry({ message: `${tank.name} has died!`, type: 'damage' });
@@ -1203,7 +1441,8 @@ export class GameEngine {
               const alive = this.state.raid.filter(m => m.isAlive);
               const targets = alive.sort(() => Math.random() - 0.5).slice(0, event.targetCount || 5);
               targets.forEach(member => {
-                member.currentHealth = Math.max(0, member.currentHealth - damage);
+                const reducedDamage = this.calculateDamageReduction(member, damage, damageType);
+                member.currentHealth = Math.max(0, member.currentHealth - reducedDamage);
                 if (member.currentHealth === 0) {
                   member.isAlive = false;
                   this.addCombatLogEntry({ message: `${member.name} has died!`, type: 'damage' });
@@ -1216,7 +1455,8 @@ export class GameEngine {
               const alive = this.state.raid.filter(m => m.isAlive);
               if (alive.length > 0) {
                 const target = alive[Math.floor(Math.random() * alive.length)];
-                target.currentHealth = Math.max(0, target.currentHealth - damage);
+                const reducedDamage = this.calculateDamageReduction(target, damage, damageType);
+                target.currentHealth = Math.max(0, target.currentHealth - reducedDamage);
                 if (target.currentHealth === 0) {
                   target.isAlive = false;
                   this.addCombatLogEntry({ message: `${target.name} has died!`, type: 'damage' });

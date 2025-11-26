@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, CONSUMABLES, WORLD_BUFFS } from './game/GameEngine';
 import { CLASS_COLORS } from './game/types';
-import type { WoWClass } from './game/types';
+import type { WoWClass, BuffEffect } from './game/types';
 import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
 import { ENCOUNTERS, DEBUFFS } from './game/encounters';
@@ -9,6 +9,7 @@ import { RAIDS } from './game/raids';
 import { calculateDKPCost } from './game/lootTables';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
+import { PARTY_AURAS, getPaladinAuras } from './game/auras';
 import './App.css';
 
 
@@ -44,6 +45,9 @@ function App() {
   // Phase transition alert
   const [phaseAlert, setPhaseAlert] = useState<string | null>(null);
   const lastPhaseRef = useRef<number>(1);
+  // Raid management state
+  const [selectedPaladinForAura, setSelectedPaladinForAura] = useState<string | null>(null);
+  const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
 
   // Initialize engine once
   if (!engineRef.current) {
@@ -199,6 +203,23 @@ function App() {
     return desc;
   };
 
+  // Format aura effect for display
+  const formatAuraEffect = (effect: BuffEffect): string => {
+    const parts: string[] = [];
+    if (effect.armorBonus) parts.push(`+${effect.armorBonus} Armor`);
+    if (effect.fireResistance) parts.push(`+${effect.fireResistance} Fire Resist`);
+    if (effect.frostResistance) parts.push(`+${effect.frostResistance} Frost Resist`);
+    if (effect.shadowResistance) parts.push(`+${effect.shadowResistance} Shadow Resist`);
+    if (effect.natureResistance) parts.push(`+${effect.natureResistance} Nature Resist`);
+    if (effect.arcaneResistance) parts.push(`+${effect.arcaneResistance} Arcane Resist`);
+    if (effect.spellCritBonus) parts.push(`+${effect.spellCritBonus}% Spell Crit`);
+    if (effect.meleeCritBonus) parts.push(`+${effect.meleeCritBonus}% Melee Crit`);
+    if (effect.attackPowerBonus) parts.push(`+${effect.attackPowerBonus} Attack Power`);
+    if (effect.staminaBonus) parts.push(`+${effect.staminaBonus} Stamina`);
+    if (effect.healingPower) parts.push(`+${effect.healingPower} Healing`);
+    return parts.join(', ') || 'Utility';
+  };
+
   return (
     <div className="app">
       <div className="background-overlay" />
@@ -332,81 +353,257 @@ function App() {
             </div>
           )}
 
-          {/* Raid Grid */}
-          <div className="raid-grid">
-            {state.raid.map(member => {
-              const healthPercent = (member.currentHealth / member.maxHealth) * 100;
-              const hasDispellable = member.debuffs.some(
-                d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
-              );
-              const classColor = CLASS_COLORS[member.class];
-              const isPlayer = member.id === state.playerId;
+          {/* Raid Grid - Normal or Management Mode */}
+          {state.raidManagementMode ? (
+            // Raid Management View - Grouped by party
+            <div className="raid-management-view">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(groupNum => {
+                const groupMembers = state.raid.filter(m => m.group === groupNum);
+                if (groupMembers.length === 0) return null;
 
-              return (
-                <div
-                  key={member.id}
-                  className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''}`}
-                  onClick={() => {
-                    if (state.isRunning) {
-                      engine.selectTarget(member.id);
-                    } else {
-                      engine.inspectMember(member.id);
+                // Get active party auras in this group
+                const groupAuras = new Set<string>();
+                groupMembers.forEach(member => {
+                  Object.values(PARTY_AURAS).forEach(aura => {
+                    if (aura.isAutomatic && aura.scope === 'party' && member.class === aura.providerClass) {
+                      groupAuras.add(aura.id);
                     }
-                  }}
-                >
-                  <div className="class-indicator" style={{ backgroundColor: classColor }} />
-                  <div className="member-name" style={{ color: classColor }}>
-                    {member.name}
-                    {isPlayer && <span className="you-indicator">YOU</span>}
-                  </div>
-                  <div className="health-bar-container">
-                    <div
-                      className="health-bar"
-                      style={{
-                        width: `${healthPercent}%`,
-                        backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
-                      }}
-                    />
-                    <div className="health-text">
-                      {member.isAlive ? (
-                        <>
-                          <span>{Math.floor(member.currentHealth)}</span>
-                          {member.maxHealth - member.currentHealth > 0 && (
-                            <span className="missing-health">-{Math.floor(member.maxHealth - member.currentHealth)}</span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="dead-text">DEAD</span>
-                      )}
+                  });
+                });
+
+                return (
+                  <div
+                    key={groupNum}
+                    className={`raid-group ${draggedMemberId ? 'drop-target' : ''}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add('drag-over');
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('drag-over');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('drag-over');
+                      const memberId = e.dataTransfer.getData('memberId');
+                      if (memberId) {
+                        engine.moveMemberToGroup(memberId, groupNum);
+                        setDraggedMemberId(null);
+                      }
+                    }}
+                  >
+                    <div className="group-header">
+                      <span className="group-number">Group {groupNum}</span>
+                      <div className="group-auras">
+                        {Array.from(groupAuras).map(auraId => {
+                          const aura = PARTY_AURAS[auraId];
+                          return (
+                            <img
+                              key={auraId}
+                              src={aura.icon}
+                              alt={aura.name}
+                              title={aura.name}
+                              className="group-aura-icon"
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="group-members">
+                      {groupMembers.map(member => {
+                        const classColor = CLASS_COLORS[member.class];
+                        const isPlayer = member.id === state.playerId;
+                        const isPaladin = member.class === 'paladin';
+                        const paladinAuraId = isPaladin ? engine.getPaladinAura(member.id) : null;
+                        const paladinAura = paladinAuraId ? PARTY_AURAS[paladinAuraId] : null;
+
+                        return (
+                          <div
+                            key={member.id}
+                            className={`raid-frame management-mode ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('memberId', member.id);
+                              setDraggedMemberId(member.id);
+                            }}
+                            onDragEnd={() => setDraggedMemberId(null)}
+                            onDragOver={(e) => {
+                              if (draggedMemberId && draggedMemberId !== member.id) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.currentTarget.classList.add('swap-hover');
+                              }
+                            }}
+                            onDragLeave={(e) => {
+                              e.currentTarget.classList.remove('swap-hover');
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              e.currentTarget.classList.remove('swap-hover');
+                              const sourceMemberId = e.dataTransfer.getData('memberId');
+                              if (sourceMemberId && sourceMemberId !== member.id) {
+                                // Swap the two members
+                                engine.swapMembers(sourceMemberId, member.id);
+                                setDraggedMemberId(null);
+                              }
+                            }}
+                            onClick={() => {
+                              if (isPaladin && !draggedMemberId) {
+                                setSelectedPaladinForAura(selectedPaladinForAura === member.id ? null : member.id);
+                              }
+                            }}
+                          >
+                            <div className="class-indicator" style={{ backgroundColor: classColor }} />
+                            <div className="member-name" style={{ color: classColor }}>
+                              {member.name}
+                              {isPlayer && <span className="you-indicator">YOU</span>}
+                            </div>
+                            <div className="member-class-role">
+                              <span className="member-class">{member.class}</span>
+                              <span className="role-indicator-small">
+                                {member.role === 'tank' && '🛡️'}
+                                {member.role === 'healer' && '💚'}
+                                {member.role === 'dps' && '⚔️'}
+                              </span>
+                            </div>
+                            {isPaladin && paladinAura && (
+                              <div className="paladin-aura-indicator" title={`Active Aura: ${paladinAura.name}`}>
+                                <img src={paladinAura.icon} alt={paladinAura.name} className="active-aura-icon" />
+                              </div>
+                            )}
+                            {isPaladin && !paladinAura && (
+                              <div className="paladin-aura-indicator no-aura" title="Click to select an aura">
+                                <span>No Aura</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="role-indicator">
-                    {member.role === 'tank' && '🛡️'}
-                    {member.role === 'healer' && '💚'}
-                    {member.role === 'dps' && '⚔️'}
+                );
+              })}
+
+              {/* Paladin Aura Selection Panel */}
+              {selectedPaladinForAura && (
+                <div className="paladin-aura-panel">
+                  <div className="aura-panel-header">
+                    <h3>Select Aura for {state.raid.find(m => m.id === selectedPaladinForAura)?.name}</h3>
+                    <button className="close-panel-btn" onClick={() => setSelectedPaladinForAura(null)}>×</button>
                   </div>
-                  {member.debuffs.length > 0 && (
-                    <div className="debuff-container">
-                      {member.debuffs.slice(0, 3).map((debuff, idx) => (
-                        <div key={idx} className={`debuff-icon debuff-${debuff.type}`} title={debuff.name}>
-                          {Math.ceil(debuff.duration)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {member.buffs.length > 0 && (
-                    <div className="buff-container">
-                      {member.buffs.slice(0, 2).map((buff, idx) => (
-                        <div key={idx} className="buff-icon" title={buff.name}>
-                          {Math.ceil(buff.duration)}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="aura-options">
+                    {getPaladinAuras().map(aura => {
+                      const isSelected = engine.getPaladinAura(selectedPaladinForAura) === aura.id;
+                      return (
+                        <button
+                          key={aura.id}
+                          className={`aura-option ${isSelected ? 'selected' : ''}`}
+                          onClick={() => {
+                            engine.setPaladinAura(selectedPaladinForAura, isSelected ? null : aura.id);
+                          }}
+                        >
+                          <img src={aura.icon} alt={aura.name} className="aura-icon" />
+                          <div className="aura-info">
+                            <span className="aura-name">{aura.name}</span>
+                            <span className="aura-effect">{formatAuraEffect(aura.effect)}</span>
+                          </div>
+                          {isSelected && <span className="selected-check">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          ) : (
+            // Normal Raid Grid - Organized by groups
+            <div className="raid-grid-grouped">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map(groupNum => {
+                const groupMembers = state.raid.filter(m => m.group === groupNum);
+                if (groupMembers.length === 0) return null;
+
+                return (
+                  <div key={groupNum} className="raid-grid-group">
+                    <div className="raid-group-label">G{groupNum}</div>
+                    <div className="raid-group-members">
+                      {groupMembers.map(member => {
+                        const healthPercent = (member.currentHealth / member.maxHealth) * 100;
+                        const hasDispellable = member.debuffs.some(
+                          d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
+                        );
+                        const classColor = CLASS_COLORS[member.class];
+                        const isPlayer = member.id === state.playerId;
+                        const recentCritHeal = member.lastCritHealTime && (Date.now() - member.lastCritHealTime) < 500;
+
+                        return (
+                          <div
+                            key={member.id}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''}`}
+                            onClick={() => {
+                              if (state.isRunning) {
+                                engine.selectTarget(member.id);
+                              } else {
+                                engine.inspectMember(member.id);
+                              }
+                            }}
+                          >
+                            <div className="class-indicator" style={{ backgroundColor: classColor }} />
+                            <div className="member-name" style={{ color: classColor }}>
+                              {member.name}
+                              {isPlayer && <span className="you-indicator">YOU</span>}
+                            </div>
+                            <div className="health-bar-container">
+                              <div
+                                className="health-bar"
+                                style={{
+                                  width: `${healthPercent}%`,
+                                  backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
+                                }}
+                              />
+                              <div className="health-text">
+                                {member.isAlive ? (
+                                  <>
+                                    <span>{Math.floor(member.currentHealth)}</span>
+                                    {member.maxHealth - member.currentHealth > 0 && (
+                                      <span className="missing-health">-{Math.floor(member.maxHealth - member.currentHealth)}</span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="dead-text">DEAD</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="role-indicator">
+                              {member.role === 'tank' && '🛡️'}
+                              {member.role === 'healer' && '💚'}
+                              {member.role === 'dps' && '⚔️'}
+                            </div>
+                            {member.debuffs.length > 0 && (
+                              <div className="debuff-container">
+                                {member.debuffs.slice(0, 3).map((debuff, idx) => (
+                                  <div key={idx} className={`debuff-icon debuff-${debuff.type}`} title={debuff.name}>
+                                    {Math.ceil(debuff.duration)}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {member.buffs.length > 0 && (
+                              <div className="buff-container">
+                                {member.buffs.filter(b => b.id.startsWith('aura_')).slice(0, 3).map((buff, idx) => (
+                                  <img key={idx} src={buff.icon} alt={buff.name} className="aura-buff-icon" title={buff.name} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Center Panel */}
@@ -536,6 +733,15 @@ function App() {
                 <span className="healer-count">
                   ({state.raid.filter(m => m.role === 'healer').length} healers in raid)
                 </span>
+              </div>
+              <div className="raid-management-toggle">
+                <button
+                  className={`raid-management-btn ${state.raidManagementMode ? 'active' : ''}`}
+                  onClick={() => engine.toggleRaidManagementMode()}
+                  title="Arrange raid members between groups to optimize party auras"
+                >
+                  {state.raidManagementMode ? '✓ Exit Raid Setup' : '⚙️ Manage Raid Groups'}
+                </button>
               </div>
             </div>
           ) : (

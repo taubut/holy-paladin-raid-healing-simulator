@@ -55,6 +55,14 @@ export interface BuffEffect {
   attackPowerBonus?: number;
   mana?: number; // Flat mana bonus (e.g., Flask of Distilled Wisdom)
   healingPower?: number; // Flat healing power bonus
+  // Resistance stats for party auras
+  fireResistance?: number;
+  frostResistance?: number;
+  shadowResistance?: number;
+  natureResistance?: number;
+  arcaneResistance?: number;
+  // Melee crit bonus for Leader of the Pack
+  meleeCritBonus?: number;
 }
 
 // Consumable buff definition
@@ -77,6 +85,24 @@ export interface WorldBuff {
   unlockBoss?: string; // Boss ID that must be defeated to unlock (null = always available)
   unlockRaid?: string; // Raid name for "Coming Soon" display
   comingSoon?: boolean; // True = show locked with "Coming Soon" message
+}
+
+// Party aura definition (paladin auras, moonkin aura, trueshot, etc.)
+export interface PartyAura {
+  id: string;
+  name: string;
+  icon: string;
+  providerClass: WoWClass;
+  providerSpec?: 'moonkin' | 'feral' | 'marksman';  // Optional spec requirement
+  effect: BuffEffect;
+  isAutomatic: boolean;  // true = auto-apply when class present, false = manual selection (paladin)
+  scope: 'party' | 'raid';  // party = group only, raid = all members
+}
+
+// Track paladin aura assignments (each paladin chooses their own aura)
+export interface PaladinAuraAssignment {
+  paladinId: string;  // Member ID of the paladin
+  auraId: string | null;  // Selected aura ID or null for no aura
 }
 
 export interface Debuff {
@@ -167,6 +193,9 @@ export interface Spell {
   isOnGlobalCooldown: boolean;
 }
 
+// Damage type for damage reduction calculations
+export type DamageType = 'physical' | 'fire' | 'frost' | 'shadow' | 'nature' | 'arcane';
+
 export interface DamageEvent {
   type: 'tank_damage' | 'raid_damage' | 'random_target' | 'debuff';
   damage: number;
@@ -176,6 +205,8 @@ export interface DamageEvent {
   // Phase-based damage: only active during specified phases (1, 2, 3)
   // If not specified, event is active in all phases
   activeInPhases?: number[];
+  // Damage school for resistance calculations (default: physical)
+  damageType?: DamageType;
 }
 
 // Phase transition threshold definition
@@ -258,6 +289,9 @@ export interface GameState {
   playerBag: GearItem[]; // Items in the player's inventory bag
   // Five-Second Rule tracking
   lastSpellCastTime: number; // Elapsed time when last spell was cast (for FSR)
+  // Raid management and party auras
+  raidManagementMode: boolean;  // Toggle for drag-drop raid arrangement mode
+  paladinAuraAssignments: PaladinAuraAssignment[];  // Each paladin's chosen aura
 }
 
 // Class colors matching Classic WoW

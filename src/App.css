@@ -4570,3 +4570,372 @@ body {
   font-size: 14px;
   font-weight: normal;
 }
+
+/* ==================== RAID MANAGEMENT SYSTEM ==================== */
+
+/* Raid Management Toggle Button */
+.raid-management-toggle {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.raid-management-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  background: linear-gradient(180deg, #3a5a3a 0%, #2a4a2a 100%);
+  border: 2px solid #4a7a4a;
+  border-radius: 6px;
+  color: #88cc88;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.raid-management-btn:hover {
+  background: linear-gradient(180deg, #4a7a4a 0%, #3a6a3a 100%);
+  border-color: #5a9a5a;
+  color: #aaffaa;
+}
+
+.raid-management-btn.active {
+  background: linear-gradient(180deg, #5a3a5a 0%, #4a2a4a 100%);
+  border-color: #8a5a8a;
+  color: #ffaaff;
+  box-shadow: 0 0 10px rgba(255, 100, 255, 0.3);
+}
+
+/* Raid Management View */
+.raid-management-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  max-height: 450px;
+  overflow-y: auto;
+}
+
+/* Raid Group Container */
+.raid-group {
+  background: linear-gradient(180deg, rgba(30, 30, 50, 0.9) 0%, rgba(20, 20, 40, 0.9) 100%);
+  border: 2px solid #444466;
+  border-radius: 8px;
+  padding: 8px;
+  min-width: 180px;
+  transition: all 0.2s ease;
+}
+
+.raid-group.drop-target {
+  border-color: #666688;
+}
+
+.raid-group.drag-over {
+  background: linear-gradient(180deg, rgba(50, 50, 80, 0.9) 0%, rgba(40, 40, 70, 0.9) 100%);
+  border-color: #8888aa;
+  box-shadow: 0 0 15px rgba(100, 100, 200, 0.4);
+}
+
+/* Group Header */
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.group-number {
+  font-weight: bold;
+  color: #aaaacc;
+  font-size: 13px;
+}
+
+.group-auras {
+  display: flex;
+  gap: 4px;
+}
+
+.group-aura-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid #666;
+}
+
+/* Group Members */
+.group-members {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Raid Frame in Management Mode */
+.raid-frame.management-mode {
+  padding: 6px 8px;
+  background: linear-gradient(180deg, rgba(40, 40, 60, 0.8) 0%, rgba(30, 30, 50, 0.8) 100%);
+  border: 1px solid #555577;
+  border-radius: 4px;
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.raid-frame.management-mode:hover {
+  background: linear-gradient(180deg, rgba(50, 50, 70, 0.9) 0%, rgba(40, 40, 60, 0.9) 100%);
+  border-color: #7777aa;
+}
+
+.raid-frame.management-mode.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.raid-frame.management-mode.swap-target {
+  cursor: pointer;
+}
+
+.raid-frame.management-mode.swap-hover {
+  background: linear-gradient(180deg, rgba(80, 120, 80, 0.9) 0%, rgba(60, 100, 60, 0.9) 100%);
+  border-color: #88cc88;
+  box-shadow: 0 0 10px rgba(100, 200, 100, 0.5);
+}
+
+.raid-frame.management-mode.is-paladin {
+  border-color: #F58CBA;
+}
+
+.raid-frame.management-mode.is-paladin:hover {
+  border-color: #ffaadd;
+  box-shadow: 0 0 8px rgba(245, 140, 186, 0.3);
+}
+
+.raid-frame.management-mode.selected-for-aura {
+  background: linear-gradient(180deg, rgba(100, 50, 80, 0.9) 0%, rgba(80, 40, 60, 0.9) 100%);
+  border-color: #ff88bb;
+  box-shadow: 0 0 12px rgba(255, 136, 187, 0.5);
+}
+
+/* Member Class and Role in Management Mode */
+.member-class-role {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.member-class {
+  text-transform: capitalize;
+}
+
+.role-indicator-small {
+  font-size: 12px;
+}
+
+/* Paladin Aura Indicator */
+.paladin-aura-indicator {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.paladin-aura-indicator .active-aura-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid #F58CBA;
+}
+
+.paladin-aura-indicator.no-aura {
+  font-size: 10px;
+  color: #888;
+  font-style: italic;
+}
+
+/* Paladin Aura Selection Panel */
+.paladin-aura-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, rgba(40, 30, 50, 0.98) 0%, rgba(30, 20, 40, 0.98) 100%);
+  border: 3px solid #8a5a8a;
+  border-radius: 12px;
+  padding: 20px;
+  min-width: 350px;
+  max-width: 450px;
+  z-index: 1000;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+}
+
+.aura-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #555;
+}
+
+.aura-panel-header h3 {
+  margin: 0;
+  color: #F58CBA;
+  font-size: 16px;
+}
+
+.close-panel-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-panel-btn:hover {
+  color: #fff;
+}
+
+/* Aura Options */
+.aura-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aura-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(50, 40, 60, 0.8) 0%, rgba(40, 30, 50, 0.8) 100%);
+  border: 2px solid #555577;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aura-option:hover {
+  background: linear-gradient(180deg, rgba(60, 50, 70, 0.9) 0%, rgba(50, 40, 60, 0.9) 100%);
+  border-color: #7777aa;
+}
+
+.aura-option.selected {
+  background: linear-gradient(180deg, rgba(80, 60, 80, 0.9) 0%, rgba(60, 40, 60, 0.9) 100%);
+  border-color: #F58CBA;
+  box-shadow: 0 0 10px rgba(245, 140, 186, 0.3);
+}
+
+.aura-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 2px solid #666;
+}
+
+.aura-option.selected .aura-icon {
+  border-color: #F58CBA;
+}
+
+.aura-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.aura-name {
+  font-weight: bold;
+  color: #ddd;
+  font-size: 14px;
+}
+
+.aura-effect {
+  font-size: 12px;
+  color: #88cc88;
+  margin-top: 2px;
+}
+
+.selected-check {
+  font-size: 18px;
+  color: #88ff88;
+  font-weight: bold;
+}
+
+/* Aura Buff Icons on Raid Frames */
+.aura-buff-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #666;
+}
+
+/* Crit Heal Animation */
+.raid-frame.crit-heal {
+  animation: critHealFlash 0.5s ease-out;
+}
+
+@keyframes critHealFlash {
+  0% {
+    box-shadow: 0 0 20px rgba(255, 255, 0, 0.8), inset 0 0 20px rgba(255, 255, 0, 0.3);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+/* =========================================================================
+   GROUPED RAID GRID - Normal raid view with group labels
+   ========================================================================= */
+
+.raid-grid-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.raid-grid-group {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 4px;
+  background: rgba(20, 15, 30, 0.5);
+  border-radius: 4px;
+  padding: 4px;
+  border: 1px solid rgba(74, 58, 106, 0.3);
+}
+
+.raid-group-label {
+  width: 28px;
+  min-width: 28px;
+  padding: 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: #8a7aaa;
+  background: rgba(40, 30, 60, 0.6);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 64px;
+  border: 1px solid rgba(74, 58, 106, 0.5);
+}
+
+.raid-group-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.raid-group-members .raid-frame {
+  flex: 1 1 calc(20% - 4px);
+  min-width: 80px;
+  max-width: 110px;
+}
