@@ -12,6 +12,94 @@ export type WoWClass =
   | 'warlock'
   | 'druid';
 
+// Vanilla WoW specs for each class
+export type WoWSpec =
+  // Warrior specs
+  | 'arms' | 'fury' | 'protection_warrior'
+  // Paladin specs
+  | 'holy_paladin' | 'protection_paladin' | 'retribution'
+  // Hunter specs
+  | 'beast_mastery' | 'marksmanship' | 'survival'
+  // Rogue specs
+  | 'assassination' | 'combat' | 'subtlety'
+  // Priest specs
+  | 'discipline' | 'holy_priest' | 'shadow'
+  // Mage specs
+  | 'arcane' | 'fire_mage' | 'frost_mage'
+  // Warlock specs
+  | 'affliction' | 'demonology' | 'destruction'
+  // Druid specs
+  | 'balance' | 'feral_tank' | 'feral_dps' | 'restoration';
+
+// Spec definitions with display info and role
+export interface SpecDefinition {
+  id: WoWSpec;
+  name: string;
+  role: 'tank' | 'healer' | 'dps';
+  icon: string;
+}
+
+// All specs organized by class
+export const CLASS_SPECS: Record<WoWClass, SpecDefinition[]> = {
+  warrior: [
+    { id: 'arms', name: 'Arms', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_savageblow.jpg' },
+    { id: 'fury', name: 'Fury', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_innerrage.jpg' },
+    { id: 'protection_warrior', name: 'Protection', role: 'tank', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg' },
+  ],
+  paladin: [
+    { id: 'holy_paladin', name: 'Holy', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg' },
+    { id: 'protection_paladin', name: 'Protection', role: 'tank', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_devotionaura.jpg' },
+    { id: 'retribution', name: 'Retribution', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_auraoflight.jpg' },
+  ],
+  hunter: [
+    { id: 'beast_mastery', name: 'Beast Mastery', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_beasttaming.jpg' },
+    { id: 'marksmanship', name: 'Marksmanship', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_marksmanship.jpg' },
+    { id: 'survival', name: 'Survival', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_swiftstrike.jpg' },
+  ],
+  rogue: [
+    { id: 'assassination', name: 'Assassination', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_rogue_eviscerate.jpg' },
+    { id: 'combat', name: 'Combat', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_backstab.jpg' },
+    { id: 'subtlety', name: 'Subtlety', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_stealth.jpg' },
+  ],
+  priest: [
+    { id: 'discipline', name: 'Discipline', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_powerwordshield.jpg' },
+    { id: 'holy_priest', name: 'Holy', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_guardianspirit.jpg' },
+    { id: 'shadow', name: 'Shadow', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowwordpain.jpg' },
+  ],
+  mage: [
+    { id: 'arcane', name: 'Arcane', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_magicalsentry.jpg' },
+    { id: 'fire_mage', name: 'Fire', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_firebolt02.jpg' },
+    { id: 'frost_mage', name: 'Frost', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_frostbolt02.jpg' },
+  ],
+  warlock: [
+    { id: 'affliction', name: 'Affliction', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_deathcoil.jpg' },
+    { id: 'demonology', name: 'Demonology', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_metamorphosis.jpg' },
+    { id: 'destruction', name: 'Destruction', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_rainoffire.jpg' },
+  ],
+  druid: [
+    { id: 'balance', name: 'Balance', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_starfall.jpg' },
+    { id: 'feral_tank', name: 'Feral (Bear)', role: 'tank', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_racial_bearform.jpg' },
+    { id: 'feral_dps', name: 'Feral (Cat)', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_catform.jpg' },
+    { id: 'restoration', name: 'Restoration', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_healingtouch.jpg' },
+  ],
+};
+
+// Get default spec for a class/role combination
+export function getDefaultSpec(wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): WoWSpec {
+  const specs = CLASS_SPECS[wowClass];
+  const matchingSpec = specs.find(s => s.role === role);
+  return matchingSpec?.id || specs[0].id;
+}
+
+// Get spec definition by ID
+export function getSpecById(specId: WoWSpec): SpecDefinition | undefined {
+  for (const specs of Object.values(CLASS_SPECS)) {
+    const found = specs.find(s => s.id === specId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 // Resource types for different classes
 export type ResourceType = 'mana' | 'rage' | 'energy';
 
@@ -93,7 +181,7 @@ export interface PartyAura {
   name: string;
   icon: string;
   providerClass: WoWClass;
-  providerSpec?: 'moonkin' | 'feral' | 'marksman';  // Optional spec requirement
+  providerSpec?: WoWSpec | WoWSpec[];  // Optional spec requirement (can be array for multiple specs)
   effect: BuffEffect;
   isAutomatic: boolean;  // true = auto-apply when class present, false = manual selection (paladin)
   scope: 'party' | 'raid';  // party = group only, raid = all members
@@ -165,6 +253,7 @@ export interface RaidMember {
   id: string;
   name: string;
   class: WoWClass;
+  spec: WoWSpec;
   role: 'tank' | 'healer' | 'dps';
   currentHealth: number;
   maxHealth: number;

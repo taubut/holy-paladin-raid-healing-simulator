@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, CONSUMABLES, WORLD_BUFFS } from './game/GameEngine';
-import { CLASS_COLORS } from './game/types';
+import { CLASS_COLORS, CLASS_SPECS, getSpecById } from './game/types';
 import type { WoWClass, BuffEffect } from './game/types';
 import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
@@ -9,7 +9,7 @@ import { RAIDS } from './game/raids';
 import { calculateDKPCost } from './game/lootTables';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
-import { PARTY_AURAS, getPaladinAuras } from './game/auras';
+import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
 import './App.css';
 
 
@@ -50,6 +50,7 @@ function App() {
   const [selectedPaladinForAura, setSelectedPaladinForAura] = useState<string | null>(null);
   const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
+  const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
 
   // Initialize engine once
   if (!engineRef.current) {
@@ -1238,12 +1239,12 @@ function App() {
 
       {/* Raid Group Manager Modal */}
       {showRaidGroupManager && (
-        <div className="modal-overlay" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); }}>
+        <div className="modal-overlay" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); }}>
           <div className="raid-group-manager-modal" onClick={e => e.stopPropagation()}>
             <div className="rgm-header">
-              <h2>⚙️ Raid Group Manager</h2>
-              <p className="rgm-subtitle">Drag players between groups • Click paladins to assign auras</p>
-              <button className="close-inspection" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); }}>X</button>
+              <h2>Raid Group Manager</h2>
+              <p className="rgm-subtitle">Drag players between groups • Click paladins for auras • Right-click to change class/spec</p>
+              <button className="close-inspection" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); }}>X</button>
             </div>
             <div className="rgm-content">
               {/* Groups Grid */}
@@ -1252,11 +1253,11 @@ function App() {
                   const groupMembers = state.raid.filter(m => m.group === groupNum);
                   if (groupMembers.length === 0 && groupNum > Math.ceil(state.raid.length / 5)) return null;
 
-                  // Get active party auras in this group
+                  // Get active party auras in this group (using spec-aware check)
                   const groupAuras = new Set<string>();
                   groupMembers.forEach(member => {
                     Object.values(PARTY_AURAS).forEach(aura => {
-                      if (aura.isAutomatic && aura.scope === 'party' && member.class === aura.providerClass) {
+                      if (aura.isAutomatic && aura.scope === 'party' && memberProvidesAura(member, aura)) {
                         groupAuras.add(aura.id);
                       }
                     });
@@ -1288,13 +1289,15 @@ function App() {
                         <div className="rgm-group-auras">
                           {Array.from(groupAuras).map(auraId => {
                             const aura = PARTY_AURAS[auraId];
+                            const provider = groupMembers.find(m => memberProvidesAura(m, aura));
                             return (
                               <img
                                 key={auraId}
                                 src={aura.icon}
                                 alt={aura.name}
-                                title={aura.name}
-                                className="rgm-aura-icon"
+                                className="rgm-group-aura-icon"
+                                onMouseEnter={() => setHoveredAura({ aura, providerName: provider?.name || 'Unknown' })}
+                                onMouseLeave={() => setHoveredAura(null)}
                               />
                             );
                           })}
@@ -1307,11 +1310,18 @@ function App() {
                           const isPaladin = member.class === 'paladin';
                           const paladinAuraId = isPaladin ? engine.getPaladinAura(member.id) : null;
                           const paladinAura = paladinAuraId ? PARTY_AURAS[paladinAuraId] : null;
+                          const specDef = member.spec ? getSpecById(member.spec) : null;
+                          const specName = specDef?.name || member.class;
+
+                          // Get auras this member provides
+                          const memberAuras = Object.values(PARTY_AURAS).filter(aura =>
+                            memberProvidesAura(member, aura)
+                          );
 
                           return (
                             <div
                               key={member.id}
-                              className={`rgm-member ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
+                              className={`rgm-member ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${selectedMemberForClassSpec === member.id ? 'selected-for-class-spec' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
                               draggable
                               onDragStart={(e) => {
                                 e.dataTransfer.setData('memberId', member.id);
@@ -1341,33 +1351,54 @@ function App() {
                               onClick={() => {
                                 if (isPaladin && !draggedMemberId) {
                                   setSelectedPaladinForAura(selectedPaladinForAura === member.id ? null : member.id);
+                                  setSelectedMemberForClassSpec(null);
+                                }
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                if (!isPlayer && !draggedMemberId) {
+                                  setSelectedMemberForClassSpec(selectedMemberForClassSpec === member.id ? null : member.id);
+                                  setSelectedPaladinForAura(null);
                                 }
                               }}
                             >
                               <div className="rgm-class-bar" style={{ backgroundColor: classColor }} />
                               <div className="rgm-member-info">
-                                <div className="rgm-member-name" style={{ color: classColor }}>
+                                <span className="rgm-member-name" style={{ color: classColor }}>
                                   {member.name}
                                   {isPlayer && <span className="rgm-you-tag">YOU</span>}
-                                </div>
-                                <div className="rgm-member-details">
-                                  <span className="rgm-class">{member.class}</span>
-                                  <span className="rgm-role">
-                                    {member.role === 'tank' && '🛡️'}
-                                    {member.role === 'healer' && '💚'}
-                                    {member.role === 'dps' && '⚔️'}
-                                  </span>
-                                </div>
+                                </span>
+                                <span className="rgm-spec">{specName}</span>
                               </div>
-                              {isPaladin && (
-                                <div className={`rgm-paladin-aura ${paladinAura ? '' : 'no-aura'}`} title={paladinAura ? `Active: ${paladinAura.name}` : 'Click to select aura'}>
-                                  {paladinAura ? (
-                                    <img src={paladinAura.icon} alt={paladinAura.name} />
-                                  ) : (
-                                    <span className="no-aura-text">?</span>
+                              {/* Right side: auras + role tag aligned */}
+                              <div className="rgm-member-right">
+                                <div className="rgm-member-auras">
+                                  {memberAuras.filter(a => a.isAutomatic).map(aura => (
+                                    <img
+                                      key={aura.id}
+                                      src={aura.icon}
+                                      alt={aura.name}
+                                      className="rgm-member-aura-icon"
+                                      onMouseEnter={() => setHoveredAura({ aura, providerName: member.name })}
+                                      onMouseLeave={() => setHoveredAura(null)}
+                                    />
+                                  ))}
+                                  {isPaladin && paladinAura && (
+                                    <img
+                                      src={paladinAura.icon}
+                                      alt={paladinAura.name}
+                                      className="rgm-member-aura-icon paladin-aura"
+                                      onMouseEnter={() => setHoveredAura({ aura: paladinAura, providerName: member.name })}
+                                      onMouseLeave={() => setHoveredAura(null)}
+                                    />
                                   )}
                                 </div>
-                              )}
+                                <span className={`rgm-role-tag ${member.role}`}>
+                                  {member.role === 'tank' && 'Tank'}
+                                  {member.role === 'healer' && 'Healer'}
+                                  {member.role === 'dps' && 'DPS'}
+                                </span>
+                              </div>
                             </div>
                           );
                         })}
@@ -1379,6 +1410,23 @@ function App() {
                   );
                 })}
               </div>
+
+              {/* Aura Hover Tooltip */}
+              {hoveredAura && (
+                <div className="rgm-aura-tooltip">
+                  <div className="rgm-aura-tooltip-header">
+                    <img src={hoveredAura.aura.icon} alt={hoveredAura.aura.name} className="rgm-aura-tooltip-icon" />
+                    <span className="rgm-aura-tooltip-name">{hoveredAura.aura.name}</span>
+                  </div>
+                  <div className="rgm-aura-tooltip-effect">{formatAuraEffect(hoveredAura.aura.effect)}</div>
+                  <div className="rgm-aura-tooltip-scope">
+                    {hoveredAura.aura.scope === 'raid' ? 'Affects entire raid' : 'Affects party members only'}
+                  </div>
+                  <div className="rgm-aura-tooltip-provider">
+                    Provided by: {hoveredAura.providerName}
+                  </div>
+                </div>
+              )}
 
               {/* Paladin Aura Selection Panel */}
               {selectedPaladinForAura && (
@@ -1410,9 +1458,60 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Class/Spec Selection Panel */}
+              {selectedMemberForClassSpec && (
+                <div className="rgm-class-spec-panel">
+                  <div className="rgm-class-spec-header">
+                    <h3>Change Class/Spec for {state.raid.find(m => m.id === selectedMemberForClassSpec)?.name}</h3>
+                    <button className="close-panel-btn" onClick={() => setSelectedMemberForClassSpec(null)}>×</button>
+                  </div>
+                  <div className="rgm-class-spec-content">
+                    {(Object.keys(CLASS_SPECS) as WoWClass[]).map(wowClass => {
+                      const specs = CLASS_SPECS[wowClass];
+                      const classColor = CLASS_COLORS[wowClass];
+                      const currentMember = state.raid.find(m => m.id === selectedMemberForClassSpec);
+                      const isCurrentClass = currentMember?.class === wowClass;
+
+                      return (
+                        <div key={wowClass} className={`rgm-class-section ${isCurrentClass ? 'current-class' : ''}`}>
+                          <div className="rgm-class-name" style={{ color: classColor }}>
+                            {wowClass.charAt(0).toUpperCase() + wowClass.slice(1)}
+                          </div>
+                          <div className="rgm-spec-options">
+                            {specs.map(spec => {
+                              const isCurrentSpec = currentMember?.spec === spec.id;
+                              return (
+                                <button
+                                  key={spec.id}
+                                  className={`rgm-spec-option ${isCurrentSpec ? 'selected' : ''}`}
+                                  onClick={() => {
+                                    engine.changeMemberClassAndSpec(selectedMemberForClassSpec, wowClass, spec.id);
+                                  }}
+                                >
+                                  <img src={spec.icon} alt={spec.name} className="rgm-spec-icon" />
+                                  <div className="rgm-spec-info">
+                                    <span className="rgm-spec-name">{spec.name}</span>
+                                    <span className={`rgm-spec-role ${spec.role}`}>
+                                      {spec.role === 'tank' && 'Tank'}
+                                      {spec.role === 'healer' && 'Healer'}
+                                      {spec.role === 'dps' && 'DPS'}
+                                    </span>
+                                  </div>
+                                  {isCurrentSpec && <span className="rgm-selected-check">✓</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
             <div className="rgm-footer">
-              <button className="rgm-done-btn" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); }}>
+              <button className="rgm-done-btn" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setSelectedMemberForClassSpec(null); }}>
                 Done
               </button>
             </div>
@@ -2283,278 +2382,6 @@ function App() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Raid Group Manager Modal */}
-      {showRaidGroupManager && (
-        <div className="modal-overlay" onClick={() => {
-          setShowRaidGroupManager(false);
-          setSelectedPaladinForAura(null);
-          setDraggedMemberId(null);
-        }}>
-          <div className="raid-group-manager-modal" onClick={e => e.stopPropagation()}>
-            <div className="rgm-header">
-              <div>
-                <h2>Raid Group Manager</h2>
-                <p className="rgm-subtitle">Drag players between groups | Click paladins to assign auras</p>
-              </div>
-              <button className="close-inspection" onClick={() => {
-                setShowRaidGroupManager(false);
-                setSelectedPaladinForAura(null);
-                setDraggedMemberId(null);
-              }}>X</button>
-            </div>
-            <div className="rgm-content">
-              <div className="rgm-groups">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map(groupNum => {
-                  const groupMembers = state.raid.filter(m => m.group === groupNum);
-                  if (groupMembers.length === 0 && state.raid.length <= 20 && groupNum > 4) return null;
-                  if (groupMembers.length === 0 && state.raid.length <= 40 && groupNum > 8) return null;
-
-                  return (
-                    <div
-                      key={groupNum}
-                      className={`rgm-group ${draggedMemberId && !groupMembers.find(m => m.id === draggedMemberId) ? 'drop-target' : ''}`}
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={e => {
-                        e.preventDefault();
-                        if (draggedMemberId) {
-                          const draggedMember = state.raid.find(m => m.id === draggedMemberId);
-                          if (draggedMember && draggedMember.group !== groupNum) {
-                            // Swap with a member from this group if it's full
-                            if (groupMembers.length >= 5) {
-                              // Find a member to swap with (last one in group)
-                              const swapTarget = groupMembers[groupMembers.length - 1];
-                              swapTarget.group = draggedMember.group;
-                            }
-                            draggedMember.group = groupNum;
-                          }
-                          setDraggedMemberId(null);
-                        }
-                      }}
-                    >
-                      <div className="rgm-group-header">
-                        <div className="rgm-group-title">
-                          <h3>Group {groupNum}</h3>
-                          <span className="rgm-group-count">{groupMembers.length}/5</span>
-                        </div>
-                        {/* Active auras in this group - both paladin and automatic class auras */}
-                        <div className="rgm-group-auras">
-                          {/* Paladin auras (manual) - each paladin can have different aura */}
-                          {groupMembers
-                            .filter(m => m.class === 'paladin')
-                            .map(paladin => {
-                              const assignment = state.paladinAuraAssignments.find(a => a.paladinId === paladin.id);
-                              const aura = assignment?.auraId ? PARTY_AURAS[assignment.auraId] : null;
-                              if (!aura) return null;
-                              return (
-                                <img
-                                  key={paladin.id}
-                                  src={aura.icon}
-                                  alt={aura.name}
-                                  className="rgm-group-aura-icon paladin-aura"
-                                  onMouseEnter={() => setHoveredAura({ aura, providerName: paladin.name })}
-                                  onMouseLeave={() => setHoveredAura(null)}
-                                />
-                              );
-                            })}
-                          {/* Automatic class auras - deduplicated (auras don't stack) */}
-                          {(() => {
-                            // Collect unique automatic auras in this group
-                            const seenAuras = new Set<string>();
-                            const uniqueAuras: { aura: typeof PARTY_AURAS[string], providerName: string }[] = [];
-                            groupMembers.forEach(member => {
-                              Object.values(PARTY_AURAS)
-                                .filter(aura => aura.providerClass === member.class && aura.isAutomatic)
-                                .forEach(aura => {
-                                  if (!seenAuras.has(aura.id)) {
-                                    seenAuras.add(aura.id);
-                                    uniqueAuras.push({ aura, providerName: member.name });
-                                  }
-                                });
-                            });
-                            return uniqueAuras.map(({ aura, providerName }) => (
-                              <img
-                                key={aura.id}
-                                src={aura.icon}
-                                alt={aura.name}
-                                className="rgm-group-aura-icon class-aura"
-                                onMouseEnter={() => setHoveredAura({ aura, providerName })}
-                                onMouseLeave={() => setHoveredAura(null)}
-                              />
-                            ));
-                          })()}
-                        </div>
-                      </div>
-                      <div className="rgm-group-members">
-                        {groupMembers.map(member => {
-                          const isPaladin = member.class === 'paladin';
-                          const paladinAura = state.paladinAuraAssignments.find(a => a.paladinId === member.id);
-                          const auraInfo = paladinAura?.auraId ? PARTY_AURAS[paladinAura.auraId] : null;
-
-                          return (
-                            <div
-                              key={member.id}
-                              className={`rgm-member ${isPaladin ? 'is-paladin' : ''} ${selectedPaladinForAura === member.id ? 'selected-paladin' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
-                              draggable
-                              onDragStart={() => setDraggedMemberId(member.id)}
-                              onDragEnd={() => setDraggedMemberId(null)}
-                              onDragOver={e => {
-                                e.preventDefault();
-                                e.currentTarget.classList.add('swap-hover');
-                              }}
-                              onDragLeave={e => {
-                                e.currentTarget.classList.remove('swap-hover');
-                              }}
-                              onDrop={e => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                e.currentTarget.classList.remove('swap-hover');
-                                if (draggedMemberId && draggedMemberId !== member.id) {
-                                  const draggedMember = state.raid.find(m => m.id === draggedMemberId);
-                                  if (draggedMember) {
-                                    // Swap groups
-                                    const tempGroup = draggedMember.group;
-                                    draggedMember.group = member.group;
-                                    member.group = tempGroup;
-                                  }
-                                  setDraggedMemberId(null);
-                                }
-                              }}
-                              onClick={() => {
-                                if (isPaladin) {
-                                  setSelectedPaladinForAura(selectedPaladinForAura === member.id ? null : member.id);
-                                }
-                              }}
-                            >
-                              <div className="rgm-class-bar" style={{ backgroundColor: CLASS_COLORS[member.class] }} />
-                              <div className="rgm-member-info">
-                                <div className="rgm-member-name" style={{ color: CLASS_COLORS[member.class] }}>
-                                  {member.name}
-                                </div>
-                                <div className="rgm-member-class">{member.class}</div>
-                              </div>
-                              {/* Paladin aura icon */}
-                              {isPaladin && auraInfo && (
-                                <img
-                                  src={auraInfo.icon}
-                                  alt={auraInfo.name}
-                                  className="rgm-member-aura-icon"
-                                  onMouseEnter={() => setHoveredAura({ aura: auraInfo, providerName: member.name })}
-                                  onMouseLeave={() => setHoveredAura(null)}
-                                />
-                              )}
-                              {/* Automatic class auras (druids, hunters, warlocks) */}
-                              {!isPaladin && Object.values(PARTY_AURAS)
-                                .filter(aura => aura.providerClass === member.class && aura.isAutomatic)
-                                .map(aura => (
-                                  <img
-                                    key={aura.id}
-                                    src={aura.icon}
-                                    alt={aura.name}
-                                    className="rgm-member-aura-icon class-aura"
-                                    onMouseEnter={() => setHoveredAura({ aura, providerName: member.name })}
-                                    onMouseLeave={() => setHoveredAura(null)}
-                                  />
-                                ))
-                              }
-                              {/* Role tag - on the right side after auras */}
-                              <span className={`rgm-member-role ${member.role}`}>
-                                {member.role === 'tank' ? 'Tank' : member.role === 'healer' ? 'Heal' : 'DPS'}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {/* Empty slots */}
-                        {Array.from({ length: Math.max(0, 5 - groupMembers.length) }).map((_, i) => (
-                          <div key={`empty-${i}`} className="rgm-member empty">
-                            <span className="rgm-empty-text">Empty</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Paladin Aura Selection Panel */}
-              {selectedPaladinForAura && (
-                <div className="rgm-aura-panel">
-                  <h3>
-                    Select Aura for {state.raid.find(m => m.id === selectedPaladinForAura)?.name}
-                  </h3>
-                  <p>Click an aura to assign it to this paladin</p>
-                  <div className="rgm-aura-options">
-                    {getPaladinAuras().map(aura => {
-                      const currentAssignment = state.paladinAuraAssignments.find(a => a.paladinId === selectedPaladinForAura);
-                      const isSelected = currentAssignment?.auraId === aura.id;
-
-                      return (
-                        <div
-                          key={aura.id}
-                          className={`rgm-aura-option ${isSelected ? 'selected' : ''}`}
-                          onClick={() => {
-                            // Update the paladin's aura assignment
-                            const existingIdx = state.paladinAuraAssignments.findIndex(a => a.paladinId === selectedPaladinForAura);
-                            if (existingIdx >= 0) {
-                              if (isSelected) {
-                                // Deselect
-                                state.paladinAuraAssignments[existingIdx].auraId = null;
-                              } else {
-                                state.paladinAuraAssignments[existingIdx].auraId = aura.id;
-                              }
-                            } else {
-                              state.paladinAuraAssignments.push({
-                                paladinId: selectedPaladinForAura,
-                                auraId: aura.id
-                              });
-                            }
-                            // Force update
-                            forceUpdate(n => n + 1);
-                          }}
-                        >
-                          <img src={aura.icon} alt={aura.name} className="rgm-aura-icon" style={{ width: 24, height: 24, borderRadius: 4 }} />
-                          <span>{aura.name.replace(' Aura', '')}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="rgm-footer">
-              <button
-                className="rgm-done-btn"
-                onClick={() => {
-                  setShowRaidGroupManager(false);
-                  setSelectedPaladinForAura(null);
-                  setDraggedMemberId(null);
-                }}
-              >
-                Done
-              </button>
-            </div>
-
-            {/* Aura Tooltip - Shows instantly on hover */}
-            {hoveredAura && (
-              <div className="rgm-aura-tooltip">
-                <div className="rgm-aura-tooltip-header">
-                  <img src={hoveredAura.aura.icon} alt={hoveredAura.aura.name} className="rgm-aura-tooltip-icon" />
-                  <span className="rgm-aura-tooltip-name">{hoveredAura.aura.name}</span>
-                </div>
-                <div className="rgm-aura-tooltip-effect">
-                  {formatAuraEffect(hoveredAura.aura.effect)}
-                </div>
-                <div className="rgm-aura-tooltip-scope">
-                  {hoveredAura.aura.scope === 'raid' ? 'Affects entire raid' : 'Affects party only'}
-                </div>
-                <div className="rgm-aura-tooltip-provider">
-                  Provided by: <span style={{ color: CLASS_COLORS[hoveredAura.aura.providerClass] }}>{hoveredAura.providerName}</span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}

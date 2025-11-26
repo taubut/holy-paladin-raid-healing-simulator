@@ -5084,6 +5084,14 @@ body {
   height: 24px;
   border-radius: 4px;
   border: 1px solid #6a5a8a;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rgm-group-aura-icon:hover {
+  transform: scale(1.15);
+  border-color: #ffd700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
 }
 
 .rgm-group-members {
@@ -5151,6 +5159,9 @@ body {
 .rgm-member-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .rgm-member-name {
@@ -5160,6 +5171,12 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: block;
+}
+
+.rgm-spec {
+  font-size: 11px;
+  color: #888;
 }
 
 .rgm-member-class {
@@ -5192,12 +5209,66 @@ body {
   color: #ffcc66;
 }
 
-.rgm-member-aura-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  border: 1px solid #f58cba;
+.rgm-member-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.rgm-member-auras {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+  min-width: 24px;
+  justify-content: flex-end;
+}
+
+.rgm-member-aura-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid #5a4a8a;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rgm-member-aura-icon:hover {
+  transform: scale(1.2);
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+
+.rgm-member-aura-icon.paladin-aura {
+  border-color: #f58cba;
+}
+
+.rgm-role-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  color: #aaa;
+  flex-shrink: 0;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.rgm-role-tag.tank {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff6666;
+}
+
+.rgm-role-tag.healer {
+  background: rgba(100, 255, 100, 0.2);
+  color: #66ff66;
+}
+
+.rgm-role-tag.dps {
+  background: rgba(255, 200, 100, 0.2);
+  color: #ffcc66;
 }
 
 .rgm-member-aura {
@@ -5291,6 +5362,154 @@ body {
   border-color: #8aaa8a;
   transform: scale(1.02);
   box-shadow: 0 0 15px rgba(100, 200, 100, 0.3);
+}
+
+/* Class/Spec Selection Panel */
+.rgm-class-spec-panel {
+  background: rgba(100, 180, 255, 0.1);
+  border: 2px solid #4a8ade;
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.rgm-class-spec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rgm-class-spec-header h3 {
+  margin: 0;
+  color: #4a8ade;
+  font-size: 14px;
+}
+
+.rgm-class-spec-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rgm-class-section {
+  padding: 10px;
+  background: rgba(30, 25, 45, 0.6);
+  border-radius: 6px;
+  border: 1px solid #3a2a5a;
+}
+
+.rgm-class-section.current-class {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.rgm-class-name {
+  font-size: 13px;
+  font-weight: bold;
+  margin-bottom: 8px;
+  text-transform: capitalize;
+}
+
+.rgm-spec-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rgm-spec-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(20, 15, 30, 0.8);
+  border: 1px solid #3a2a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #c9b8e8;
+  font-size: 12px;
+}
+
+.rgm-spec-option:hover {
+  background: rgba(74, 58, 106, 0.5);
+  border-color: #5a4a8a;
+  transform: translateY(-1px);
+}
+
+.rgm-spec-option.selected {
+  background: rgba(100, 180, 255, 0.2);
+  border-color: #4a8ade;
+  color: #fff;
+}
+
+.rgm-spec-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #5a4a8a;
+}
+
+.rgm-spec-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rgm-spec-name {
+  font-weight: 500;
+  color: #fff;
+}
+
+.rgm-spec-role {
+  font-size: 10px;
+  color: #888;
+}
+
+.rgm-spec-role.tank {
+  color: #ff6666;
+}
+
+.rgm-spec-role.healer {
+  color: #66ff66;
+}
+
+.rgm-spec-role.dps {
+  color: #ffcc66;
+}
+
+.rgm-selected-check {
+  color: #4a8ade;
+  font-weight: bold;
+  margin-left: auto;
+}
+
+/* Member selected states */
+.rgm-member.selected-for-aura {
+  border-color: #f58cba;
+  box-shadow: 0 0 12px rgba(245, 140, 186, 0.5);
+  background: rgba(245, 140, 186, 0.15);
+}
+
+.rgm-member.selected-for-class-spec {
+  border-color: #4a8ade;
+  box-shadow: 0 0 12px rgba(100, 180, 255, 0.5);
+  background: rgba(100, 180, 255, 0.15);
+}
+
+/* Spec display in member details */
+.rgm-spec {
+  font-size: 11px;
+  color: #888;
+  text-transform: capitalize;
+}
+
+.rgm-member-details {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 /* Responsive adjustments for smaller screens */

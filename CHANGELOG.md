@@ -2,6 +2,34 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.6.0] - 2025-11-26
+
+### Added
+- **Full Class/Spec System**: All 8 classes now have authentic Vanilla WoW specs (24 total specs)
+  - Warriors: Arms, Fury, Protection
+  - Rogues: Assassination, Combat, Subtlety
+  - Hunters: Beast Mastery, Marksmanship, Survival
+  - Mages: Arcane, Fire, Frost
+  - Warlocks: Affliction, Demonology, Destruction
+  - Priests: Discipline, Holy, Shadow
+  - Druids: Balance, Feral (Tank), Feral (DPS), Restoration
+  - Paladins: Holy, Protection, Retribution
+- Class/Spec swap modal in Raid Group Manager - click any player to change their class and spec
+- Spec-aware automatic auras: Moonkin Aura only from Balance druids, Leader of the Pack only from Feral druids, Trueshot Aura only from Marksmanship hunters
+- Spec icons displayed next to player names in Raid Group Manager
+- Save system now persists specs and paladin aura assignments (save version 6)
+
+### Changed
+- Blessing of Light icon corrected to `spell_holy_prayerofhealing02`
+- Blessing of Light removed from action bar (it's a buff, not an action)
+- Improved Raid Group Manager layout with role tags aligned on the right
+- Aura tooltips now show provider name
+
+### Fixed
+- Raid composition properly persists across boss fights, raids, and JSON exports
+- Old saves (v5 and earlier) automatically upgrade with default specs based on role
+- CSS class mismatch for group header aura icons
+
 ## [0.5.0] - 2025-11-26
 
 ### Added

@@ -1,11 +1,12 @@
 // Party Auras - Classic WoW Auras that affect party/raid members
 // These are distinct from raid buffs - they're passive auras that affect groups
 
-import type { PartyAura } from './types';
+import type { PartyAura, RaidMember } from './types';
 
 // Party Aura Definitions
 export const PARTY_AURAS: Record<string, PartyAura> = {
   // === PALADIN AURAS (Manual Selection, Raid-Wide) ===
+  // All paladin specs can use any aura
   devotion_aura: {
     id: 'devotion_aura',
     name: 'Devotion Aura',
@@ -76,7 +77,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
     name: 'Moonkin Aura',
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_moonglow.jpg',
     providerClass: 'druid',
-    providerSpec: 'moonkin',
+    providerSpec: 'balance',  // Only Balance druids provide this
     effect: { spellCritBonus: 3 },
     isAutomatic: true,
     scope: 'party',
@@ -86,7 +87,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
     name: 'Leader of the Pack',
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_unyeildingstamina.jpg',
     providerClass: 'druid',
-    providerSpec: 'feral',
+    providerSpec: ['feral_tank', 'feral_dps'],  // Both Feral specs provide this
     effect: { meleeCritBonus: 3 },
     isAutomatic: true,
     scope: 'party',
@@ -98,23 +99,40 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
     name: 'Trueshot Aura',
     icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_trueshot.jpg',
     providerClass: 'hunter',
-    providerSpec: 'marksman',
+    providerSpec: 'marksmanship',  // Only Marksmanship hunters provide this
     effect: { attackPowerBonus: 100 },
     isAutomatic: true,
     scope: 'party',
   },
 
   // === WARLOCK AURA (Automatic, Party-Only) ===
+  // Blood Pact comes from Imp pet - all warlock specs can have an Imp
   blood_pact: {
     id: 'blood_pact',
     name: 'Blood Pact',
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_bloodboil.jpg',
     providerClass: 'warlock',
+    // No spec requirement - all warlocks can summon an Imp
     effect: { staminaBonus: 42 }, // Rank 5 value
     isAutomatic: true,
     scope: 'party',
   },
 };
+
+// Check if a member provides a specific aura based on their spec
+export function memberProvidesAura(member: RaidMember, aura: PartyAura): boolean {
+  // Class must match
+  if (member.class !== aura.providerClass) return false;
+
+  // If no spec requirement, class match is enough
+  if (!aura.providerSpec) return true;
+
+  // Check spec requirement
+  if (Array.isArray(aura.providerSpec)) {
+    return aura.providerSpec.includes(member.spec);
+  }
+  return member.spec === aura.providerSpec;
+}
 
 // Get all paladin auras for selection UI
 export function getPaladinAuras(): PartyAura[] {

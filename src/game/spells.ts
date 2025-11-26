@@ -176,12 +176,12 @@ export const CLEANSE: Spell = {
   isOnGlobalCooldown: true,
 };
 
-// Blessing of Light - Increases healing
+// Blessing of Light - Increases healing (buff, not an action bar ability)
 export const BLESSING_OF_LIGHT: Spell = {
   id: 'blessing_of_light',
   name: 'Blessing of Light',
   rank: 3,
-  icon: `${ICON_BASE}/spell_holy_prayerofhealing.jpg`,
+  icon: `${ICON_BASE}/spell_holy_prayerofhealing02.jpg`,
   manaCost: 60,
   castTime: 0,
   cooldown: 0,
@@ -198,7 +198,7 @@ export const BLESSING_OF_LIGHT_VALUES = {
   flashOfLightBonus: 115,
 };
 
-// Default action bar
+// Default action bar (Blessing of Light is a buff managed elsewhere, not an action bar ability)
 export const DEFAULT_ACTION_BAR: Spell[] = [
   HOLY_LIGHT,
   HOLY_LIGHT_DOWNRANK,
@@ -208,5 +208,4 @@ export const DEFAULT_ACTION_BAR: Spell[] = [
   LAY_ON_HANDS,
   DIVINE_FAVOR,
   CLEANSE,
-  BLESSING_OF_LIGHT,
 ];

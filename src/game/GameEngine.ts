@@ -1,5 +1,5 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect } from './types';
-import { createEmptyEquipment } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect } from './types';
+import { createEmptyEquipment, CLASS_SPECS } from './types';
 import { PARTY_AURAS } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
@@ -121,7 +121,7 @@ export const RAID_BUFFS = {
   blessing_of_light: {
     id: 'blessing_of_light_buff',
     name: 'Greater Blessing of Light',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_prayerofhealing.jpg',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_prayerofhealing02.jpg',
     duration: 900,
     maxDuration: 900,
     effect: { healingReceivedBonus: 400 }, // +400 to Holy Light heals received
@@ -437,6 +437,7 @@ export class GameEngine {
       id: PLAYER_ID,
       name: playerName,
       class: 'paladin',
+      spec: 'holy_paladin',  // Player is always Holy Paladin
       role: 'healer',
       currentHealth: PLAYER_BASE_HEALTH,
       maxHealth: PLAYER_BASE_HEALTH,
@@ -456,6 +457,7 @@ export class GameEngine {
         id: `member_${id++}`,
         name: getRandomName('warrior'),
         class: 'warrior',
+        spec: 'protection_warrior',  // Tank warriors are Protection spec
         role: 'tank',
         currentHealth: maxHealth,
         maxHealth,
@@ -476,6 +478,7 @@ export class GameEngine {
         id: `member_${id++}`,
         name: getRandomName('paladin'),
         class: 'paladin',
+        spec: 'holy_paladin',  // Healer paladins are Holy spec
         role: 'healer',
         currentHealth: maxHealth,
         maxHealth,
@@ -495,10 +498,13 @@ export class GameEngine {
     for (let i = 0; i < remainingHealers; i++) {
       const wowClass = otherHealerClasses[i % otherHealerClasses.length];
       const maxHealth = getRandomHealth(wowClass, false);
+      // Assign appropriate healer spec
+      const spec = wowClass === 'priest' ? 'holy_priest' : 'restoration';
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(wowClass),
         class: wowClass,
+        spec,
         role: 'healer',
         currentHealth: maxHealth,
         maxHealth,
@@ -514,6 +520,17 @@ export class GameEngine {
 
     // DPS - ensure we have mages, warlocks, druids for buffs
     const dpsClasses: WoWClass[] = ['mage', 'warlock', 'druid', 'rogue', 'hunter', 'warrior'];
+    // Default DPS specs for each class
+    const dpsSpecs: Record<WoWClass, WoWSpec> = {
+      mage: 'fire_mage',
+      warlock: 'destruction',
+      druid: 'balance',  // Moonkin - provides Moonkin Aura!
+      rogue: 'combat',
+      hunter: 'marksmanship',  // Provides Trueshot Aura!
+      warrior: 'fury',
+      paladin: 'retribution',  // Not used in initial DPS pool but needed for typing
+      priest: 'shadow',  // Not used in initial DPS pool but needed for typing
+    };
     for (let i = 0; i < composition.dps; i++) {
       const wowClass = dpsClasses[i % dpsClasses.length];
       const maxHealth = getRandomHealth(wowClass, false);
@@ -521,6 +538,7 @@ export class GameEngine {
         id: `member_${id++}`,
         name: getRandomName(wowClass),
         class: wowClass,
+        spec: dpsSpecs[wowClass],
         role: 'dps',
         currentHealth: maxHealth,
         maxHealth,
@@ -595,6 +613,71 @@ export class GameEngine {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  // =========================================================================
+  // CLASS/SPEC MANAGEMENT METHODS
+  // =========================================================================
+
+  // Change a raid member's class and spec (cannot change player)
+  changeMemberClassAndSpec(memberId: string, newClass: WoWClass, newSpec: WoWSpec): void {
+    if (this.state.isRunning) return;  // Can't change during combat
+    if (memberId === PLAYER_ID) return;  // Can't change player - they're always Holy Paladin
+
+    const member = this.state.raid.find(m => m.id === memberId);
+    if (!member) return;
+
+    // Validate that the spec belongs to the class
+    const classSpecs = CLASS_SPECS[newClass];
+    const specDef = classSpecs.find(s => s.id === newSpec);
+    if (!specDef) return;  // Invalid spec for this class
+
+    // Update member
+    member.class = newClass;
+    member.spec = newSpec;
+    member.role = specDef.role;
+
+    // Update health based on new class and role
+    const healthRange = CLASS_HEALTH[newClass];
+    const baseHealth = Math.floor(Math.random() * (healthRange.max - healthRange.min) + healthRange.min);
+    member.maxHealth = specDef.role === 'tank' ? Math.floor(baseHealth * 1.4) : baseHealth;
+    member.currentHealth = member.maxHealth;
+
+    // If changing a paladin, may need to update paladin aura assignments
+    if (member.class !== 'paladin') {
+      // Remove any aura assignment for this member (they're no longer a paladin)
+      this.state.paladinAuraAssignments = this.state.paladinAuraAssignments.filter(
+        a => a.paladinId !== memberId
+      );
+    } else {
+      // If they became a paladin, initialize their aura assignment
+      const existingAssignment = this.state.paladinAuraAssignments.find(a => a.paladinId === memberId);
+      if (!existingAssignment) {
+        this.state.paladinAuraAssignments.push({ paladinId: memberId, auraId: null });
+      }
+    }
+
+    // Recalculate max paladin blessings based on new paladin count
+    const paladinCount = this.state.raid.filter(m => m.class === 'paladin').length;
+    this.state.maxPaladinBlessings = paladinCount;
+
+    this.notify();
+  }
+
+  // Get the role for a spec
+  getSpecRole(spec: WoWSpec): 'tank' | 'healer' | 'dps' {
+    for (const classSpecs of Object.values(CLASS_SPECS)) {
+      const specDef = classSpecs.find(s => s.id === spec);
+      if (specDef) return specDef.role;
+    }
+    return 'dps';  // Default fallback
+  }
+
+  // Helper to derive a default spec from class and role (for loading old saves without spec data)
+  getDefaultSpecForClassRole(wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): WoWSpec {
+    const specs = CLASS_SPECS[wowClass];
+    const matchingSpec = specs.find(s => s.role === role);
+    return matchingSpec?.id || specs[0].id;
   }
 
   private notify() {
@@ -1975,7 +2058,7 @@ export class GameEngine {
 
   saveGame(slotName: string = 'default') {
     const saveData = {
-      version: 5, // Bumped for player bag support
+      version: 6, // Bumped for spec and paladin aura assignments support
       timestamp: Date.now(),
       player: {
         name: this.state.playerName,
@@ -1988,6 +2071,7 @@ export class GameEngine {
         id: m.id,
         name: m.name,
         class: m.class,
+        spec: m.spec, // v6: Spec support
         role: m.role,
         maxHealth: m.maxHealth,
         dps: m.dps,
@@ -2001,6 +2085,7 @@ export class GameEngine {
       selectedRaidId: this.state.selectedRaidId, // Currently selected raid (v4+)
       firstKills: this.state.firstKills, // Permanent boss kills for world buff unlocks (v4+)
       activePaladinBlessings: this.state.activePaladinBlessings,
+      paladinAuraAssignments: this.state.paladinAuraAssignments, // v6: Paladin aura assignments
       unlockedWorldBuffs: this.state.unlockedWorldBuffs, // Persist world buff unlocks
       bossKillsWithoutPaladinLoot: this.state.bossKillsWithoutPaladinLoot, // Bad luck protection
     };
@@ -2058,6 +2143,7 @@ export class GameEngine {
           id: string;
           name: string;
           class: WoWClass;
+          spec?: WoWSpec;
           role: 'tank' | 'healer' | 'dps';
           maxHealth: number;
           dps: number;
@@ -2068,6 +2154,7 @@ export class GameEngine {
           id: saved.id,
           name: saved.name,
           class: saved.class,
+          spec: saved.spec || this.getDefaultSpecForClassRole(saved.class, saved.role), // v6: Restore spec or derive from class/role
           role: saved.role,
           currentHealth: saved.maxHealth,
           maxHealth: saved.maxHealth,
@@ -2087,6 +2174,11 @@ export class GameEngine {
         }
         if (data.activePaladinBlessings) {
           this.state.activePaladinBlessings = data.activePaladinBlessings;
+        }
+
+        // Restore paladin aura assignments (v6+)
+        if (data.paladinAuraAssignments) {
+          this.state.paladinAuraAssignments = data.paladinAuraAssignments;
         }
 
         // Update max paladin blessings based on raid size
@@ -3024,11 +3116,17 @@ export class GameEngine {
     const baseHealth = (classHealth.min + classHealth.max) / 2;
     const maxHealth = role === 'tank' ? Math.floor(baseHealth * 1.4) : Math.floor(baseHealth);
 
+    // Determine default spec for the class/role combination
+    const classSpecs = CLASS_SPECS[wowClass];
+    const matchingSpec = classSpecs.find(s => s.role === role);
+    const spec = matchingSpec?.id || classSpecs[0].id;
+
     // Create new member
     const newMember: RaidMember = {
       id: newId,
       name: sanitizedName,
       class: wowClass,
+      spec,
       role,
       currentHealth: maxHealth,
       maxHealth,
