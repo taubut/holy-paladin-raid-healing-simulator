@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fix Save - Add Lawbringer Helm</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a2e; color: #eee; }
+    button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #4a4a8a; color: white; border: none; border-radius: 5px; }
+    button:hover { background: #6a6aaa; }
+    .success { color: #4ade80; }
+    .error { color: #f87171; }
+    #output { margin-top: 20px; padding: 10px; background: #2a2a4e; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Fix Save - Add Lawbringer Helm</h1>
+  <p>This will add the Lawbringer Helm to your Littlesimpin2 save.</p>
+
+  <button onclick="listSaves()">1. List All Saves</button>
+  <button onclick="fixSave()">2. Add Lawbringer Helm to Littlesimpin2</button>
+
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+
+    function listSaves() {
+      output.innerHTML = '<h3>Found Saves:</h3>';
+      let found = false;
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('mc_healer_save_')) {
+          const saveName = key.replace('mc_healer_save_', '');
+          output.innerHTML += '<p>• ' + saveName + '</p>';
+          found = true;
+        }
+      }
+      if (!found) {
+        output.innerHTML += '<p class="error">No saves found!</p>';
+      }
+    }
+
+    function fixSave() {
+      const saveName = 'Littlesimpin2';
+      const saveKey = 'mc_healer_save_' + saveName;
+      const raw = localStorage.getItem(saveKey);
+
+      if (!raw) {
+        output.innerHTML = '<p class="error">Save "' + saveName + '" not found! Click "List All Saves" to see available saves.</p>';
+        return;
+      }
+
+      const saveData = JSON.parse(raw);
+
+      // Add Lawbringer Helm
+      const helm = {
+        id: 'lawbringer_helm',
+        name: 'Lawbringer Helm',
+        slot: 'head',
+        rarity: 'epic',
+        itemLevel: 66,
+        classes: ['paladin'],
+        stats: { stamina: 20, intellect: 24, spirit: 10, spellPower: 12, mp5: 4 },
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_helmet_22.jpg',
+        setId: 'lawbringer'
+      };
+
+      saveData.player.equipment.head = helm;
+
+      // Update raid member
+      const playerMember = saveData.raidMembers.find(m => m.id === 'player');
+      if (playerMember) {
+        playerMember.equipment.head = helm;
+        let score = 0;
+        Object.values(playerMember.equipment).forEach(item => {
+          if (item) score += item.itemLevel;
+        });
+        playerMember.gearScore = score;
+      }
+
+      localStorage.setItem(saveKey, JSON.stringify(saveData));
+      output.innerHTML = '<p class="success">SUCCESS! Lawbringer Helm added to ' + saveName + '!</p><p>Now go back to <a href="http://localhost:5173" style="color:#60a5fa">http://localhost:5173</a> and load your save.</p>';
+    }
+  </script>
+</body>
+</html>

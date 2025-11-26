@@ -1,0 +1,129 @@
+/* Classic WoW style player frame */
+
+.player-frame {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 3px solid #4a4a5a;
+  border-radius: 4px;
+  min-width: 250px;
+}
+
+.player-portrait {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border: 2px solid #ffd700; /* Gold for paladin */
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.portrait-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.divine-favor-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, transparent 70%);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.player-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.player-name {
+  font-size: 12px;
+  font-weight: bold;
+  color: #f58cba; /* Paladin class color */
+  text-shadow: 1px 1px 2px #000;
+}
+
+.mana-bar-container {
+  position: relative;
+  height: 18px;
+  background: #1a1a3a;
+  border: 1px solid #3a3a5a;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mana-bar {
+  height: 100%;
+  background: linear-gradient(180deg, #4488ff 0%, #2266cc 50%, #1144aa 100%);
+  transition: width 0.2s ease;
+}
+
+.mana-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.player-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+}
+
+.stat {
+  color: #aaa;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.divine-favor-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 215, 0, 0.2);
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+  animation: glow 1s ease-in-out infinite alternate;
+}
+
+.divine-favor-indicator img {
+  width: 20px;
+  height: 20px;
+  border-radius: 2px;
+}
+
+.divine-favor-indicator span {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 1px 1px 2px #000;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 4px rgba(255, 215, 0, 0.4);
+  }
+  to {
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.8);
+  }
+}

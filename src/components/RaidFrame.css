@@ -1,0 +1,191 @@
+/* Classic WoW style raid frames */
+
+.raid-frame {
+  position: relative;
+  width: 120px;
+  height: 50px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 2px solid #3a3a4a;
+  border-radius: 3px;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  transition: all 0.1s ease;
+}
+
+.raid-frame:hover {
+  border-color: #5a5a7a;
+  transform: scale(1.02);
+}
+
+.raid-frame.selected {
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+
+.raid-frame.dead {
+  opacity: 0.5;
+  background: linear-gradient(180deg, #2a1a1a 0%, #1a0f0f 100%);
+}
+
+/* Highlight for dispellable debuffs - yellow glow */
+.raid-frame.has-dispellable {
+  border-color: #ffff00;
+  box-shadow: 0 0 8px rgba(255, 255, 0, 0.6), inset 0 0 8px rgba(255, 255, 0, 0.2);
+  animation: dispel-pulse 1s ease-in-out infinite;
+}
+
+.raid-frame.has-dispellable.selected {
+  border-color: #ffff88;
+  box-shadow: 0 0 12px rgba(255, 255, 0, 0.8), 0 0 8px rgba(255, 255, 0, 0.5);
+}
+
+@keyframes dispel-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 6px rgba(255, 255, 0, 0.4), inset 0 0 6px rgba(255, 255, 0, 0.1);
+  }
+
+  50% {
+    box-shadow: 0 0 12px rgba(255, 255, 0, 0.8), inset 0 0 10px rgba(255, 255, 0, 0.3);
+  }
+}
+
+.class-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.member-name {
+  font-size: 11px;
+  font-weight: bold;
+  padding: 4px 4px 0 4px;
+  text-shadow: 1px 1px 1px #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.health-bar-container {
+  position: relative;
+  margin: 4px;
+  height: 20px;
+  background: #1a0a0a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.health-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transition: width 0.1s ease, background-color 0.3s ease;
+  background: linear-gradient(180deg, #00cc00 0%, #009900 100%);
+}
+
+.health-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+  color: #fff;
+}
+
+.current-health {
+  color: #fff;
+}
+
+.missing-health {
+  color: #ff6666;
+  margin-left: 2px;
+  font-size: 10px;
+}
+
+.dead-text {
+  color: #ff4444;
+  letter-spacing: 1px;
+}
+
+.role-indicator {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 10px;
+}
+
+.buff-container,
+.debuff-container {
+  position: absolute;
+  bottom: -18px;
+  left: 0;
+  display: flex;
+  gap: 2px;
+}
+
+.debuff-container {
+  right: 0;
+  left: auto;
+}
+
+.buff-icon,
+.debuff-icon {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #4a4;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.debuff-icon {
+  border-color: #a44;
+}
+
+.debuff-icon.debuff-magic {
+  border-color: #44a;
+}
+
+.debuff-icon.debuff-poison {
+  border-color: #4a4;
+}
+
+.debuff-icon.debuff-disease {
+  border-color: #a84;
+}
+
+.debuff-icon.debuff-curse {
+  border-color: #a4a;
+}
+
+.buff-icon img,
+.debuff-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.buff-duration,
+.debuff-duration {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 1px 1px 1px #000;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 0 2px;
+  border-radius: 2px 0 0 0;
+}

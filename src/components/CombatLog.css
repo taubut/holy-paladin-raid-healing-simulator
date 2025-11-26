@@ -1,0 +1,86 @@
+/* Classic WoW style combat log */
+
+.combat-log {
+  width: 350px;
+  height: 200px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #4a4a5a;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.combat-log-header {
+  padding: 6px 10px;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border-bottom: 1px solid #4a4a5a;
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffd700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.combat-log-entries {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.combat-log-entries::-webkit-scrollbar {
+  width: 8px;
+}
+
+.combat-log-entries::-webkit-scrollbar-track {
+  background: #1a1a2a;
+}
+
+.combat-log-entries::-webkit-scrollbar-thumb {
+  background: #4a4a5a;
+  border-radius: 4px;
+}
+
+.log-entry {
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.log-time {
+  color: #666;
+  margin-right: 8px;
+}
+
+.log-message {
+  color: #ccc;
+}
+
+/* Entry type colors */
+.log-heal .log-message {
+  color: #00ff00;
+}
+
+.log-heal.crit .log-message {
+  color: #88ff88;
+  text-shadow: 0 0 4px rgba(136, 255, 136, 0.5);
+}
+
+.log-damage .log-message {
+  color: #ff4444;
+}
+
+.log-buff .log-message {
+  color: #ffd700;
+}
+
+.log-debuff .log-message {
+  color: #ff8844;
+}
+
+.log-system .log-message {
+  color: #ffff00;
+  font-style: italic;
+}

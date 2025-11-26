@@ -1,0 +1,163 @@
+/* Classic WoW style boss frame */
+
+.boss-frame {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: linear-gradient(180deg, #2a1a1a 0%, #1a0f0f 100%);
+  border: 3px solid #8b0000;
+  border-radius: 4px;
+  min-width: 280px;
+}
+
+.boss-frame.enraging {
+  animation: enrage-pulse 0.5s ease-in-out infinite;
+  border-color: #ff4400;
+}
+
+@keyframes enrage-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(255, 68, 0, 0.5);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(255, 68, 0, 0.8);
+  }
+}
+
+.boss-portrait-container {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.boss-portrait {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  top: 50%;
+  left: 8px;
+  transform: translateY(-50%);
+  border: 2px solid #8b0000;
+  border-radius: 50%;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.boss-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dragon-frame-overlay {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 80px;
+  height: 80px;
+  pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
+}
+
+.boss-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.boss-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffcc00;
+  text-shadow: 1px 1px 2px #000;
+  margin-bottom: 4px;
+}
+
+.boss-health-container {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  background: #1a0a0a;
+  border: 1px solid #444;
+  border-radius: 2px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+
+.boss-health-bar {
+  height: 100%;
+  background: linear-gradient(180deg, #cc0000 0%, #990000 100%);
+  transition: width 0.2s ease;
+}
+
+.boss-health-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.enrage-bar-container {
+  position: relative;
+  height: 16px;
+  background: #1a1a1a;
+  border: 1px solid #4a3030;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.enrage-bar {
+  height: 100%;
+  background: linear-gradient(180deg, #884400 0%, #662200 100%);
+  transition: width 0.5s linear;
+}
+
+.enrage-bar.danger {
+  background: linear-gradient(180deg, #ff4400 0%, #cc2200 100%);
+  animation: danger-pulse 0.3s ease-in-out infinite;
+}
+
+@keyframes danger-pulse {
+
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.enrage-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.boss-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #888;
+}

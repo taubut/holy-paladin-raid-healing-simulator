@@ -1,0 +1,44 @@
+:root {
+  font-family: 'Segoe UI', 'Friz Quadrata', Arial, sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: #ffffff;
+  background-color: #0a0a12;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Prevent text selection during gameplay */
+.app {
+  user-select: none;
+}
+
+/* Allow text selection in combat log */
+.combat-log-entries {
+  user-select: text;
+}

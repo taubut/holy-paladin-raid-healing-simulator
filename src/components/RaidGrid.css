@@ -1,0 +1,41 @@
+/* Raid grid layout - Classic WoW style */
+
+.raid-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 5px;
+  transition: all 0.3s ease;
+  max-width: 600px;
+}
+
+.raid-grid.in-combat {
+  background: rgba(40, 0, 0, 0.2);
+  box-shadow: inset 0 0 20px rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+.raid-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.group-header {
+  font-size: 10px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-left: 4px;
+  border-bottom: 1px solid #333;
+  margin-bottom: 4px;
+}
+
+.group-members {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  /* Extra space for debuff icons */
+}

@@ -1,0 +1,61 @@
+/* Classic WoW style score board */
+
+.score-board {
+  padding: 12px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 2px solid #4a4a5a;
+  border-radius: 4px;
+  min-width: 200px;
+}
+
+.score-header {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffd700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #3a3a4a;
+  margin-bottom: 8px;
+}
+
+.score-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #888;
+}
+
+.stat-value {
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 1px #000;
+}
+
+.stat-value.score {
+  color: #ffd700;
+  font-size: 14px;
+}
+
+.stat-value.heal {
+  color: #00ff00;
+}
+
+.stat-value.overheal {
+  color: #888;
+}
+
+.stat-value.warning {
+  color: #ff8844;
+}
