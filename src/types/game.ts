@@ -12,6 +12,7 @@ export interface RaidMember {
   isAlive: boolean;
   dps: number;
   group: number; // 1-8 for 40-man raid
+  lastCritHealTime?: number; // Timestamp of last crit heal received (for animation)
 }
 
 export type WoWClass =
@@ -23,6 +24,26 @@ export type WoWClass =
   | 'mage'
   | 'warlock'
   | 'druid';
+
+// Resource types for different classes
+export type ResourceType = 'mana' | 'rage' | 'energy';
+
+// Determine resource type based on class and role
+export function getResourceType(wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): ResourceType {
+  switch (wowClass) {
+    case 'warrior':
+      return 'rage';
+    case 'rogue':
+      return 'energy';
+    case 'druid':
+      if (role === 'healer') return 'mana';  // Resto druid
+      if (role === 'dps') return 'energy';   // Cat druid (feral DPS)
+      if (role === 'tank') return 'rage';    // Bear druid (feral tank)
+      return 'mana';
+    default:
+      return 'mana';  // All other classes use mana
+  }
+}
 
 export interface Buff {
   id: string;

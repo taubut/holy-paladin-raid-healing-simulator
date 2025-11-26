@@ -12,6 +12,26 @@ export type WoWClass =
   | 'warlock'
   | 'druid';
 
+// Resource types for different classes
+export type ResourceType = 'mana' | 'rage' | 'energy';
+
+// Determine resource type based on class and role
+export function getResourceType(wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): ResourceType {
+  switch (wowClass) {
+    case 'warrior':
+      return 'rage';  // Always rage
+    case 'rogue':
+      return 'energy';  // Always energy
+    case 'druid':
+      if (role === 'healer') return 'mana';  // Resto druid
+      if (role === 'dps') return 'energy';   // Cat druid (feral DPS)
+      if (role === 'tank') return 'rage';    // Bear druid (feral tank)
+      return 'mana';  // Moonkin/Balance (though marked as dps, moonkin uses mana)
+    default:
+      return 'mana';  // All other classes use mana
+  }
+}
+
 export interface Buff {
   id: string;
   name: string;
@@ -129,6 +149,7 @@ export interface RaidMember {
   group: number;
   equipment: Equipment;
   gearScore: number;
+  lastCritHealTime?: number; // Timestamp of last crit heal received (for animation)
 }
 
 export interface Spell {
@@ -235,6 +256,8 @@ export interface GameState {
   legendaryMaterials: LegendaryMaterialId[]; // Materials the player has collected
   // Player bag for storing extra gear
   playerBag: GearItem[]; // Items in the player's inventory bag
+  // Five-Second Rule tracking
+  lastSpellCastTime: number; // Elapsed time when last spell was cast (for FSR)
 }
 
 // Class colors matching Classic WoW

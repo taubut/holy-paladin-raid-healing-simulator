@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { RaidMember } from '../types/game';
+import { getResourceType } from '../types/game';
 import { CLASS_COLORS } from '../data/raid';
 import './RaidFrame.css';
 
@@ -9,7 +10,17 @@ interface RaidFrameProps {
   onClick: () => void;
 }
 
+// Resource bar color mapping
+const RESOURCE_COLORS = {
+  mana: 'linear-gradient(180deg, #0066cc 0%, #003366 100%)',
+  rage: 'linear-gradient(180deg, #cc0000 0%, #660000 100%)',
+  energy: 'linear-gradient(180deg, #cccc00 0%, #666600 100%)',
+};
+
 export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, onClick }) => {
+  const [showCritAnim, setShowCritAnim] = useState(false);
+  const [lastCritTime, setLastCritTime] = useState<number | undefined>(undefined);
+
   // Debug log for specific member updates (e.g. the first tank)
   useEffect(() => {
     if (member.role === 'tank' && member.group === 1 && member.id.endsWith('0')) {
@@ -17,8 +28,20 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, onClic
     }
   }, [member]);
 
+  // Track crit heal animation
+  useEffect(() => {
+    if (member.lastCritHealTime && member.lastCritHealTime !== lastCritTime) {
+      setLastCritTime(member.lastCritHealTime);
+      setShowCritAnim(true);
+      const timer = setTimeout(() => setShowCritAnim(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [member.lastCritHealTime, lastCritTime]);
+
   const healthPercent = Math.max(0, Math.min(100, (member.currentHealth / member.maxHealth) * 100));
   const classColor = CLASS_COLORS[member.class];
+  const resourceType = getResourceType(member.class, member.role);
+  const resourceColor = RESOURCE_COLORS[resourceType];
 
   // Check if member has a dispellable debuff (magic, poison, or disease)
   const hasDispellableDebuff = member.debuffs.some(
@@ -40,7 +63,7 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, onClic
 
   return (
     <div
-      className={`raid-frame ${isSelected ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellableDebuff ? 'has-dispellable' : ''}`}
+      className={`raid-frame ${isSelected ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellableDebuff ? 'has-dispellable' : ''} ${showCritAnim ? 'crit-heal' : ''}`}
       onClick={onClick}
       role="button"
       tabIndex={0}
@@ -74,6 +97,14 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, onClic
             <span className="dead-text">DEAD</span>
           )}
         </div>
+      </div>
+
+      {/* Resource bar - shows mana/rage/energy with appropriate color */}
+      <div className="resource-bar-container">
+        <div
+          className={`resource-bar resource-${resourceType}`}
+          style={{ background: resourceColor }}
+        />
       </div>
 
       {/* Role indicator */}

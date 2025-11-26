@@ -384,6 +384,8 @@ export class GameEngine {
       legendaryMaterials: [],
       // Player bag for storing extra gear
       playerBag: [],
+      // Five-Second Rule tracking
+      lastSpellCastTime: -10, // Start with full regen (as if no spell cast in last 10 seconds)
     };
   }
 
@@ -870,6 +872,7 @@ export class GameEngine {
     if (spell.id === 'divine_favor') {
       this.state.divineFavorActive = true;
       this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
       this.addCombatLogEntry({ message: 'Divine Favor activated - next heal will crit!', type: 'buff' });
       this.notify();
@@ -889,6 +892,7 @@ export class GameEngine {
     // Blessing of Light - instant buff application
     if (spell.id === 'blessing_of_light') {
       this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
 
       // Remove existing BoL and add new one
@@ -920,6 +924,7 @@ export class GameEngine {
       }
 
       this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
       target.debuffs = target.debuffs.filter(d => d.id !== dispellable.id);
       this.addCombatLogEntry({ message: `Cleansed ${dispellable.name} from ${target.name}`, type: 'buff' });
@@ -941,6 +946,7 @@ export class GameEngine {
 
       target.currentHealth = target.maxHealth;
       this.state.playerMana = 0; // Drains all mana
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
       this.state.healingDone += actualHeal;
       this.state.overhealing += overheal;
@@ -965,6 +971,7 @@ export class GameEngine {
       }
 
       this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
 
@@ -1000,6 +1007,7 @@ export class GameEngine {
 
           // Deduct mana when cast completes
           this.state.playerMana -= spell.manaCost;
+          this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
 
           const currentTarget = this.state.raid.find(m => m.id === this.state.selectedTargetId);
           if (currentTarget && currentTarget.isAlive) {
@@ -1051,6 +1059,20 @@ export class GameEngine {
 
     if (isCrit) {
       totalHeal = Math.floor(totalHeal * 1.5);
+
+      // Illumination: Refund 60% of base mana cost on crit
+      const illuminationRefund = Math.floor(spell.manaCost * 0.6);
+      this.state.playerMana = Math.min(
+        this.state.maxMana,
+        this.state.playerMana + illuminationRefund
+      );
+      this.addCombatLogEntry({
+        message: `Illumination! Refunded ${illuminationRefund} mana`,
+        type: 'buff',
+      });
+
+      // Track crit heal time for animation
+      target.lastCritHealTime = Date.now();
     }
 
     const actualHeal = Math.min(totalHeal, target.maxHealth - target.currentHealth);
@@ -1102,9 +1124,26 @@ export class GameEngine {
         this.state.manaPotionCooldown = Math.max(0, this.state.manaPotionCooldown - delta);
       }
 
-      // Mana regen (mp5)
+      // Mana regen with Five-Second Rule (FSR)
       if (!this.state.isCasting) {
-        this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + (100 / 5) * delta);
+        const timeSinceLastCast = this.state.elapsedTime - this.state.lastSpellCastTime;
+        const isInFSR = timeSinceLastCast < 5; // Within 5-second rule
+
+        // Get MP5 from gear
+        const mp5FromGear = this.computePlayerStats().totalMp5;
+
+        if (isInFSR) {
+          // Inside FSR: Only MP5 from gear works
+          const mp5Regen = (mp5FromGear / 5) * delta;
+          this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + mp5Regen);
+        } else {
+          // Outside FSR: Full regen (base + spirit + MP5)
+          const baseRegen = 10; // Base per-second regen
+          const spiritRegen = this.getSpiritBasedRegen();
+          const mp5Regen = mp5FromGear / 5;
+          const totalRegen = (baseRegen + spiritRegen + mp5Regen) * delta;
+          this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + totalRegen);
+        }
       }
 
       // Process phase transitions for multi-phase bosses (like Onyxia)
@@ -1353,6 +1392,11 @@ export class GameEngine {
   // =========================================================================
 
   private handleBossVictory(bossId: string) {
+    // Play victory fanfare
+    const fanfare = new Audio('/sounds/FF_Fanfare.mp3');
+    fanfare.volume = 0.5;
+    fanfare.play().catch(() => {}); // Ignore autoplay restrictions
+
     // Stop the encounter first
     this.state.isRunning = false;
     if (this.intervalId !== null) {
@@ -1474,6 +1518,21 @@ export class GameEngine {
       totalCritChance: crit,
       totalMp5: mp5,
     };
+  }
+
+  // Calculate spirit-based mana regeneration (per second)
+  private getSpiritBasedRegen(): number {
+    // Get spirit from buffs
+    let spirit = 0;
+    this.state.playerBuffs.forEach(buff => {
+      if (buff.effect?.spiritBonus) {
+        spirit += buff.effect.spiritBonus;
+      }
+    });
+
+    // Classic formula: Spirit / 5 gives roughly the per-second regen
+    // Base Holy Paladin has minimal spirit, but buffs can add significant amounts
+    return spirit / 5;
   }
 
   // Calculate gear score for a member

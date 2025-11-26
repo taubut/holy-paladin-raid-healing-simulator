@@ -41,6 +41,9 @@ function App() {
   const [adminNewMemberRole, setAdminNewMemberRole] = useState<'tank' | 'healer' | 'dps'>('dps');
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingMemberName, setEditingMemberName] = useState('');
+  // Phase transition alert
+  const [phaseAlert, setPhaseAlert] = useState<string | null>(null);
+  const lastPhaseRef = useRef<number>(1);
 
   // Initialize engine once
   if (!engineRef.current) {
@@ -56,6 +59,31 @@ function App() {
     });
     return unsubscribe;
   }, [engine]);
+
+  // Phase transition detection
+  const state = engine.getState();
+  useEffect(() => {
+    const currentPhase = state.boss?.currentPhase || 1;
+    if (currentPhase !== lastPhaseRef.current && state.isRunning) {
+      // Find the phase transition message
+      const transition = state.boss?.phaseTransitions?.find(t => t.phase === currentPhase);
+      if (transition) {
+        setPhaseAlert(transition.message);
+        // Clear the alert after 3 seconds
+        const timer = setTimeout(() => setPhaseAlert(null), 3000);
+        return () => clearTimeout(timer);
+      }
+    }
+    lastPhaseRef.current = currentPhase;
+  }, [state.boss?.currentPhase, state.isRunning, state.boss?.phaseTransitions]);
+
+  // Reset phase tracking when encounter ends
+  useEffect(() => {
+    if (!state.isRunning) {
+      lastPhaseRef.current = 1;
+      setPhaseAlert(null);
+    }
+  }, [state.isRunning]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -90,7 +118,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [engine, showInventory]);
 
-  const state = engine.getState();
   const actionBar = engine.getActionBar();
 
   const formatTime = (seconds: number) => {
@@ -185,7 +212,7 @@ function App() {
         {/* Left Panel - Player, Boss, Raid */}
         <div className="left-panel">
           {/* Player Frame */}
-          <div className="player-frame">
+          <div className={`player-frame ${(state.playerMana / state.maxMana) < 0.20 ? 'low-mana' : ''}`}>
             <div className="player-portrait">
               <img
                 src="https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg"
@@ -237,7 +264,10 @@ function App() {
               </div>
               <div className="mana-bar-container">
                 <div
-                  className="mana-bar"
+                  className={`mana-bar ${
+                    (state.playerMana / state.maxMana) < 0.15 ? 'critical' :
+                    (state.playerMana / state.maxMana) < 0.30 ? 'warning' : ''
+                  }`}
                   style={{ width: `${(state.playerMana / state.maxMana) * 100}%` }}
                 />
                 <div className="mana-text">
@@ -269,11 +299,23 @@ function App() {
             )}
           </div>
 
+          {/* Phase Transition Alert */}
+          {phaseAlert && (
+            <div className="phase-alert">
+              {phaseAlert}
+            </div>
+          )}
+
           {/* Boss Frame */}
           {state.boss && (
             <div className="boss-frame">
               <div className="boss-info">
-                <div className="boss-name">{state.boss.name}</div>
+                <div className="boss-name">
+                  {state.boss.name}
+                  {state.boss.currentPhase && state.boss.currentPhase > 1 && (
+                    <span className="phase-indicator"> - Phase {state.boss.currentPhase}</span>
+                  )}
+                </div>
                 <div className="boss-health-container">
                   <div
                     className="boss-health-bar"
