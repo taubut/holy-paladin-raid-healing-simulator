@@ -10,6 +10,8 @@ import { calculateDKPCost } from './game/lootTables';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
 import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
+import { TOTEMS_BY_ELEMENT } from './game/totems';
+import type { TotemElement } from './game/types';
 import './App.css';
 
 
@@ -228,7 +230,7 @@ function App() {
       <div className="background-overlay" />
 
       <header className="app-header">
-        <h1>Holy Paladin Raid Healing Simulator</h1>
+        <h1>Classic WoW Raid Healing Simulator</h1>
         <span className="subtitle">Classic Era - Vanilla Only</span>
       </header>
 
@@ -239,8 +241,10 @@ function App() {
           <div className={`player-frame ${(state.playerMana / state.maxMana) < 0.20 ? 'low-mana' : ''}`}>
             <div className="player-portrait">
               <img
-                src="https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg"
-                alt="Holy Paladin"
+                src={state.playerClass === 'shaman'
+                  ? "https://wow.zamimg.com/images/wow/icons/large/spell_nature_magicimmunity.jpg"
+                  : "https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : "Holy Paladin"}
                 className="player-class-icon"
               />
             </div>
@@ -279,12 +283,16 @@ function App() {
                       }
                     }}
                     title={!state.isRunning ? "Click to rename" : ""}
+                    style={{ color: CLASS_COLORS[state.playerClass] }}
                   >
                     {state.playerName}
                   </span>
                 )}
-                <span className="player-class">Holy Paladin</span>
-                {state.divineFavorActive && <span className="divine-favor-active">Divine Favor!</span>}
+                <span className="player-class" style={{ color: CLASS_COLORS[state.playerClass] }}>
+                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : 'Holy Paladin'}
+                </span>
+                {state.playerClass === 'paladin' && state.divineFavorActive && <span className="divine-favor-active">Divine Favor!</span>}
+                {state.playerClass === 'shaman' && state.naturesSwiftnessActive && <span className="divine-favor-active">Nature&apos;s Swiftness!</span>}
               </div>
               <div className="mana-bar-container">
                 <div
@@ -375,10 +383,16 @@ function App() {
                         const isPlayer = member.id === state.playerId;
                         const recentCritHeal = member.lastCritHealTime && (Date.now() - member.lastCritHealTime) < 500;
 
+                        // Chain Heal bounce preview - show glow on targets that will receive bounces
+                        const isChainHealBounceTarget = state.isCasting &&
+                          state.castingSpell?.id.includes('chain_heal') &&
+                          state.selectedTargetId &&
+                          engine.getChainHealBounceTargets(state.selectedTargetId, state.castingSpell?.maxBounces || 2).includes(member.id);
+
                         return (
                           <div
                             key={member.id}
-                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''}`}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''}`}
                             onClick={() => {
                               if (state.isRunning) {
                                 engine.selectTarget(member.id);
@@ -536,6 +550,25 @@ function App() {
                 })}
               </div>
               <div className="raid-controls">
+                {/* Faction Toggle */}
+                <div className="faction-toggle">
+                  <button
+                    className={`faction-btn ${state.faction === 'alliance' ? 'active alliance' : ''}`}
+                    onClick={() => engine.switchFaction('alliance')}
+                    disabled={state.isRunning}
+                    title="Play as Alliance Holy Paladin"
+                  >
+                    Alliance
+                  </button>
+                  <button
+                    className={`faction-btn ${state.faction === 'horde' ? 'active horde' : ''}`}
+                    onClick={() => engine.switchFaction('horde')}
+                    disabled={state.isRunning}
+                    title="Play as Horde Restoration Shaman"
+                  >
+                    Horde
+                  </button>
+                </div>
                 <div className="raid-size-buttons">
                   <button
                     onClick={() => engine.resetRaid(20)}
@@ -689,6 +722,54 @@ function App() {
             )}
           </div>
 
+          {/* Totem Bar - Only shown for Shaman */}
+          {state.playerClass === 'shaman' && (
+            <div className="totem-bar">
+              {(['earth', 'fire', 'water', 'air'] as TotemElement[]).map(element => {
+                const activeTotem = state.activeTotems.find(t => t.element === element);
+                const availableTotems = TOTEMS_BY_ELEMENT[element];
+
+                return (
+                  <div key={element} className={`totem-element-group ${element}`}>
+                    <div className="totem-element-label">{element.charAt(0).toUpperCase() + element.slice(1)}</div>
+                    <div className="totem-buttons">
+                      {availableTotems.map(totem => {
+                        const isActive = activeTotem?.id === totem.id;
+                        const cooldown = state.totemCooldowns.find(tc => tc.totemId === totem.id);
+                        const isOnCooldown = cooldown && cooldown.remainingCooldown > 0;
+                        const notEnoughMana = state.playerMana < totem.manaCost;
+                        const isOnGCD = state.globalCooldown > 0;
+                        const isDisabled = isOnCooldown || notEnoughMana || isOnGCD || state.isCasting;
+
+                        return (
+                          <div
+                            key={totem.id}
+                            className={`totem-button ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                            onClick={() => !isDisabled && engine.dropTotem(totem.id)}
+                            title={`${totem.name} - ${totem.manaCost} mana${totem.cooldown > 0 ? ` (${totem.cooldown}s CD)` : ''}`}
+                          >
+                            <img src={totem.icon} alt={totem.name} />
+                            {isActive && activeTotem && (
+                              <div className="totem-duration">{Math.ceil(activeTotem.remainingDuration)}s</div>
+                            )}
+                            {isOnCooldown && cooldown && (
+                              <div className="cooldown-overlay">
+                                <span>{Math.ceil(cooldown.remainingCooldown)}</span>
+                              </div>
+                            )}
+                            {notEnoughMana && !isOnCooldown && (
+                              <div className="no-mana-overlay" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Spell Tooltip - Shows when hovering over action bar spells (out of encounter) */}
           {hoveredSpell && !state.isRunning && (
             <div className="spell-tooltip">
@@ -756,30 +837,32 @@ function App() {
                 </div>
               </div>
 
-              {/* Paladin Blessings Section */}
-              <div className="paladin-blessings-section">
-                <div className="blessings-header">
-                  <span>Paladin Blessings</span>
-                  <span className="blessing-slots">
-                    ({state.activePaladinBlessings.length}/{state.maxPaladinBlessings} slots)
-                  </span>
+              {/* Paladin Blessings Section - Only show for Alliance (Horde has no Paladins) */}
+              {state.faction === 'alliance' && (
+                <div className="paladin-blessings-section">
+                  <div className="blessings-header">
+                    <span>Paladin Blessings</span>
+                    <span className="blessing-slots">
+                      ({state.activePaladinBlessings.length}/{state.maxPaladinBlessings} slots)
+                    </span>
+                  </div>
+                  <div className="blessings-grid">
+                    {engine.getPaladinBlessings().map(({ buff, isAssigned, isApplied }) => (
+                      <div
+                        key={buff.id}
+                        className={`blessing-slot ${isAssigned ? 'assigned' : ''} ${isApplied ? 'applied' : ''}`}
+                        onClick={() => engine.togglePaladinBlessing(buff.id)}
+                        title={`${buff.name}${isAssigned ? ' (Assigned)' : ' (Click to assign)'}`}
+                      >
+                        <img src={buff.icon} alt={buff.name} />
+                        <span className="blessing-name">{buff.name.replace('Greater Blessing of ', '')}</span>
+                        {isAssigned && <div className="blessing-assigned-check">✓</div>}
+                        {isApplied && <div className="blessing-applied-indicator" />}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="blessings-grid">
-                  {engine.getPaladinBlessings().map(({ buff, isAssigned, isApplied }) => (
-                    <div
-                      key={buff.id}
-                      className={`blessing-slot ${isAssigned ? 'assigned' : ''} ${isApplied ? 'applied' : ''}`}
-                      onClick={() => engine.togglePaladinBlessing(buff.id)}
-                      title={`${buff.name}${isAssigned ? ' (Assigned)' : ' (Click to assign)'}`}
-                    >
-                      <img src={buff.icon} alt={buff.name} />
-                      <span className="blessing-name">{buff.name.replace('Greater Blessing of ', '')}</span>
-                      {isAssigned && <div className="blessing-assigned-check">✓</div>}
-                      {isApplied && <div className="blessing-applied-indicator" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
 
               {/* Other Raid Buffs */}
               <div className="other-buffs-section">
@@ -1307,7 +1390,8 @@ function App() {
                         {groupMembers.map(member => {
                           const classColor = CLASS_COLORS[member.class];
                           const isPlayer = member.id === state.playerId;
-                          const isPaladin = member.class === 'paladin';
+                          // Paladins only exist in Alliance raids - Horde has Shamans instead
+                          const isPaladin = member.class === 'paladin' && state.faction === 'alliance';
                           const paladinAuraId = isPaladin ? engine.getPaladinAura(member.id) : null;
                           const paladinAura = paladinAuraId ? PARTY_AURAS[paladinAuraId] : null;
                           const specDef = member.spec ? getSpecById(member.spec) : null;
@@ -1428,8 +1512,8 @@ function App() {
                 </div>
               )}
 
-              {/* Paladin Aura Selection Panel */}
-              {selectedPaladinForAura && (
+              {/* Paladin Aura Selection Panel - Alliance only */}
+              {selectedPaladinForAura && state.faction === 'alliance' && (
                 <div className="rgm-aura-panel">
                   <div className="rgm-aura-header">
                     <h3>Select Aura for {state.raid.find(m => m.id === selectedPaladinForAura)?.name}</h3>
@@ -2063,7 +2147,8 @@ function App() {
                                   style={{ color: CLASS_COLORS[member.class] }}
                                 >
                                   <option value="warrior">Warrior</option>
-                                  <option value="paladin">Paladin</option>
+                                  {state.faction === 'alliance' && <option value="paladin">Paladin</option>}
+                                  {state.faction === 'horde' && <option value="shaman">Shaman</option>}
                                   <option value="hunter">Hunter</option>
                                   <option value="rogue">Rogue</option>
                                   <option value="priest">Priest</option>
@@ -2119,7 +2204,8 @@ function App() {
                         className="add-member-class"
                       >
                         <option value="warrior">Warrior</option>
-                        <option value="paladin">Paladin</option>
+                        {state.faction === 'alliance' && <option value="paladin">Paladin</option>}
+                        {state.faction === 'horde' && <option value="shaman">Shaman</option>}
                         <option value="hunter">Hunter</option>
                         <option value="rogue">Rogue</option>
                         <option value="priest">Priest</option>

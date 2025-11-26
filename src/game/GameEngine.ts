@@ -1,6 +1,9 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
-import { PARTY_AURAS } from './auras';
+// Shaman imports for action bar switching and totems
+import { DEFAULT_SHAMAN_ACTION_BAR } from './shamanSpells';
+import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
+import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
 import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial } from './items';
@@ -19,6 +22,7 @@ const CLASS_NAMES: Record<WoWClass, string[]> = {
   hunter: ['Rexxar', 'Alleria', 'Hemet', 'Nathanos', 'Sylvanas'],
   rogue: ['Garona', 'Mathias', 'Valeera', 'Edwin', 'Ravenholdt'],
   priest: ['Benedictus', 'Moira', 'Anduin', 'Velen', 'Whitemane'],
+  shaman: ['Thrall', 'Drektar', 'Nobundo', 'Rehgar', 'Zuljin'],
   mage: ['Jaina', 'Khadgar', 'Antonidas', 'Rhonin', 'Medivh'],
   warlock: ['Guldan', 'Wilfred', 'Kanrethad', 'Helcular', 'Dreadmist'],
   druid: ['Malfurion', 'Hamuul', 'Cenarius', 'Staghelm', 'Remulos'],
@@ -30,6 +34,7 @@ const CLASS_HEALTH: Record<WoWClass, { min: number; max: number }> = {
   hunter: { min: 3500, max: 4200 },
   rogue: { min: 3200, max: 4000 },
   priest: { min: 3000, max: 3800 },
+  shaman: { min: 3500, max: 4500 },  // Mail armor, similar to paladin
   mage: { min: 2800, max: 3500 },
   warlock: { min: 3200, max: 4000 },
   druid: { min: 3800, max: 4800 },
@@ -39,6 +44,7 @@ const CLASS_HEALTH: Record<WoWClass, { min: number; max: number }> = {
 const AI_HEALER_HPS: Record<string, number> = {
   priest: 350,   // Strong raid healer
   paladin: 280,  // Good single target
+  shaman: 320,   // Chain Heal is powerful for raid healing
   druid: 300,    // HoT based
 };
 
@@ -391,6 +397,23 @@ export class GameEngine {
       // Raid management and party auras
       raidManagementMode: false,
       paladinAuraAssignments: [],  // Will be initialized with default auras for each paladin
+      // Mouseover healing - cast spells on whoever the mouse is hovering over
+      mouseoverTargetId: null,
+      // Faction and class system
+      faction: 'alliance' as Faction,
+      playerClass: 'paladin' as PlayerHealerClass,
+      // Shaman-specific state (initialized but not used until faction is Horde)
+      activeTotems: [],
+      totemCooldowns: [],
+      naturesSwiftnessActive: false,
+      naturesSwiftnessCooldown: 0,
+      // Faction-specific progress (each faction maintains separate gear/bag/DKP)
+      allianceEquipment: createEmptyEquipment(),
+      allianceBag: [],
+      allianceDKP: { points: 0, earnedThisRaid: 0 },
+      hordeEquipment: createEmptyEquipment(),
+      hordeBag: [],
+      hordeDKP: { points: 0, earnedThisRaid: 0 },
     };
   }
 
@@ -398,19 +421,39 @@ export class GameEngine {
     return size === 40 ? 4 : 2;
   }
 
-  private generateRaid(size: 20 | 40 = 20, playerName: string = 'Healadin'): RaidMember[] {
+  // Determine position zone for Chain Heal bouncing
+  private getPositionZone(wowClass: WoWClass, spec: WoWSpec, role: 'tank' | 'healer' | 'dps'): PositionZone {
+    if (role === 'tank') return 'tank';
+    if (role === 'healer') return 'ranged';
+
+    // DPS melee classes/specs
+    const meleeClasses: WoWClass[] = ['warrior', 'rogue'];
+    const meleeSpecs: WoWSpec[] = ['feral_tank', 'feral_dps', 'enhancement', 'retribution', 'arms', 'fury', 'protection_warrior', 'protection_paladin'];
+
+    if (meleeClasses.includes(wowClass) || meleeSpecs.includes(spec)) {
+      return 'melee';
+    }
+    return 'ranged';
+  }
+
+  private generateRaid(size: 20 | 40 = 20, playerName: string = 'Healadin', faction: Faction = 'alliance'): RaidMember[] {
     const raid: RaidMember[] = [];
     const usedNames = new Set<string>();
 
-    // Paladin count: 20-man = 2 (player + 1), 40-man = 4 (player + 3)
-    // This determines how many blessings can be active
-    const paladinCount = size === 40 ? 4 : 2;
-    const otherPaladins = paladinCount - 1; // -1 because player is a paladin
+    // Faction-specific healer class: Paladin for Alliance, Shaman for Horde
+    const healerClass: WoWClass = faction === 'alliance' ? 'paladin' : 'shaman';
+    const healerSpec: WoWSpec = faction === 'alliance' ? 'holy_paladin' : 'restoration_shaman';
 
-    // Composition adjusted for paladin requirements
+    // Faction healer count: 20-man = 2 (player + 1), 40-man = 4 (player + 3)
+    // Alliance: This determines how many blessings can be active
+    // Horde: Shamans provide totems instead
+    const factionHealerCount = size === 40 ? 4 : 2;
+    const otherFactionHealers = factionHealerCount - 1; // -1 because player is one
+
+    // Composition adjusted for faction requirements
     const composition = size === 40
-      ? { tanks: 4, healers: 9, dps: 26, paladins: otherPaladins }
-      : { tanks: 2, healers: 4, dps: 13, paladins: otherPaladins };
+      ? { tanks: 4, healers: 9, dps: 26, factionHealers: otherFactionHealers }
+      : { tanks: 2, healers: 4, dps: 13, factionHealers: otherFactionHealers };
 
     let id = 0;
 
@@ -431,13 +474,13 @@ export class GameEngine {
       return isTank ? Math.floor(base * 1.4) : base;
     };
 
-    // Add player as first healer (paladin) - will be assigned group at end
+    // Add player as first healer (paladin/shaman based on faction) - will be assigned group at end
     usedNames.add(playerName);
     raid.push({
       id: PLAYER_ID,
       name: playerName,
-      class: 'paladin',
-      spec: 'holy_paladin',  // Player is always Holy Paladin
+      class: healerClass,
+      spec: healerSpec,  // Player is Holy Paladin (Alliance) or Resto Shaman (Horde)
       role: 'healer',
       currentHealth: PLAYER_BASE_HEALTH,
       maxHealth: PLAYER_BASE_HEALTH,
@@ -448,6 +491,7 @@ export class GameEngine {
       group: 1, // Will be reassigned
       equipment: createEmptyEquipment(),
       gearScore: 0,
+      positionZone: 'ranged',  // Healers are in ranged zone
     });
 
     // Tanks
@@ -468,17 +512,20 @@ export class GameEngine {
         group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
+        positionZone: 'tank',  // Tanks are in their own zone
       });
     }
 
-    // Other Paladins (healers) - these provide additional blessings
-    for (let i = 0; i < composition.paladins; i++) {
-      const maxHealth = getRandomHealth('paladin', false);
+    // Other faction-specific healers (Paladins for Alliance, Shamans for Horde)
+    // Alliance: these provide additional blessings
+    // Horde: these provide totems and chain heal support
+    for (let i = 0; i < composition.factionHealers; i++) {
+      const maxHealth = getRandomHealth(healerClass, false);
       raid.push({
         id: `member_${id++}`,
-        name: getRandomName('paladin'),
-        class: 'paladin',
-        spec: 'holy_paladin',  // Healer paladins are Holy spec
+        name: getRandomName(healerClass),
+        class: healerClass,
+        spec: healerSpec,  // Holy Paladin (Alliance) or Resto Shaman (Horde)
         role: 'healer',
         currentHealth: maxHealth,
         maxHealth,
@@ -489,12 +536,13 @@ export class GameEngine {
         group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
+        positionZone: 'ranged',  // Healers are in ranged zone
       });
     }
 
-    // Other Healers (priests, druids - no more paladins)
+    // Other Healers (priests, druids - no more faction-specific healers)
     const otherHealerClasses: WoWClass[] = ['priest', 'druid'];
-    const remainingHealers = composition.healers - composition.paladins;
+    const remainingHealers = composition.healers - composition.factionHealers;
     for (let i = 0; i < remainingHealers; i++) {
       const wowClass = otherHealerClasses[i % otherHealerClasses.length];
       const maxHealth = getRandomHealth(wowClass, false);
@@ -515,6 +563,7 @@ export class GameEngine {
         group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
+        positionZone: 'ranged',  // Healers are in ranged zone
       });
     }
 
@@ -530,15 +579,17 @@ export class GameEngine {
       warrior: 'fury',
       paladin: 'retribution',  // Not used in initial DPS pool but needed for typing
       priest: 'shadow',  // Not used in initial DPS pool but needed for typing
+      shaman: 'enhancement',  // Enhancement for melee DPS
     };
     for (let i = 0; i < composition.dps; i++) {
       const wowClass = dpsClasses[i % dpsClasses.length];
       const maxHealth = getRandomHealth(wowClass, false);
+      const spec = dpsSpecs[wowClass];
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(wowClass),
         class: wowClass,
-        spec: dpsSpecs[wowClass],
+        spec,
         role: 'dps',
         currentHealth: maxHealth,
         maxHealth,
@@ -549,6 +600,7 @@ export class GameEngine {
         group: 1, // Will be reassigned
         equipment: createEmptyEquipment(),
         gearScore: 0,
+        positionZone: this.getPositionZone(wowClass, spec, 'dps'),
       });
     }
 
@@ -643,6 +695,9 @@ export class GameEngine {
     member.maxHealth = specDef.role === 'tank' ? Math.floor(baseHealth * 1.4) : baseHealth;
     member.currentHealth = member.maxHealth;
 
+    // Update position zone for Chain Heal bouncing
+    member.positionZone = this.getPositionZone(newClass, newSpec, specDef.role);
+
     // If changing a paladin, may need to update paladin aura assignments
     if (member.class !== 'paladin') {
       // Remove any aura assignment for this member (they're no longer a paladin)
@@ -680,6 +735,280 @@ export class GameEngine {
     return matchingSpec?.id || specs[0].id;
   }
 
+  // =========================================================================
+  // FACTION SYSTEM
+  // =========================================================================
+
+  // Get current faction
+  getFaction(): Faction {
+    return this.state.faction;
+  }
+
+  // Get current player healer class
+  getPlayerClass(): PlayerHealerClass {
+    return this.state.playerClass;
+  }
+
+  // Switch faction (Alliance <-> Horde)
+  // This changes the player class and will regenerate raid with appropriate composition
+  switchFaction(newFaction: Faction): void {
+    if (this.state.isRunning) {
+      this.addCombatLogEntry({
+        message: 'Cannot switch factions during combat!',
+        type: 'system',
+      });
+      return;
+    }
+
+    if (this.state.faction === newFaction) return;
+
+    // Save current faction's equipment, bag, and DKP before switching
+    const oldFaction = this.state.faction;
+    if (oldFaction === 'alliance') {
+      this.state.allianceEquipment = this.state.playerEquipment;
+      this.state.allianceBag = [...this.state.playerBag];
+      this.state.allianceDKP = { ...this.state.playerDKP };
+    } else {
+      this.state.hordeEquipment = this.state.playerEquipment;
+      this.state.hordeBag = [...this.state.playerBag];
+      this.state.hordeDKP = { ...this.state.playerDKP };
+    }
+
+    // Change faction and player class
+    this.state.faction = newFaction;
+    this.state.playerClass = newFaction === 'alliance' ? 'paladin' : 'shaman';
+
+    // Load new faction's equipment, bag, and DKP
+    if (newFaction === 'alliance') {
+      this.state.playerEquipment = this.state.allianceEquipment;
+      this.state.playerBag = [...this.state.allianceBag];
+      this.state.playerDKP = { ...this.state.allianceDKP };
+    } else {
+      this.state.playerEquipment = this.state.hordeEquipment;
+      this.state.playerBag = [...this.state.hordeBag];
+      this.state.playerDKP = { ...this.state.hordeDKP };
+    }
+
+    // Update player stats from new equipment (computePlayerStats uses current equipment)
+    const newStats = this.computePlayerStats();
+    this.state.spellPower = newStats.totalSpellPower;
+    this.state.maxMana = newStats.totalMaxMana;
+    this.state.critChance = newStats.totalCritChance;
+    // Reset mana to max with new gear
+    this.state.playerMana = this.state.maxMana;
+
+    // Reset shaman-specific state
+    this.state.activeTotems = [];
+    this.state.totemCooldowns = [];
+    this.state.naturesSwiftnessActive = false;
+    this.state.naturesSwiftnessCooldown = 0;
+
+    // Update player in raid to reflect new class
+    const player = this.state.raid.find(m => m.id === PLAYER_ID);
+    if (player) {
+      player.class = this.state.playerClass;
+      player.spec = this.state.playerClass === 'paladin' ? 'holy_paladin' : 'restoration_shaman';
+      player.name = this.state.playerClass === 'paladin' ? 'Healadin' : 'Chainheal';
+      this.state.playerName = player.name;
+    }
+
+    // Switch action bar based on class
+    if (this.state.playerClass === 'shaman') {
+      this.actionBar = DEFAULT_SHAMAN_ACTION_BAR.map(s => ({ ...s }));
+    } else {
+      this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
+    }
+
+    // Reset paladin-specific state when switching to Horde
+    if (newFaction === 'horde') {
+      this.state.divineFavorActive = false;
+    }
+
+    // Regenerate raid with appropriate composition (Paladins for Alliance, Shamans for Horde)
+    const raidSize: 20 | 40 = 20; // Default to 20-man
+    this.state.raid = this.generateRaid(raidSize, this.state.playerName, newFaction);
+
+    // Update max blessings based on faction (Horde has 0 paladin blessings)
+    this.state.maxPaladinBlessings = newFaction === 'alliance' ? this.getPaladinCountForRaidSize(raidSize) : 0;
+
+    // Clear paladin aura assignments for Horde (they don't have paladins)
+    if (newFaction === 'horde') {
+      this.state.paladinAuraAssignments = [];
+      this.state.activePaladinBlessings = [];
+    } else {
+      // Reinitialize paladin auras for Alliance
+      this.initializePaladinAuras();
+      this.state.activePaladinBlessings = ['blessing_of_kings', 'blessing_of_wisdom'];
+    }
+
+    this.addCombatLogEntry({
+      message: `Switched to ${newFaction === 'alliance' ? 'Alliance' : 'Horde'} - Now playing ${this.state.playerClass === 'paladin' ? 'Holy Paladin' : 'Restoration Shaman'}`,
+      type: 'system',
+    });
+
+    // Recalculate party auras for the new raid composition
+    this.recalculateAuras();
+
+    this.notify();
+  }
+
+  // =========================================================================
+  // TOTEM SYSTEM (Shaman)
+  // =========================================================================
+
+  // Get active totems for display
+  getActiveTotems() {
+    return this.state.activeTotems;
+  }
+
+  // Get available totems for a given element
+  getTotemsForElement(element: TotemElement): Totem[] {
+    return TOTEMS_BY_ELEMENT[element];
+  }
+
+  // Drop a totem - replaces any existing totem of the same element
+  dropTotem(totemId: string): void {
+    if (this.state.playerClass !== 'shaman') {
+      this.addCombatLogEntry({ message: 'Only shamans can use totems!', type: 'system' });
+      this.notify();
+      return;
+    }
+
+    const totem = getTotemById(totemId);
+    if (!totem) {
+      this.addCombatLogEntry({ message: 'Unknown totem!', type: 'system' });
+      this.notify();
+      return;
+    }
+
+    // Check GCD
+    if (this.state.globalCooldown > 0) return;
+
+    // Check mana
+    if (this.state.playerMana < totem.manaCost) {
+      this.addCombatLogEntry({ message: 'Not enough mana!', type: 'system' });
+      this.notify();
+      return;
+    }
+
+    // Check if this totem is on cooldown (for totems with cooldowns like Mana Tide)
+    const existingCooldown = this.state.totemCooldowns.find(tc => tc.totemId === totemId);
+    if (existingCooldown && existingCooldown.remainingCooldown > 0) {
+      this.addCombatLogEntry({ message: `${totem.name} is on cooldown!`, type: 'system' });
+      this.notify();
+      return;
+    }
+
+    // Deduct mana
+    this.state.playerMana -= totem.manaCost;
+    this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
+    this.state.globalCooldown = 1.5; // Totems trigger GCD
+
+    // Remove any existing totem of the same element
+    const existingTotemIndex = this.state.activeTotems.findIndex(at => at.element === totem.element);
+    if (existingTotemIndex !== -1) {
+      const oldTotem = this.state.activeTotems[existingTotemIndex];
+      this.addCombatLogEntry({ message: `${oldTotem.name} fades.`, type: 'system' });
+      this.state.activeTotems.splice(existingTotemIndex, 1);
+    }
+
+    // Add the new totem - totems affect the player's group (group 1 for healers typically)
+    // Find the player's group from the raid
+    const player = this.state.raid.find(m => m.id === this.state.playerId);
+    const playerGroup = player?.group || 1;
+
+    this.state.activeTotems.push({
+      ...totem,
+      remainingDuration: totem.duration,
+      lastTickTime: this.state.elapsedTime,
+      group: playerGroup,
+    });
+
+    // Set cooldown if the totem has one
+    if (totem.cooldown > 0) {
+      const cooldownIndex = this.state.totemCooldowns.findIndex(tc => tc.totemId === totemId);
+      if (cooldownIndex !== -1) {
+        this.state.totemCooldowns[cooldownIndex].remainingCooldown = totem.cooldown;
+      } else {
+        this.state.totemCooldowns.push({ totemId, remainingCooldown: totem.cooldown });
+      }
+    }
+
+    this.addCombatLogEntry({ message: `${totem.name} placed.`, type: 'buff' });
+    this.notify();
+  }
+
+  // Destroy a specific totem by element
+  destroyTotem(element: TotemElement): void {
+    const totemIndex = this.state.activeTotems.findIndex(at => at.element === element);
+    if (totemIndex !== -1) {
+      const totem = this.state.activeTotems[totemIndex];
+      this.addCombatLogEntry({ message: `${totem.name} destroyed.`, type: 'system' });
+      this.state.activeTotems.splice(totemIndex, 1);
+      this.notify();
+    }
+  }
+
+  // Process totem ticks - called from game loop
+  private tickTotems(delta: number): void {
+    if (this.state.playerClass !== 'shaman') return;
+
+    // Update totem cooldowns
+    this.state.totemCooldowns.forEach(tc => {
+      if (tc.remainingCooldown > 0) {
+        tc.remainingCooldown = Math.max(0, tc.remainingCooldown - delta);
+      }
+    });
+
+    // Process each active totem
+    const expiredTotems: number[] = [];
+
+    this.state.activeTotems.forEach((activeTotem, index) => {
+      // Reduce duration
+      activeTotem.remainingDuration -= delta;
+
+      if (activeTotem.remainingDuration <= 0) {
+        expiredTotems.push(index);
+        this.addCombatLogEntry({ message: `${activeTotem.name} fades.`, type: 'system' });
+        return;
+      }
+
+      // Process totem effects (tick every 2 seconds for most totems)
+      const tickInterval = 2; // seconds
+      if (this.state.elapsedTime - activeTotem.lastTickTime >= tickInterval) {
+        activeTotem.lastTickTime = this.state.elapsedTime;
+
+        // Find the player's party members (in a 40-man raid, totems affect party of 5)
+        // For simplicity, we'll affect all raid members since this is a healing simulator
+        const partyMembers = this.state.raid.filter(m => m.isAlive);
+
+        // Apply totem effects based on type
+        if (activeTotem.effect.healingReceivedBonus && activeTotem.id === 'healing_stream_totem') {
+          // Healing Stream Totem - heals party for small amount every tick
+          partyMembers.forEach(member => {
+            const healAmount = activeTotem.effect.healingReceivedBonus || 0;
+            const actualHeal = Math.min(healAmount, member.maxHealth - member.currentHealth);
+            if (actualHeal > 0) {
+              member.currentHealth += actualHeal;
+              this.state.healingDone += actualHeal;
+            }
+          });
+        }
+
+        if (activeTotem.effect.manaRegenBonus) {
+          // Mana Spring Totem / Mana Tide Totem - restore mana to casters
+          const manaPerTick = (activeTotem.effect.manaRegenBonus / 5) * tickInterval;
+          this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + manaPerTick);
+        }
+      }
+    });
+
+    // Remove expired totems (in reverse order to maintain indices)
+    for (let i = expiredTotems.length - 1; i >= 0; i--) {
+      this.state.activeTotems.splice(expiredTotems[i], 1);
+    }
+  }
+
   private notify() {
     this.listeners.forEach(listener => listener());
   }
@@ -694,6 +1023,14 @@ export class GameEngine {
   selectTarget(id: string) {
     this.state.selectedTargetId = id;
     this.notify();
+  }
+
+  // Set mouseover target for mouseover healing
+  setMouseoverTarget(id: string | null) {
+    if (this.state.mouseoverTargetId !== id) {
+      this.state.mouseoverTargetId = id;
+      this.notify();
+    }
   }
 
   startEncounter(encounterId: string) {
@@ -972,6 +1309,17 @@ export class GameEngine {
       return;
     }
 
+    // Nature's Swiftness - makes next heal instant (Shaman)
+    if (spell.id === 'natures_swiftness') {
+      this.state.naturesSwiftnessActive = true;
+      this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+      this.addCombatLogEntry({ message: "Nature's Swiftness activated - next nature spell is instant!", type: 'buff' });
+      this.notify();
+      return;
+    }
+
     // Need a target for most spells
     if (!this.state.selectedTargetId && spell.id !== 'divine_favor') {
       this.addCombatLogEntry({ message: 'No target selected!', type: 'system' });
@@ -979,7 +1327,9 @@ export class GameEngine {
       return;
     }
 
-    const target = this.state.raid.find(m => m.id === this.state.selectedTargetId);
+    const targetId = this.state.selectedTargetId;
+
+    const target = this.state.raid.find(m => m.id === targetId);
     if (!target) return;
 
     // Blessing of Light - instant buff application
@@ -1021,6 +1371,44 @@ export class GameEngine {
       this.state.globalCooldown = GCD_DURATION;
       target.debuffs = target.debuffs.filter(d => d.id !== dispellable.id);
       this.addCombatLogEntry({ message: `Cleansed ${dispellable.name} from ${target.name}`, type: 'buff' });
+      this.notify();
+      return;
+    }
+
+    // Cure Poison (Shaman) - remove a poison debuff only
+    if (spell.id === 'cure_poison') {
+      const poison = target.debuffs.find(d => d.type === 'poison');
+
+      if (!poison) {
+        this.addCombatLogEntry({ message: 'No poison to remove!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
+      this.state.globalCooldown = GCD_DURATION;
+      target.debuffs = target.debuffs.filter(d => d.id !== poison.id);
+      this.addCombatLogEntry({ message: `Cured ${poison.name} from ${target.name}`, type: 'buff' });
+      this.notify();
+      return;
+    }
+
+    // Cure Disease (Shaman) - remove a disease debuff only
+    if (spell.id === 'cure_disease') {
+      const disease = target.debuffs.find(d => d.type === 'disease');
+
+      if (!disease) {
+        this.addCombatLogEntry({ message: 'No disease to remove!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= spell.manaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
+      this.state.globalCooldown = GCD_DURATION;
+      target.debuffs = target.debuffs.filter(d => d.id !== disease.id);
+      this.addCombatLogEntry({ message: `Cured ${disease.name} from ${target.name}`, type: 'buff' });
       this.notify();
       return;
     }
@@ -1073,10 +1461,41 @@ export class GameEngine {
       return;
     }
 
-    // Cast time spells (Holy Light, Flash of Light)
+    // Cast time spells (Holy Light, Flash of Light, Healing Wave, Lesser Healing Wave, Chain Heal)
     if (spell.castTime > 0) {
       if (!target.isAlive) {
         this.addCombatLogEntry({ message: 'Cannot heal dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Check for Nature's Swiftness - makes the spell instant
+      const isInstant = this.state.naturesSwiftnessActive;
+      if (isInstant) {
+        this.state.naturesSwiftnessActive = false;
+        this.addCombatLogEntry({ message: "Nature's Swiftness consumed!", type: 'buff' });
+      }
+
+      // Determine effective cast time
+      const effectiveCastTime = isInstant ? 0 : spell.castTime;
+
+      if (effectiveCastTime === 0) {
+        // Instant cast (Nature's Swiftness active)
+        this.state.playerMana -= spell.manaCost;
+        this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
+        this.state.globalCooldown = GCD_DURATION;
+
+        // Check if this is a Chain Heal spell
+        if (spell.maxBounces && spell.maxBounces > 0) {
+          this.applyChainHeal(target, spell);
+        } else {
+          this.applyHeal(target, spell);
+        }
+
+        if (actionBarSpell && spell.cooldown > 0) {
+          actionBarSpell.currentCooldown = spell.cooldown;
+        }
+
         this.notify();
         return;
       }
@@ -1104,7 +1523,12 @@ export class GameEngine {
 
           const currentTarget = this.state.raid.find(m => m.id === this.state.selectedTargetId);
           if (currentTarget && currentTarget.isAlive) {
-            this.applyHeal(currentTarget, spell);
+            // Check if this is a Chain Heal spell
+            if (spell.maxBounces && spell.maxBounces > 0) {
+              this.applyChainHeal(currentTarget, spell);
+            } else {
+              this.applyHeal(currentTarget, spell);
+            }
           }
 
           this.state.isCasting = false;
@@ -1181,6 +1605,150 @@ export class GameEngine {
       amount: actualHeal,
       isCrit,
     });
+  }
+
+  // Chain Heal - bounces to nearby injured targets within the same position zone
+  private applyChainHeal(primaryTarget: RaidMember, spell: Spell) {
+    const maxBounces = spell.maxBounces || 2;
+    const bounceReduction = spell.bounceReduction || 0.5;
+    const healedTargets: Set<string> = new Set();
+
+    // Calculate base heal for primary target
+    const baseHeal = spell.healAmount.min + Math.random() * (spell.healAmount.max - spell.healAmount.min);
+    const spellPowerBonus = this.state.spellPower * spell.spellPowerCoefficient;
+    let currentHealAmount = Math.floor(baseHeal + spellPowerBonus);
+
+    // Check for crit (applies to primary target only in Vanilla)
+    const isCrit = Math.random() * 100 < this.state.critChance;
+    if (isCrit) {
+      currentHealAmount = Math.floor(currentHealAmount * 1.5);
+      primaryTarget.lastCritHealTime = Date.now();
+    }
+
+    // Heal primary target
+    this.applyChainHealToTarget(primaryTarget, spell, currentHealAmount, isCrit, 1);
+    healedTargets.add(primaryTarget.id);
+
+    // Find bounce targets - must be in same position zone, alive, and injured
+    let currentZone = primaryTarget.positionZone;
+    let bouncesRemaining = maxBounces;
+
+    for (let bounce = 0; bounce < maxBounces && bouncesRemaining > 0; bounce++) {
+      // Reduce heal for each bounce
+      currentHealAmount = Math.floor(currentHealAmount * (1 - bounceReduction));
+
+      // Find the most injured target in the same position zone that hasn't been healed
+      const eligibleTargets = this.state.raid.filter(member =>
+        member.isAlive &&
+        !healedTargets.has(member.id) &&
+        member.positionZone === currentZone &&
+        member.currentHealth < member.maxHealth
+      ).sort((a, b) => {
+        // Sort by missing health percentage (most injured first)
+        const aHealthPercent = a.currentHealth / a.maxHealth;
+        const bHealthPercent = b.currentHealth / b.maxHealth;
+        return aHealthPercent - bHealthPercent;
+      });
+
+      if (eligibleTargets.length === 0) {
+        // No more targets in zone, try to find targets in adjacent zones
+        // In Vanilla, Chain Heal could jump between zones if no nearby targets
+        const otherZoneTargets = this.state.raid.filter(member =>
+          member.isAlive &&
+          !healedTargets.has(member.id) &&
+          member.currentHealth < member.maxHealth
+        ).sort((a, b) => {
+          const aHealthPercent = a.currentHealth / a.maxHealth;
+          const bHealthPercent = b.currentHealth / b.maxHealth;
+          return aHealthPercent - bHealthPercent;
+        });
+
+        if (otherZoneTargets.length > 0) {
+          const bounceTarget = otherZoneTargets[0];
+          this.applyChainHealToTarget(bounceTarget, spell, currentHealAmount, false, bounce + 2);
+          healedTargets.add(bounceTarget.id);
+          currentZone = bounceTarget.positionZone;
+          bouncesRemaining--;
+        } else {
+          break; // No more valid targets
+        }
+      } else {
+        const bounceTarget = eligibleTargets[0];
+        this.applyChainHealToTarget(bounceTarget, spell, currentHealAmount, false, bounce + 2);
+        healedTargets.add(bounceTarget.id);
+        bouncesRemaining--;
+      }
+    }
+  }
+
+  private applyChainHealToTarget(target: RaidMember, spell: Spell, healAmount: number, isCrit: boolean, bounceNumber: number) {
+    const actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
+    const overheal = healAmount - actualHeal;
+
+    target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
+    this.state.healingDone += actualHeal;
+    this.state.overhealing += overheal;
+
+    const bounceText = bounceNumber > 1 ? ` (bounce ${bounceNumber - 1})` : '';
+    this.addCombatLogEntry({
+      message: `${spell.name}${bounceText} ${isCrit ? 'CRITS ' : 'heals '}${target.name} for ${actualHeal}${overheal > 0 ? ` (${overheal} overheal)` : ''}`,
+      type: 'heal',
+      amount: actualHeal,
+      isCrit,
+    });
+  }
+
+  // Get predicted Chain Heal bounce targets for preview UI
+  // Returns array of member IDs that would be bounced to (not including primary target)
+  getChainHealBounceTargets(primaryTargetId: string, maxBounces: number = 2): string[] {
+    const primaryTarget = this.state.raid.find(m => m.id === primaryTargetId);
+    if (!primaryTarget || !primaryTarget.isAlive) return [];
+
+    const healedTargets: Set<string> = new Set([primaryTargetId]);
+    const bounceTargetIds: string[] = [];
+    let currentZone = primaryTarget.positionZone;
+
+    for (let bounce = 0; bounce < maxBounces; bounce++) {
+      // Find the most injured target in the same position zone that hasn't been healed
+      const eligibleTargets = this.state.raid.filter(member =>
+        member.isAlive &&
+        !healedTargets.has(member.id) &&
+        member.positionZone === currentZone &&
+        member.currentHealth < member.maxHealth
+      ).sort((a, b) => {
+        const aHealthPercent = a.currentHealth / a.maxHealth;
+        const bHealthPercent = b.currentHealth / b.maxHealth;
+        return aHealthPercent - bHealthPercent;
+      });
+
+      if (eligibleTargets.length === 0) {
+        // Try other zones
+        const otherZoneTargets = this.state.raid.filter(member =>
+          member.isAlive &&
+          !healedTargets.has(member.id) &&
+          member.currentHealth < member.maxHealth
+        ).sort((a, b) => {
+          const aHealthPercent = a.currentHealth / a.maxHealth;
+          const bHealthPercent = b.currentHealth / b.maxHealth;
+          return aHealthPercent - bHealthPercent;
+        });
+
+        if (otherZoneTargets.length > 0) {
+          const bounceTarget = otherZoneTargets[0];
+          bounceTargetIds.push(bounceTarget.id);
+          healedTargets.add(bounceTarget.id);
+          currentZone = bounceTarget.positionZone;
+        } else {
+          break;
+        }
+      } else {
+        const bounceTarget = eligibleTargets[0];
+        bounceTargetIds.push(bounceTarget.id);
+        healedTargets.add(bounceTarget.id);
+      }
+    }
+
+    return bounceTargetIds;
   }
 
   // === Party Aura System ===
@@ -1276,9 +1844,9 @@ export class GameEngine {
     Object.values(PARTY_AURAS).forEach(aura => {
       if (!aura.isAutomatic) return;
 
-      // Find providers of this aura
+      // Find providers of this aura (using memberProvidesAura for proper spec checking)
       const providers = this.state.raid.filter(m =>
-        m.isAlive && m.class === aura.providerClass
+        m.isAlive && memberProvidesAura(m, aura)
       );
 
       providers.forEach(provider => {
@@ -1440,6 +2008,9 @@ export class GameEngine {
       if (this.state.manaPotionCooldown > 0) {
         this.state.manaPotionCooldown = Math.max(0, this.state.manaPotionCooldown - delta);
       }
+
+      // Update totem ticks (Shaman)
+      this.tickTotems(delta);
 
       // Mana regen with Five-Second Rule (FSR)
       if (!this.state.isCasting) {
@@ -1768,11 +2339,16 @@ export class GameEngine {
     this.state.playerDKP.earnedThisRaid += dkpReward;
     this.addCombatLogEntry({ message: `+${dkpReward} DKP earned!`, type: 'system' });
 
-    // Roll loot from boss table with bad luck protection
-    const { items: loot, hadPaladinLoot, legendaryMaterial } = rollBossLoot(bossId, this.state.bossKillsWithoutPaladinLoot);
+    // Roll loot from boss table with bad luck protection and faction filtering
+    const { items: loot, hadPlayerClassLoot, legendaryMaterial } = rollBossLoot(
+      bossId,
+      this.state.bossKillsWithoutPaladinLoot, // TODO: Rename to bossKillsWithoutPlayerClassLoot
+      this.state.faction,
+      this.state.playerClass
+    );
 
     // Update bad luck counter
-    if (hadPaladinLoot) {
+    if (hadPlayerClassLoot) {
       this.state.bossKillsWithoutPaladinLoot = 0;
     } else {
       this.state.bossKillsWithoutPaladinLoot++;
@@ -2409,14 +2985,19 @@ export class GameEngine {
     this.notify();
   }
 
-  // Apply all available buffs from raid members (respects paladin blessing slots)
+  // Apply all available buffs from raid members (respects paladin blessing slots and faction)
   applyAllRaidBuffs() {
     const raidClasses = new Set(this.state.raid.filter(m => m.id !== PLAYER_ID && m.isAlive).map(m => m.class));
 
     Object.values(RAID_BUFFS).forEach(buffDef => {
       const isPaladinBlessing = 'isPaladinBlessing' in buffDef && buffDef.isPaladinBlessing;
 
-      // Skip paladin blessings that aren't in the active list
+      // Skip ALL paladin blessings for Horde (they don't have Paladins)
+      if (isPaladinBlessing && this.state.faction === 'horde') {
+        return;
+      }
+
+      // Skip paladin blessings that aren't in the active list (Alliance only)
       if (isPaladinBlessing && !this.state.activePaladinBlessings.includes(buffDef.id)) {
         return;
       }
@@ -3137,6 +3718,7 @@ export class GameEngine {
       group: Math.floor(this.state.raid.length / 5) + 1,
       equipment: createEmptyEquipment(),
       gearScore: 0,
+      positionZone: this.getPositionZone(wowClass, spec, role),
     };
 
     this.state.raid.push(newMember);

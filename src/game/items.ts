@@ -3,7 +3,7 @@
 
 export type EquipmentSlot = 'head' | 'shoulders' | 'chest' | 'waist' | 'legs' | 'hands' | 'wrist' | 'feet' | 'weapon';
 export type ItemRarity = 'uncommon' | 'rare' | 'epic' | 'legendary';
-export type WearableClass = 'paladin' | 'priest' | 'druid' | 'warrior' | 'mage' | 'warlock' | 'hunter' | 'rogue' | 'all';
+export type WearableClass = 'paladin' | 'priest' | 'druid' | 'warrior' | 'mage' | 'warlock' | 'hunter' | 'rogue' | 'shaman' | 'all';
 
 // Legendary material types
 export type LegendaryMaterialId =
@@ -996,6 +996,122 @@ export const FELHEART_BRACERS: GearItem = {
 };
 
 // =============================================================================
+// SHAMAN TIER 1 - EARTHFURY RAIMENT
+// =============================================================================
+
+export const EARTHFURY_BOOTS: GearItem = {
+  id: 'earthfury_boots',
+  name: 'Earthfury Boots',
+  slot: 'feet',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 16, intellect: 17, spirit: 10, healingPower: 22, mp5: 3 },
+  icon: `${ICON_BASE}/inv_boots_chain_01.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_GAUNTLETS: GearItem = {
+  id: 'earthfury_gauntlets',
+  name: 'Earthfury Gauntlets',
+  slot: 'hands',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 15, intellect: 20, spirit: 6, healingPower: 24 },
+  icon: `${ICON_BASE}/inv_gauntlets_25.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_HELMET: GearItem = {
+  id: 'earthfury_helmet',
+  name: 'Earthfury Helmet',
+  slot: 'head',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 23, intellect: 27, spirit: 11, healingPower: 35, mp5: 4 },
+  icon: `${ICON_BASE}/inv_helmet_09.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_LEGGUARDS: GearItem = {
+  id: 'earthfury_legguards',
+  name: 'Earthfury Legguards',
+  slot: 'legs',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 24, intellect: 23, spirit: 15, healingPower: 31, mp5: 4 },
+  icon: `${ICON_BASE}/inv_pants_mail_08.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_EPAULETS: GearItem = {
+  id: 'earthfury_epaulets',
+  name: 'Earthfury Epaulets',
+  slot: 'shoulders',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 18, intellect: 19, spirit: 9, healingPower: 26 },
+  icon: `${ICON_BASE}/inv_shoulder_02.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_VESTMENTS: GearItem = {
+  id: 'earthfury_vestments',
+  name: 'Earthfury Vestments',
+  slot: 'chest',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 25, intellect: 25, spirit: 12, healingPower: 33, mp5: 4 },
+  icon: `${ICON_BASE}/inv_chest_chain_11.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_BELT: GearItem = {
+  id: 'earthfury_belt',
+  name: 'Earthfury Belt',
+  slot: 'waist',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 14, intellect: 21, spirit: 6, healingPower: 20, mp5: 3 },
+  icon: `${ICON_BASE}/inv_belt_29.jpg`,
+  setId: 'earthfury',
+};
+
+export const EARTHFURY_BRACERS: GearItem = {
+  id: 'earthfury_bracers',
+  name: 'Earthfury Bracers',
+  slot: 'wrist',
+  rarity: 'epic',
+  itemLevel: 66,
+  classes: ['shaman'],
+  stats: { stamina: 11, intellect: 13, spirit: 8, healingPower: 15, mp5: 3 },
+  icon: `${ICON_BASE}/inv_bracer_02.jpg`,
+  setId: 'earthfury',
+};
+
+// =============================================================================
+// SHAMAN TIER 2 HELM - Drops from Onyxia
+// =============================================================================
+
+export const TEN_STORMS_CROWN: GearItem = {
+  id: 'ten_storms_crown',
+  name: 'Helmet of Ten Storms',
+  slot: 'head',
+  rarity: 'epic',
+  itemLevel: 76,
+  classes: ['shaman'],
+  stats: { stamina: 26, intellect: 30, spirit: 14, healingPower: 44, mp5: 6 },
+  icon: `${ICON_BASE}/inv_helmet_47.jpg`,
+  setId: 'ten_storms',
+};
+
+// =============================================================================
 // TIER 2 HELMS - Drop from Onyxia
 // =============================================================================
 
@@ -1250,6 +1366,16 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   felheart_belt: FELHEART_BELT,
   felheart_bracers: FELHEART_BRACERS,
 
+  // Shaman T1
+  earthfury_boots: EARTHFURY_BOOTS,
+  earthfury_gauntlets: EARTHFURY_GAUNTLETS,
+  earthfury_helmet: EARTHFURY_HELMET,
+  earthfury_legguards: EARTHFURY_LEGGUARDS,
+  earthfury_epaulets: EARTHFURY_EPAULETS,
+  earthfury_vestments: EARTHFURY_VESTMENTS,
+  earthfury_belt: EARTHFURY_BELT,
+  earthfury_bracers: EARTHFURY_BRACERS,
+
   // Non-set items
   salamander_scale_pants: SALAMANDER_SCALE_PANTS,
   azuresong_mageblade: AZURESONG_MAGEBLADE,
@@ -1277,6 +1403,7 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   dragonstalker_helm: DRAGONSTALKER_HELM,
   helm_of_wrath: HELM_OF_WRATH,
   bloodfang_hood: BLOODFANG_HOOD,
+  ten_storms_crown: TEN_STORMS_CROWN,
 
   // Onyxia Weapons & Other
   deathbringer: DEATHBRINGER,

@@ -3,6 +3,7 @@
 
 import { ALL_ITEMS, LEGENDARY_MATERIALS } from './items';
 import type { GearItem, LegendaryMaterialId, LegendaryMaterial } from './items';
+import type { Faction, PlayerHealerClass } from './types';
 
 export interface BossLootTable {
   items: string[];      // Item IDs that can drop
@@ -30,6 +31,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   lucifron: {
     items: [
       'lawbringer_boots',       // Paladin
+      'earthfury_boots',        // Shaman
       'boots_of_prophecy',      // Priest
       'cenarion_boots',         // Druid
       'arcanist_boots',         // Mage
@@ -49,6 +51,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   magmadar: {
     items: [
       'lawbringer_legplates',   // Paladin
+      'earthfury_legguards',    // Shaman
       'pants_of_prophecy',      // Priest
       'cenarion_leggings',      // Druid
       'arcanist_leggings',      // Mage
@@ -68,6 +71,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   gehennas: {
     items: [
       'lawbringer_gauntlets',   // Paladin
+      'earthfury_gauntlets',    // Shaman
       'gloves_of_prophecy',     // Priest
       'cenarion_gloves',        // Druid
       'arcanist_gloves',        // Mage
@@ -87,6 +91,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   garr: {
     items: [
       'lawbringer_helm',        // Paladin
+      'earthfury_helmet',       // Shaman
       'circlet_of_prophecy',    // Priest
       'cenarion_helm',          // Druid
       'arcanist_crown',         // Mage
@@ -108,6 +113,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   baron_geddon: {
     items: [
       'lawbringer_spaulders',   // Paladin
+      'earthfury_epaulets',     // Shaman
       'mantle_of_prophecy',     // Priest
       'cenarion_spaulders',     // Druid
       'arcanist_mantle',        // Mage
@@ -129,6 +135,8 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
     items: [
       'lawbringer_gauntlets',   // Paladin (alt drop)
       'lawbringer_boots',       // Paladin (alt drop)
+      'earthfury_gauntlets',    // Shaman (alt drop)
+      'earthfury_boots',        // Shaman (alt drop)
       'gloves_of_prophecy',     // Priest
       'cenarion_gloves',        // Druid
       'arcanist_gloves',        // Mage
@@ -146,6 +154,8 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
     items: [
       'lawbringer_bracers',     // Paladin
       'lawbringer_belt',        // Paladin
+      'earthfury_bracers',      // Shaman
+      'earthfury_belt',         // Shaman
       'vambraces_of_prophecy',  // Priest
       'girdle_of_prophecy',     // Priest
       'cenarion_bracers',       // Druid
@@ -172,6 +182,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   golemagg: {
     items: [
       'lawbringer_chestguard',  // Paladin
+      'earthfury_vestments',    // Shaman
       'robes_of_prophecy',      // Priest
       'cenarion_vestments',     // Druid
       'arcanist_robes',         // Mage
@@ -215,6 +226,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'perditions_blade',       // Rogue/Warrior dagger
       // Some T1 pieces as bonus
       'lawbringer_chestguard',
+      'earthfury_vestments',    // Shaman chest
       'robes_of_prophecy',
       'breastplate_of_might',
       'nightslayer_chestpiece',
@@ -234,6 +246,8 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Give some starter items
       'lawbringer_bracers',
       'lawbringer_belt',
+      'earthfury_bracers',      // Shaman
+      'earthfury_belt',         // Shaman
       'vambraces_of_prophecy',
       'girdle_of_prophecy',
       'cenarion_bracers',
@@ -254,6 +268,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
     items: [
       // T2 Helms (all classes)
       'judgment_crown',           // Paladin T2 helm
+      'ten_storms_crown',         // Shaman T2 helm
       'halo_of_transcendence',    // Priest T2 helm
       'stormrage_cover',          // Druid T2 helm
       'netherwind_crown',         // Mage T2 helm
@@ -306,19 +321,60 @@ export function isPaladinUsable(item: GearItem): boolean {
   return item.classes.includes('paladin') || item.classes.includes('all');
 }
 
+// Check if an item is Shaman-only (excludes 'all' class items)
+export function isShamanOnly(item: GearItem): boolean {
+  return item.classes.length === 1 && item.classes.includes('shaman');
+}
+
+// Check if an item is Paladin-only (excludes 'all' class items)
+export function isPaladinOnly(item: GearItem): boolean {
+  return item.classes.length === 1 && item.classes.includes('paladin');
+}
+
+// Check if an item is usable by the given player class (for bad luck protection)
+export function isPlayerClassUsable(item: GearItem, playerClass: PlayerHealerClass): boolean {
+  return item.classes.includes(playerClass) || item.classes.includes('all');
+}
+
+// Filter items based on faction - removes faction-exclusive items that shouldn't drop
+// Alliance: Remove Shaman-only items (Shamans don't exist in Alliance)
+// Horde: Remove Paladin-only items (Paladins don't exist in Horde)
+export function filterItemsByFaction(itemIds: string[], faction: Faction): string[] {
+  return itemIds.filter(itemId => {
+    const item = ALL_ITEMS[itemId];
+    if (!item) return true; // Keep unknown items
+
+    if (faction === 'alliance') {
+      // Alliance can't use Shaman-only items
+      return !isShamanOnly(item);
+    } else {
+      // Horde can't use Paladin-only items
+      return !isPaladinOnly(item);
+    }
+  });
+}
+
 // Roll loot from a boss's table with bad luck protection
-// badLuckCounter: how many kills since last paladin loot (0 = just got one)
-// Returns: { items, hadPaladinLoot, legendaryMaterial } so caller can update state
-export function rollBossLoot(bossId: string, badLuckCounter: number = 0): {
+// badLuckCounter: how many kills since last player class loot (0 = just got one)
+// faction: determines which faction-exclusive items can drop
+// playerClass: the player's healer class (paladin/shaman) for bad luck protection
+// Returns: { items, hadPlayerClassLoot, legendaryMaterial } so caller can update state
+export function rollBossLoot(
+  bossId: string,
+  badLuckCounter: number = 0,
+  faction: Faction = 'alliance',
+  playerClass: PlayerHealerClass = 'paladin'
+): {
   items: GearItem[],
-  hadPaladinLoot: boolean,
+  hadPlayerClassLoot: boolean,
   legendaryMaterial: LegendaryMaterial | null
 } {
   const table = BOSS_LOOT_TABLES[bossId];
-  if (!table) return { items: [], hadPaladinLoot: false, legendaryMaterial: null };
+  if (!table) return { items: [], hadPlayerClassLoot: false, legendaryMaterial: null };
 
   const droppedItems: GearItem[] = [];
-  const availableItems = [...table.items];
+  // Filter out faction-exclusive items that shouldn't drop
+  const availableItems = filterItemsByFaction([...table.items], faction);
 
   // Check for legendary material drop first
   let legendaryMaterial: LegendaryMaterial | null = null;
@@ -329,21 +385,21 @@ export function rollBossLoot(bossId: string, badLuckCounter: number = 0): {
     }
   }
 
-  // Bad luck protection threshold - after 3 kills with no paladin loot, guarantee one
+  // Bad luck protection threshold - after 3 kills with no player class loot, guarantee one
   const BAD_LUCK_THRESHOLD = 3;
   const needsProtection = badLuckCounter >= BAD_LUCK_THRESHOLD;
 
-  // If bad luck protection triggered, try to ensure a paladin item drops first
+  // If bad luck protection triggered, try to ensure a player class item drops first
   if (needsProtection) {
-    // Find paladin-usable items in this loot table
-    const paladinItems = availableItems.filter(itemId => {
+    // Find player class usable items in this (already faction-filtered) loot table
+    const playerClassItems = availableItems.filter(itemId => {
       const item = ALL_ITEMS[itemId];
-      return item && isPaladinUsable(item);
+      return item && isPlayerClassUsable(item, playerClass);
     });
 
-    if (paladinItems.length > 0) {
-      // Pick a random paladin item as guaranteed drop
-      const guaranteedItemId = paladinItems[Math.floor(Math.random() * paladinItems.length)];
+    if (playerClassItems.length > 0) {
+      // Pick a random player class item as guaranteed drop
+      const guaranteedItemId = playerClassItems[Math.floor(Math.random() * playerClassItems.length)];
       const guaranteedItem = ALL_ITEMS[guaranteedItemId];
       if (guaranteedItem) {
         droppedItems.push(guaranteedItem);
@@ -365,10 +421,10 @@ export function rollBossLoot(bossId: string, badLuckCounter: number = 0): {
     }
   }
 
-  // Check if any dropped item is paladin-usable
-  const hadPaladinLoot = droppedItems.some(item => isPaladinUsable(item));
+  // Check if any dropped item is usable by the player's class
+  const hadPlayerClassLoot = droppedItems.some(item => isPlayerClassUsable(item, playerClass));
 
-  return { items: droppedItems, hadPaladinLoot, legendaryMaterial };
+  return { items: droppedItems, hadPlayerClassLoot, legendaryMaterial };
 }
 
 // Get DKP reward for killing a boss

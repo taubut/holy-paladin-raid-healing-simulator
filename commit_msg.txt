@@ -1,0 +1,19 @@
+Add Horde Restoration Shaman playable faction
+
+Major Features:
+- New playable class: Restoration Shaman (Horde faction)
+- Faction switching between Alliance (Holy Paladin) and Horde (Resto Shaman)
+- Complete Shaman healing spells: Healing Wave, Lesser Healing Wave, Chain Heal
+- Shaman totem system with 12 totems across 4 elements (Water/Earth/Air/Fire)
+- Natures Swiftness cooldown for instant emergency heals
+- Shaman T1 (Earthfury) and T2 (Ten Storms) gear sets
+
+Faction System:
+- Each faction maintains separate equipment, bag, and DKP progress
+- Faction-appropriate loot filtering (no Shaman items for Alliance, no Paladin items for Horde)
+- Class selection in raid manager restricted by current faction
+- Dynamic UI updates for player class icon, name color, and active cooldowns
+
+Bug Fixes:
+- Fixed party auras not showing on Horde raid frames
+- Fixed aura provider checking to respect spec requirements

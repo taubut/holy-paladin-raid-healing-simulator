@@ -360,6 +360,13 @@ body {
   }
 }
 
+/* Raid frame mouseover target - for mouseover healing */
+.raid-frame.mouseover-target {
+  border-color: #00ccff;
+  box-shadow: 0 0 10px rgba(0, 204, 255, 0.6);
+  transform: scale(1.02);
+}
+
 .class-indicator {
   position: absolute;
   top: 0;
@@ -681,6 +688,169 @@ body {
   color: #fff;
 }
 
+/* Faction Toggle */
+.faction-toggle {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.faction-btn {
+  padding: 8px 20px;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border: 2px solid #5a5a6a;
+  border-radius: 4px;
+  color: #888;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.faction-btn:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.faction-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.faction-btn.active.alliance {
+  background: linear-gradient(180deg, #1a3a6a 0%, #0a2a4a 100%);
+  border-color: #3a6aaa;
+  color: #6ab0ff;
+  box-shadow: 0 0 10px rgba(74, 144, 226, 0.4);
+}
+
+.faction-btn.active.horde {
+  background: linear-gradient(180deg, #6a1a1a 0%, #4a0a0a 100%);
+  border-color: #aa3a3a;
+  color: #ff6a6a;
+  box-shadow: 0 0 10px rgba(226, 74, 74, 0.4);
+}
+
+.faction-btn.alliance:hover:not(:disabled):not(.active) {
+  border-color: #3a6aaa;
+  color: #aaccff;
+}
+
+.faction-btn.horde:hover:not(:disabled):not(.active) {
+  border-color: #aa3a3a;
+  color: #ffaaaa;
+}
+
+/* Shaman Totem Bar */
+.totem-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  border: 1px solid #0070de33;
+  margin-top: 8px;
+}
+
+.totem-element-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.totem-element-label {
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.totem-element-group.earth .totem-element-label {
+  color: #c79c6e;
+  border-bottom: 2px solid #c79c6e;
+}
+
+.totem-element-group.fire .totem-element-label {
+  color: #ff4040;
+  border-bottom: 2px solid #ff4040;
+}
+
+.totem-element-group.water .totem-element-label {
+  color: #69ccf0;
+  border-bottom: 2px solid #69ccf0;
+}
+
+.totem-element-group.air .totem-element-label {
+  color: #aaffaa;
+  border-bottom: 2px solid #aaffaa;
+}
+
+.totem-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.totem-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  border: 2px solid #555;
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  transition: all 0.15s ease;
+  overflow: hidden;
+}
+
+.totem-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.totem-button:hover:not(.disabled) {
+  transform: scale(1.1);
+  z-index: 10;
+  border-color: #0070de;
+  box-shadow: 0 0 10px rgba(0, 112, 222, 0.4);
+}
+
+.totem-button.active {
+  border-color: #0070de;
+  box-shadow: 0 0 8px rgba(0, 112, 222, 0.6), inset 0 0 10px rgba(0, 112, 222, 0.3);
+}
+
+.totem-button.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.totem-button.disabled:hover {
+  transform: none;
+}
+
+.totem-duration {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.8);
+  color: #0070de;
+  font-size: 9px;
+  font-weight: bold;
+  text-align: center;
+  padding: 1px 0;
+}
+
 /* Encounter Controls */
 .encounter-controls {
   display: flex;
@@ -861,6 +1031,7 @@ body {
   border-color: #ffd700;
   box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
 }
+
 
 .spell-button img {
   width: 100%;
@@ -4884,6 +5055,21 @@ body {
   }
   100% {
     box-shadow: none;
+  }
+}
+
+/* Chain Heal Bounce Preview - Shows which targets will receive bounces */
+.raid-frame.chain-heal-bounce {
+  animation: chainHealBounceGlow 0.6s ease-in-out infinite;
+  border-color: #69ccf0 !important;
+}
+
+@keyframes chainHealBounceGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(105, 204, 240, 0.4), inset 0 0 6px rgba(105, 204, 240, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(105, 204, 240, 0.8), inset 0 0 10px rgba(105, 204, 240, 0.4);
   }
 }
 

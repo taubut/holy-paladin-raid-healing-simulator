@@ -46,6 +46,45 @@ export const SPELL_TOOLTIPS: Record<string, SpellTooltip> = {
     description: 'Places a Blessing on the friendly target, increasing the effects of Holy Light spells used on the target by up to 400 and the effects of Flash of Light spells used on the target by up to 115. Lasts 5 min.',
     additionalInfo: 'Always keep this on tanks! Significantly boosts your healing output.',
   },
+  // ============================================
+  // SHAMAN SPELLS
+  // ============================================
+  healing_wave: {
+    description: 'Heals a friendly target for 1620 to 1850.',
+    additionalInfo: 'Your strongest single-target heal. Long cast time but powerful for tank healing.',
+  },
+  healing_wave_downrank: {
+    description: 'Heals a friendly target for 389 to 443.',
+    additionalInfo: 'Mana-efficient option for sustained healing when damage is lighter.',
+  },
+  lesser_healing_wave: {
+    description: 'Heals a friendly target for 458 to 514.',
+    additionalInfo: 'Fast heal for quick spot healing. Higher mana per heal than Healing Wave.',
+  },
+  lesser_healing_wave_downrank: {
+    description: 'Heals a friendly target for 248 to 280.',
+    additionalInfo: 'Efficient fast heal for topping off raid members.',
+  },
+  chain_heal: {
+    description: 'Heals the friendly target for 768 to 880, then bounces to the 2 most injured nearby allies for 50% less each bounce.',
+    additionalInfo: 'Signature Shaman spell! Extremely efficient for healing stacked groups.',
+  },
+  chain_heal_downrank: {
+    description: 'Heals the friendly target for 332 to 381, then bounces to the 2 most injured nearby allies for 50% less each bounce.',
+    additionalInfo: 'Mana-efficient AoE healing. Great for sustained raid healing.',
+  },
+  natures_swiftness: {
+    description: 'When activated, your next Nature spell with a casting time of less than 10 sec becomes an instant cast spell.',
+    additionalInfo: 'Emergency cooldown! Combine with Healing Wave for instant massive heals.',
+  },
+  cure_poison: {
+    description: 'Cures 1 poison effect on the target.',
+    additionalInfo: 'Use to remove poison debuffs from raid members.',
+  },
+  cure_disease: {
+    description: 'Cures 1 disease effect on the target.',
+    additionalInfo: 'Use to remove disease debuffs from raid members.',
+  },
 };
 
 // Holy Light - Rank 9 (max rank)

@@ -8,9 +8,22 @@ export type WoWClass =
   | 'hunter'
   | 'rogue'
   | 'priest'
+  | 'shaman'
   | 'mage'
   | 'warlock'
   | 'druid';
+
+// Faction types
+export type Faction = 'alliance' | 'horde';
+
+// Player healer class (expandable for future classes)
+export type PlayerHealerClass = 'paladin' | 'shaman';
+
+// Position zone for Chain Heal bouncing (melee/ranged/tank)
+export type PositionZone = 'melee' | 'ranged' | 'tank';
+
+// Totem element types
+export type TotemElement = 'earth' | 'fire' | 'water' | 'air';
 
 // Vanilla WoW specs for each class
 export type WoWSpec =
@@ -24,6 +37,8 @@ export type WoWSpec =
   | 'assassination' | 'combat' | 'subtlety'
   // Priest specs
   | 'discipline' | 'holy_priest' | 'shadow'
+  // Shaman specs
+  | 'elemental' | 'enhancement' | 'restoration_shaman'
   // Mage specs
   | 'arcane' | 'fire_mage' | 'frost_mage'
   // Warlock specs
@@ -65,6 +80,11 @@ export const CLASS_SPECS: Record<WoWClass, SpecDefinition[]> = {
     { id: 'discipline', name: 'Discipline', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_powerwordshield.jpg' },
     { id: 'holy_priest', name: 'Holy', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_guardianspirit.jpg' },
     { id: 'shadow', name: 'Shadow', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowwordpain.jpg' },
+  ],
+  shaman: [
+    { id: 'elemental', name: 'Elemental', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightning.jpg' },
+    { id: 'enhancement', name: 'Enhancement', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightningshield.jpg' },
+    { id: 'restoration_shaman', name: 'Restoration', role: 'healer', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_magicimmunity.jpg' },
   ],
   mage: [
     { id: 'arcane', name: 'Arcane', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_magicalsentry.jpg' },
@@ -151,6 +171,11 @@ export interface BuffEffect {
   arcaneResistance?: number;
   // Melee crit bonus for Leader of the Pack
   meleeCritBonus?: number;
+  // Shaman totem bonuses
+  strengthBonus?: number;
+  agilityBonus?: number;
+  threatReduction?: number;
+  fearImmunity?: boolean;
 }
 
 // Consumable buff definition
@@ -191,6 +216,32 @@ export interface PartyAura {
 export interface PaladinAuraAssignment {
   paladinId: string;  // Member ID of the paladin
   auraId: string | null;  // Selected aura ID or null for no aura
+}
+
+// Shaman totem definition
+export interface Totem {
+  id: string;
+  name: string;
+  icon: string;
+  element: TotemElement;
+  manaCost: number;
+  duration: number; // Duration in seconds (default 120 = 2 min)
+  cooldown: number; // Cooldown in seconds (0 for most totems)
+  effect: BuffEffect;
+  scope: 'party' | 'raid';
+}
+
+// Active totem tracking (runtime state) - extends Totem with runtime info
+export interface ActiveTotem extends Totem {
+  remainingDuration: number;
+  lastTickTime: number; // For periodic effects like Healing Stream
+  group: number; // Which raid group this totem is buffing
+}
+
+// Totem cooldown tracking
+export interface TotemCooldown {
+  totemId: string;
+  remainingCooldown: number;
 }
 
 export interface Debuff {
@@ -265,6 +316,7 @@ export interface RaidMember {
   equipment: Equipment;
   gearScore: number;
   lastCritHealTime?: number; // Timestamp of last crit heal received (for animation)
+  positionZone: PositionZone; // For Chain Heal bouncing (melee/ranged/tank)
 }
 
 export interface Spell {
@@ -280,6 +332,9 @@ export interface Spell {
   range?: number;
   spellPowerCoefficient: number;
   isOnGlobalCooldown: boolean;
+  // Chain Heal specific properties
+  maxBounces?: number;      // Number of additional targets (3 for Chain Heal)
+  bounceReduction?: number; // Healing reduction per bounce (0.5 = 50% in Vanilla)
 }
 
 // Damage type for damage reduction calculations
@@ -381,6 +436,23 @@ export interface GameState {
   // Raid management and party auras
   raidManagementMode: boolean;  // Toggle for drag-drop raid arrangement mode
   paladinAuraAssignments: PaladinAuraAssignment[];  // Each paladin's chosen aura
+  // Mouseover healing - cast spells on whoever the mouse is hovering over
+  mouseoverTargetId: string | null;  // ID of raid member currently under the mouse cursor
+  // Faction and class system
+  faction: Faction;
+  playerClass: PlayerHealerClass;
+  // Shaman-specific state
+  activeTotems: ActiveTotem[];         // Max 4 (one per element)
+  totemCooldowns: TotemCooldown[];     // Tracking cooldowns for totems like Mana Tide
+  naturesSwiftnessActive: boolean;     // Next spell is instant
+  naturesSwiftnessCooldown: number;    // 3-minute cooldown tracking
+  // Faction-specific progress (each faction maintains separate gear/bag/DKP)
+  allianceEquipment: Equipment;
+  allianceBag: GearItem[];
+  allianceDKP: DKPState;
+  hordeEquipment: Equipment;
+  hordeBag: GearItem[];
+  hordeDKP: DKPState;
 }
 
 // Class colors matching Classic WoW
@@ -390,6 +462,7 @@ export const CLASS_COLORS: Record<WoWClass, string> = {
   hunter: '#ABD473',
   rogue: '#FFF569',
   priest: '#FFFFFF',
+  shaman: '#0070DE',
   mage: '#69CCF0',
   warlock: '#9482C9',
   druid: '#FF7D0A',
