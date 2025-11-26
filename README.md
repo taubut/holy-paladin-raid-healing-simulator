@@ -1,4 +1,5 @@
-# Classic WoW Raid Healing Simulator (NOW INCLUDES OTHER HEALERS NOT JUST PALADINS)
+# Classic WoW Raid Healing Simulator 
+(NOW INCLUDES OTHER HEALERS NOT JUST PALADINS)
 
 A browser-based Classic WoW (Vanilla) Holy Paladin raid healing simulator. Experience the nostalgia of healing Molten Core and Onyxia's Lair with authentic spell mechanics, boss abilities, and raid management systems.
 
