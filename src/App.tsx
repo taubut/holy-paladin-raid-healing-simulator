@@ -54,6 +54,9 @@ function App() {
   const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
   const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
+  // Mobile UI mode
+  const [isMobileMode, setIsMobileMode] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
 
   // Initialize engine once
   if (!engineRef.current) {
@@ -249,8 +252,18 @@ function App() {
       <header className="app-header">
         <h1>Classic WoW Raid Healing Simulator</h1>
         <span className="subtitle">Classic Era - Vanilla Only</span>
+        <button
+          className={`mobile-toggle-btn ${isMobileMode ? 'active' : ''}`}
+          onClick={() => setIsMobileMode(!isMobileMode)}
+          title={isMobileMode ? 'Switch to Desktop UI' : 'Switch to Phone UI'}
+        >
+          {isMobileMode ? '🖥️ Desktop' : '📱 Phone'}
+        </button>
       </header>
 
+      {/* DESKTOP UI */}
+      {!isMobileMode && (
+      <>
       <main className="app-main">
         {/* Left Panel - Player, Boss, Raid */}
         <div className="left-panel">
@@ -1034,6 +1047,476 @@ function App() {
           <span className="tip">Save Divine Favor + Holy Light for emergency tank saves</span>
         </div>
       </footer>
+      </>
+      )}
+
+      {/* MOBILE UI */}
+      {isMobileMode && (
+        <div className="mobile-ui">
+          {/* Mobile Header with Player Info */}
+          <div className="mobile-player-header">
+            <div className="mobile-player-info">
+              <img
+                src={state.playerClass === 'shaman'
+                  ? "https://wow.zamimg.com/images/wow/icons/large/spell_nature_magicimmunity.jpg"
+                  : "https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Shaman" : "Paladin"}
+                className="mobile-class-icon"
+              />
+              <div className="mobile-player-details">
+                <span className="mobile-player-name" style={{ color: CLASS_COLORS[state.playerClass] }}>
+                  {state.playerName}
+                </span>
+                <span className="mobile-player-class">
+                  {state.playerClass === 'shaman' ? 'Resto Shaman' : 'Holy Paladin'}
+                </span>
+              </div>
+              <div className="mobile-dkp">
+                <span className="dkp-value">{state.playerDKP.points}</span>
+                <span className="dkp-label">DKP</span>
+              </div>
+            </div>
+            <div className="mobile-mana-bar">
+              <div
+                className={`mobile-mana-fill ${
+                  (state.playerMana / state.maxMana) < 0.15 ? 'critical' :
+                  (state.playerMana / state.maxMana) < 0.30 ? 'warning' : ''
+                }`}
+                style={{ width: `${(state.playerMana / state.maxMana) * 100}%` }}
+              />
+              <span className="mobile-mana-text">{Math.floor(state.playerMana)} / {state.maxMana}</span>
+            </div>
+            <div className="mobile-player-stats">
+              <span>+{state.spellPower} SP</span>
+              <span>{state.critChance.toFixed(1)}% Crit</span>
+              <span>{Math.floor(engine.computePlayerStats().totalMp5)} MP5</span>
+            </div>
+          </div>
+
+          {/* Phase Alert */}
+          {phaseAlert && (
+            <div className="mobile-phase-alert">{phaseAlert}</div>
+          )}
+
+          {/* Boss Frame (when in encounter) */}
+          {state.boss && (
+            <div className="mobile-boss-frame">
+              <div className="mobile-boss-name">
+                {state.boss.name}
+                {state.boss.currentPhase && state.boss.currentPhase > 1 && (
+                  <span className="phase-indicator"> P{state.boss.currentPhase}</span>
+                )}
+              </div>
+              <div className="mobile-boss-health-bar">
+                <div
+                  className="mobile-boss-health-fill"
+                  style={{ width: `${(state.boss.currentHealth / state.boss.maxHealth) * 100}%` }}
+                />
+                <span className="mobile-boss-health-text">
+                  {Math.floor((state.boss.currentHealth / state.boss.maxHealth) * 100)}%
+                </span>
+              </div>
+              <div className="mobile-boss-timer">
+                {formatTime(state.elapsedTime)} | Enrage: {formatTime(state.boss.enrageTimer - state.elapsedTime)}
+              </div>
+            </div>
+          )}
+
+          {/* Cast Bar */}
+          {state.isCasting && state.castingSpell && (
+            <div className="mobile-cast-bar">
+              <div className="mobile-cast-fill" style={{ width: `${state.castProgress * 100}%` }} />
+              <span className="mobile-cast-text">
+                {state.castingSpell.name} - {((1 - state.castProgress) * state.castingSpell.castTime).toFixed(1)}s
+              </span>
+            </div>
+          )}
+
+          {/* Mobile Tab Navigation */}
+          <div className="mobile-tabs">
+            <button
+              className={`mobile-tab ${mobileTab === 'raid' ? 'active' : ''}`}
+              onClick={() => setMobileTab('raid')}
+            >
+              Raid
+            </button>
+            <button
+              className={`mobile-tab ${mobileTab === 'buffs' ? 'active' : ''}`}
+              onClick={() => setMobileTab('buffs')}
+              disabled={state.isRunning}
+            >
+              Buffs
+            </button>
+            <button
+              className={`mobile-tab ${mobileTab === 'log' ? 'active' : ''}`}
+              onClick={() => setMobileTab('log')}
+            >
+              Log
+            </button>
+          </div>
+
+          {/* Mobile Content Area */}
+          <div className="mobile-content">
+            {/* Raid Tab - Raid Frames */}
+            {mobileTab === 'raid' && (
+              <div className="mobile-raid-container">
+                {/* Encounter Controls (when not running) */}
+                {!state.isRunning && (
+                  <div className="mobile-encounter-controls">
+                    <div className="mobile-raid-selector">
+                      <select
+                        value={state.selectedRaidId}
+                        onChange={(e) => engine.selectRaid(e.target.value)}
+                      >
+                        {RAIDS.map(raid => {
+                          const defeatedCount = state.defeatedBossesByRaid[raid.id]?.length || 0;
+                          const totalBosses = raid.encounters.length;
+                          return (
+                            <option key={raid.id} value={raid.id} disabled={!raid.available}>
+                              {raid.name} ({defeatedCount}/{totalBosses})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div className="mobile-boss-buttons">
+                      <button
+                        className="mobile-boss-btn training"
+                        onClick={() => engine.startEncounter('training')}
+                      >
+                        Training
+                      </button>
+                      {engine.getCurrentRaidEncounters().map((enc, idx) => {
+                        const defeatedBosses = engine.getDefeatedBossesForCurrentRaid();
+                        const raidEncounters = engine.getCurrentRaidEncounters();
+                        const isDefeated = defeatedBosses.includes(enc.id);
+                        const previousBossDefeated = idx === 0 || defeatedBosses.includes(raidEncounters[idx - 1].id);
+                        const isLocked = !isDefeated && !previousBossDefeated;
+                        return (
+                          <button
+                            key={enc.id}
+                            className={`mobile-boss-btn ${isDefeated ? 'defeated' : ''} ${isLocked ? 'locked' : ''}`}
+                            onClick={() => engine.startEncounter(enc.id)}
+                            disabled={isDefeated || isLocked}
+                          >
+                            {idx + 1}. {enc.name.split(' ')[0]}
+                            {isDefeated && ' ✓'}
+                            {isLocked && ' 🔒'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="mobile-raid-controls">
+                      <div className="mobile-faction-toggle">
+                        <button
+                          className={`mobile-faction-btn ${state.faction === 'alliance' ? 'active' : ''}`}
+                          onClick={() => engine.switchFaction('alliance')}
+                        >
+                          Alliance
+                        </button>
+                        <button
+                          className={`mobile-faction-btn ${state.faction === 'horde' ? 'active' : ''}`}
+                          onClick={() => engine.switchFaction('horde')}
+                        >
+                          Horde
+                        </button>
+                      </div>
+                      <div className="mobile-utility-buttons">
+                        <button onClick={() => engine.restoreRaid()}>Restore</button>
+                        <button onClick={() => setShowRaidGroupManager(true)}>Groups</button>
+                        <button onClick={() => setShowSaveModal(true)}>Save</button>
+                        <button onClick={() => setShowLoadModal(true)}>Load</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Running Encounter Stats */}
+                {state.isRunning && (
+                  <div className="mobile-encounter-stats">
+                    <div className="mobile-stat">
+                      <span className="stat-label">Healing</span>
+                      <span className="stat-value heal">{Math.floor(state.healingDone).toLocaleString()}</span>
+                    </div>
+                    <div className="mobile-stat">
+                      <span className="stat-label">Overheal</span>
+                      <span className="stat-value overheal">{Math.floor(state.overhealing).toLocaleString()}</span>
+                    </div>
+                    <div className="mobile-stat">
+                      <span className="stat-label">Alive</span>
+                      <span className="stat-value">{state.raid.filter(m => m.isAlive).length}/{state.raid.length}</span>
+                    </div>
+                    <button className="mobile-stop-btn" onClick={() => engine.stopEncounter()}>
+                      Stop
+                    </button>
+                  </div>
+                )}
+
+                {/* Mobile Raid Frames - Compact Grid */}
+                <div className="mobile-raid-grid">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(groupNum => {
+                    const groupMembers = state.raid.filter(m => m.group === groupNum);
+                    if (groupMembers.length === 0) return null;
+
+                    return (
+                      <div key={groupNum} className="mobile-raid-group">
+                        <div className="mobile-group-label">G{groupNum}</div>
+                        <div className="mobile-group-members">
+                          {groupMembers.map(member => {
+                            const healthPercent = (member.currentHealth / member.maxHealth) * 100;
+                            const hasDispellable = member.debuffs.some(
+                              d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
+                            );
+                            const isPlayer = member.id === state.playerId;
+                            const isChainHealBounce = state.isCasting &&
+                              state.castingSpell?.id.includes('chain_heal') &&
+                              state.selectedTargetId &&
+                              engine.getChainHealBounceTargets(state.selectedTargetId, state.castingSpell?.maxBounces || 2).includes(member.id);
+
+                            return (
+                              <div
+                                key={member.id}
+                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''}`}
+                                onClick={() => {
+                                  if (state.isRunning) {
+                                    engine.selectTarget(member.id);
+                                  } else {
+                                    engine.inspectMember(member.id);
+                                  }
+                                }}
+                              >
+                                <div
+                                  className="mobile-frame-health"
+                                  style={{
+                                    width: `${healthPercent}%`,
+                                    backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
+                                  }}
+                                />
+                                <div className="mobile-frame-content">
+                                  <span
+                                    className="mobile-frame-name"
+                                    style={{ color: CLASS_COLORS[member.class] }}
+                                  >
+                                    {member.name.substring(0, 6)}
+                                    {isPlayer && <span className="you-tag">★</span>}
+                                  </span>
+                                  <span className="mobile-frame-hp">
+                                    {member.isAlive ? Math.floor(member.currentHealth) : 'DEAD'}
+                                  </span>
+                                </div>
+                                {member.debuffs.length > 0 && (
+                                  <div className="mobile-debuff-indicator" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile Action Bar - Right under raid frames */}
+                <div className="mobile-action-bar-inline">
+                  {actionBar.slice(0, 6).map((spell) => {
+                    const isOnCooldown = spell.currentCooldown > 0;
+                    const isOnGCD = state.globalCooldown > 0 && spell.isOnGlobalCooldown;
+                    const notEnoughMana = state.playerMana < spell.manaCost;
+                    const isDisabled = isOnCooldown || isOnGCD || notEnoughMana || state.isCasting;
+
+                    return (
+                      <div
+                        key={spell.id}
+                        className={`mobile-spell ${isDisabled ? 'disabled' : ''}`}
+                        onClick={() => !isDisabled && engine.castSpell(spell)}
+                      >
+                        <img src={spell.icon} alt={spell.name} />
+                        {isOnCooldown && (
+                          <div className="mobile-cooldown">{Math.ceil(spell.currentCooldown)}</div>
+                        )}
+                        {notEnoughMana && !isOnCooldown && (
+                          <div className="mobile-no-mana" />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {/* Mana Potion */}
+                  <div
+                    className={`mobile-spell ${state.manaPotionCooldown > 0 ? 'disabled' : ''}`}
+                    onClick={() => engine.useManaPotion()}
+                  >
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_potion_76.jpg" alt="Mana Potion" />
+                    {state.manaPotionCooldown > 0 && (
+                      <div className="mobile-cooldown">{Math.ceil(state.manaPotionCooldown)}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Totem Bar - Right under action bar (Shaman only) */}
+                {state.playerClass === 'shaman' && (
+                  <div className="mobile-totem-bar-inline">
+                    {(['earth', 'fire', 'water', 'air'] as TotemElement[]).map(element => {
+                      const activeTotem = state.activeTotems.find(t => t.element === element);
+                      const availableTotems = TOTEMS_BY_ELEMENT[element];
+                      const elementColors: Record<TotemElement, string> = {
+                        earth: '#8B4513',
+                        fire: '#FF4500',
+                        water: '#1E90FF',
+                        air: '#87CEEB'
+                      };
+
+                      return (
+                        <div key={element} className="mobile-totem-element-inline" style={{ borderColor: elementColors[element] }}>
+                          <div className="mobile-totem-label-inline" style={{ color: elementColors[element] }}>
+                            {element.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="mobile-totem-buttons-inline">
+                            {availableTotems.slice(0, 3).map(totem => {
+                              const isActive = activeTotem?.id === totem.id;
+                              const cooldown = state.totemCooldowns.find(tc => tc.totemId === totem.id);
+                              const isOnCooldown = cooldown && cooldown.remainingCooldown > 0;
+                              const notEnoughMana = state.playerMana < totem.manaCost;
+                              const isDisabled = isOnCooldown || notEnoughMana || state.globalCooldown > 0 || state.isCasting;
+
+                              return (
+                                <div
+                                  key={totem.id}
+                                  className={`mobile-totem-inline ${isActive ? 'active' : ''} ${isDisabled ? 'disabled' : ''}`}
+                                  onClick={() => !isDisabled && engine.dropTotem(totem.id)}
+                                >
+                                  <img src={totem.icon} alt={totem.name} />
+                                  {isActive && activeTotem && (
+                                    <div className="mobile-totem-timer-inline">{Math.ceil(activeTotem.remainingDuration)}</div>
+                                  )}
+                                  {isOnCooldown && cooldown && (
+                                    <div className="mobile-cooldown">{Math.ceil(cooldown.remainingCooldown)}</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Buffs Tab */}
+            {mobileTab === 'buffs' && !state.isRunning && (
+              <div className="mobile-buffs-container">
+                {/* Paladin Blessings (Alliance only) */}
+                {state.faction === 'alliance' && (
+                  <div className="mobile-section">
+                    <div className="mobile-section-header">
+                      Blessings ({state.activePaladinBlessings.length}/{state.maxPaladinBlessings})
+                    </div>
+                    <div className="mobile-blessings-grid">
+                      {engine.getPaladinBlessings().map(({ buff, isAssigned }) => (
+                        <div
+                          key={buff.id}
+                          className={`mobile-blessing ${isAssigned ? 'active' : ''}`}
+                          onClick={() => engine.togglePaladinBlessing(buff.id)}
+                        >
+                          <img src={buff.icon} alt={buff.name} />
+                          {isAssigned && <div className="mobile-check">✓</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Raid Buffs */}
+                <div className="mobile-section">
+                  <div className="mobile-section-header">
+                    Raid Buffs
+                    <button className="mobile-buff-all" onClick={() => engine.applyAllRaidBuffs()}>All</button>
+                  </div>
+                  <div className="mobile-buffs-grid">
+                    {engine.getAvailableBuffs().map(({ buff, available, hasBuff }) => (
+                      <div
+                        key={buff.id}
+                        className={`mobile-buff ${hasBuff ? 'active' : ''} ${!available ? 'unavailable' : ''}`}
+                        onClick={() => {
+                          if (available) {
+                            if (hasBuff) engine.removeRaidBuff(buff.id);
+                            else engine.applyRaidBuff(buff.id);
+                          }
+                        }}
+                      >
+                        <img src={buff.icon} alt={buff.name} />
+                        {hasBuff && <div className="mobile-check">✓</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Consumables */}
+                <div className="mobile-section">
+                  <div className="mobile-section-header">
+                    Consumables
+                    <button className="mobile-buff-all" onClick={() => engine.applyConsumables()}>All</button>
+                  </div>
+                  <div className="mobile-buffs-grid">
+                    {Object.values(CONSUMABLES)
+                      .filter(c => c.role === 'healer')
+                      .map(consume => {
+                        const isActive = state.activeConsumables.includes(consume.id);
+                        return (
+                          <div
+                            key={consume.id}
+                            className={`mobile-buff ${isActive ? 'active' : ''}`}
+                          >
+                            <img src={consume.icon} alt={consume.name} />
+                            {isActive && <div className="mobile-check">✓</div>}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* World Buffs */}
+                <div className="mobile-section">
+                  <div className="mobile-section-header">World Buffs</div>
+                  <div className="mobile-buffs-grid">
+                    {engine.getWorldBuffStatus().map(({ buff, isAvailable, isActive, isComingSoon }) => (
+                      <div
+                        key={buff.id}
+                        className={`mobile-buff ${isActive ? 'active' : ''} ${!isAvailable || isComingSoon ? 'unavailable' : ''}`}
+                        onClick={() => {
+                          if (!isComingSoon && isAvailable) {
+                            if (isActive) engine.clearWorldBuffs();
+                            else engine.applyWorldBuff(buff.id);
+                          }
+                        }}
+                      >
+                        <img src={buff.icon} alt={buff.name} />
+                        {isActive && <div className="mobile-check">✓</div>}
+                        {isComingSoon && <div className="mobile-lock">🔒</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Log Tab */}
+            {mobileTab === 'log' && (
+              <div className="mobile-log-container">
+                {state.combatLog.slice(-50).map((entry, idx) => (
+                  <div key={idx} className={`mobile-log-entry log-${entry.type}`}>
+                    <span className="mobile-log-time">
+                      {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    </span>
+                    <span className={`mobile-log-msg ${entry.isCrit ? 'crit' : ''}`}>{entry.message}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Loot Modal */}
       {state.showLootModal && (

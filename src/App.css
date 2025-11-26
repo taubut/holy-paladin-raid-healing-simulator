@@ -5981,3 +5981,943 @@ body {
   color: #c9b8e8;
   font-size: 12px;
 }
+
+/* ============================================
+   MOBILE UI STYLES
+   ============================================ */
+
+/* Mobile Toggle Button in Header */
+.mobile-toggle-btn {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #4a4a4a, #2a2a2a);
+  border: 2px solid #666;
+  border-radius: 8px;
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-toggle-btn:hover {
+  background: linear-gradient(180deg, #5a5a5a, #3a3a3a);
+  border-color: #888;
+}
+
+.mobile-toggle-btn.active {
+  background: linear-gradient(180deg, #2a5a2a, #1a3a1a);
+  border-color: #4a8a4a;
+}
+
+/* Mobile UI Container */
+.mobile-ui {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  overflow: hidden;
+}
+
+/* Mobile Player Header - Compact */
+.mobile-player-header {
+  background: linear-gradient(180deg, #2a2a3e, #1a1a2e);
+  border-bottom: 2px solid #3a3a4e;
+  padding: 6px 8px;
+  flex-shrink: 0;
+}
+
+.mobile-player-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.mobile-class-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 2px solid #ffd700;
+}
+
+.mobile-player-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-player-name {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.mobile-player-class {
+  font-size: 10px;
+  color: #aaa;
+}
+
+.mobile-dkp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.mobile-dkp .dkp-value {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+.mobile-dkp .dkp-label {
+  font-size: 8px;
+  color: #888;
+}
+
+/* Mobile Mana Bar */
+.mobile-mana-bar {
+  height: 16px;
+  background: #1a1a2e;
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.mobile-mana-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #4a9eff, #2a6ebb);
+  transition: width 0.2s;
+}
+
+.mobile-mana-fill.warning {
+  background: linear-gradient(180deg, #ffaa00, #cc8800);
+}
+
+.mobile-mana-fill.critical {
+  background: linear-gradient(180deg, #ff4444, #cc2222);
+  animation: manaPulse 0.5s infinite;
+}
+
+.mobile-mana-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 3px #000;
+}
+
+.mobile-player-stats {
+  display: flex;
+  justify-content: space-around;
+  font-size: 11px;
+  color: #8aff8a;
+}
+
+/* Mobile Phase Alert */
+.mobile-phase-alert {
+  background: linear-gradient(90deg, transparent, rgba(255, 100, 0, 0.8), transparent);
+  color: #fff;
+  text-align: center;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: bold;
+  animation: phaseAlert 0.5s infinite;
+}
+
+/* Mobile Boss Frame */
+.mobile-boss-frame {
+  background: linear-gradient(180deg, #3a1a1a, #2a1010);
+  border: 2px solid #8a3030;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.mobile-boss-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ff6666;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.mobile-boss-name .phase-indicator {
+  color: #ffaa00;
+}
+
+.mobile-boss-health-bar {
+  height: 16px;
+  background: #1a1a1a;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.mobile-boss-health-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #cc3333, #882222);
+  transition: width 0.3s;
+}
+
+.mobile-boss-health-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 3px #000;
+}
+
+.mobile-boss-timer {
+  font-size: 10px;
+  color: #aaa;
+  text-align: center;
+}
+
+/* Mobile Cast Bar */
+.mobile-cast-bar {
+  height: 24px;
+  background: #1a1a2e;
+  border: 2px solid #4a4a6e;
+  position: relative;
+  overflow: hidden;
+  margin: 4px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.mobile-cast-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #ffcc00, #cc9900);
+  transition: width 0.05s linear;
+}
+
+.mobile-cast-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 3px #000;
+  white-space: nowrap;
+}
+
+/* Mobile Tabs */
+.mobile-tabs {
+  display: flex;
+  background: #2a2a3e;
+  border-bottom: 2px solid #3a3a4e;
+  flex-shrink: 0;
+}
+
+.mobile-tab {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-tab.active {
+  color: #fff;
+  background: #3a3a5e;
+  border-bottom: 3px solid #6a6aff;
+}
+
+.mobile-tab:disabled {
+  color: #444;
+  cursor: not-allowed;
+}
+
+/* Mobile Content Area */
+.mobile-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px;
+  min-height: 0; /* Allow flex shrinking */
+}
+
+/* When raid tab is active, use flex layout */
+.mobile-raid-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Mobile Encounter Controls */
+.mobile-encounter-controls {
+  margin-bottom: 10px;
+}
+
+.mobile-raid-selector select {
+  width: 100%;
+  padding: 10px;
+  font-size: 14px;
+  background: #2a2a3e;
+  border: 2px solid #4a4a6e;
+  border-radius: 6px;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.mobile-boss-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.mobile-boss-btn {
+  flex: 1 1 calc(33% - 6px);
+  min-width: 80px;
+  padding: 8px 4px;
+  font-size: 11px;
+  background: linear-gradient(180deg, #3a3a5e, #2a2a4e);
+  border: 2px solid #4a4a6e;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-boss-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4a4a6e, #3a3a5e);
+  border-color: #6a6a8e;
+}
+
+.mobile-boss-btn.training {
+  background: linear-gradient(180deg, #2a4a2a, #1a3a1a);
+  border-color: #4a6a4a;
+}
+
+.mobile-boss-btn.defeated {
+  background: #1a1a2e;
+  border-color: #2a6a2a;
+  color: #4a8a4a;
+  cursor: not-allowed;
+}
+
+.mobile-boss-btn.locked {
+  background: #1a1a2e;
+  border-color: #3a3a3a;
+  color: #555;
+  cursor: not-allowed;
+}
+
+.mobile-raid-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-faction-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.mobile-faction-btn {
+  flex: 1;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  background: #2a2a3e;
+  border: 2px solid #4a4a6e;
+  border-radius: 6px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-faction-btn.active {
+  color: #fff;
+}
+
+.mobile-faction-btn.active:first-child {
+  background: linear-gradient(180deg, #1a3a6a, #102a4a);
+  border-color: #2a5a9a;
+  color: #6ab6ff;
+}
+
+.mobile-faction-btn.active:last-child {
+  background: linear-gradient(180deg, #6a1a1a, #4a1010);
+  border-color: #9a2a2a;
+  color: #ff6a6a;
+}
+
+.mobile-utility-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.mobile-utility-buttons button {
+  flex: 1;
+  padding: 8px;
+  font-size: 12px;
+  background: linear-gradient(180deg, #3a3a5e, #2a2a4e);
+  border: 2px solid #4a4a6e;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+}
+
+.mobile-utility-buttons button:hover {
+  background: linear-gradient(180deg, #4a4a6e, #3a3a5e);
+}
+
+/* Mobile Encounter Stats - Compact */
+.mobile-encounter-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.mobile-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mobile-stat .stat-label {
+  font-size: 8px;
+  color: #888;
+}
+
+.mobile-stat .stat-value {
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.mobile-stat .stat-value.heal {
+  color: #00ff00;
+}
+
+.mobile-stat .stat-value.overheal {
+  color: #ffaa00;
+}
+
+.mobile-stop-btn {
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #cc3333, #992222);
+  border: 2px solid #ff4444;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Mobile Raid Grid - Compact 4-column layout to fit all on screen */
+.mobile-raid-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+}
+
+.mobile-raid-group {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.mobile-group-label {
+  font-size: 9px;
+  font-weight: bold;
+  color: #666;
+  text-align: center;
+  padding: 1px 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 2px;
+}
+
+.mobile-group-members {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Mobile Raid Frame - Compact */
+.mobile-raid-frame {
+  position: relative;
+  height: 24px;
+  background: #1a1a2e;
+  border: 1px solid #3a3a4e;
+  border-radius: 2px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.mobile-raid-frame.selected {
+  border-color: #fff;
+  border-width: 2px;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.mobile-raid-frame.dead {
+  opacity: 0.4;
+  border-color: #444;
+}
+
+.mobile-raid-frame.dispellable {
+  border-color: #cc00cc;
+  border-width: 2px;
+}
+
+.mobile-raid-frame.is-player {
+  border-color: #ffd700;
+  border-width: 2px;
+}
+
+.mobile-raid-frame.chain-bounce {
+  border-color: #00d4ff;
+  border-width: 2px;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.7);
+}
+
+.mobile-frame-health {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  transition: width 0.15s;
+}
+
+.mobile-frame-content {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+  padding: 0 3px;
+  z-index: 1;
+}
+
+.mobile-frame-name {
+  font-size: 9px;
+  font-weight: bold;
+  text-shadow: 0 0 2px #000, 0 0 2px #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.mobile-frame-name .you-tag {
+  color: #ffd700;
+  margin-left: 1px;
+}
+
+.mobile-frame-hp {
+  font-size: 8px;
+  color: #fff;
+  text-shadow: 0 0 2px #000;
+}
+
+.mobile-debuff-indicator {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 6px;
+  height: 6px;
+  background: #cc00cc;
+  border-radius: 50%;
+  animation: debuffPulse 1s infinite;
+}
+
+@keyframes debuffPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+
+/* Mobile Buffs Container */
+.mobile-buffs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-section {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.mobile-section-header {
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-buff-all {
+  padding: 4px 12px;
+  font-size: 12px;
+  background: linear-gradient(180deg, #3a5a3a, #2a4a2a);
+  border: 1px solid #4a6a4a;
+  border-radius: 4px;
+  color: #8aff8a;
+  cursor: pointer;
+}
+
+.mobile-blessings-grid,
+.mobile-buffs-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mobile-blessing,
+.mobile-buff {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  border: 2px solid #4a4a6e;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mobile-blessing img,
+.mobile-buff img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-blessing.active,
+.mobile-buff.active {
+  border-color: #4aff4a;
+  box-shadow: 0 0 8px rgba(74, 255, 74, 0.5);
+}
+
+.mobile-buff.unavailable {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mobile-check {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: #2a8a2a;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 3px;
+  border-radius: 3px 0 0 0;
+}
+
+.mobile-lock {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+}
+
+/* Mobile Log Container */
+.mobile-log-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-log-entry {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.mobile-log-time {
+  color: #666;
+  flex-shrink: 0;
+}
+
+.mobile-log-msg {
+  flex: 1;
+  word-break: break-word;
+}
+
+.mobile-log-entry.log-heal .mobile-log-msg {
+  color: #00ff00;
+}
+
+.mobile-log-entry.log-damage .mobile-log-msg {
+  color: #ff6666;
+}
+
+.mobile-log-entry.log-system .mobile-log-msg {
+  color: #ffcc00;
+}
+
+.mobile-log-msg.crit {
+  font-weight: bold;
+  text-shadow: 0 0 4px currentColor;
+}
+
+/* Mobile Action Bar - Compact */
+.mobile-action-bar {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  background: linear-gradient(180deg, #2a2a3e, #1a1a2e);
+  border-top: 2px solid #3a3a4e;
+  flex-shrink: 0;
+}
+
+.mobile-spell {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 4px;
+  border: 2px solid #6a6a8e;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mobile-spell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-spell:active:not(.disabled) {
+  transform: scale(0.95);
+}
+
+.mobile-spell.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mobile-cooldown {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.mobile-no-mana {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(30, 30, 150, 0.6);
+}
+
+/* Mobile Totem Bar - Compact */
+.mobile-totem-bar {
+  display: flex;
+  justify-content: space-around;
+  padding: 4px 2px;
+  background: linear-gradient(180deg, #1a2a1a, #0a1a0a);
+  border-top: 2px solid #2a4a2a;
+  flex-shrink: 0;
+}
+
+.mobile-totem-element {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-left: 2px solid;
+  padding-left: 4px;
+}
+
+.mobile-totem-label {
+  font-size: 8px;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.mobile-totem-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.mobile-totem {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  border: 1px solid #4a4a4a;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.mobile-totem img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-totem.active {
+  border-color: #4aff4a;
+  box-shadow: 0 0 6px rgba(74, 255, 74, 0.5);
+}
+
+.mobile-totem.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mobile-totem-timer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 9px;
+  text-align: center;
+  padding: 1px;
+}
+
+/* Mobile Action Bar Inline - Under raid frames */
+.mobile-action-bar-inline {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  background: linear-gradient(180deg, #2a2a3e, #1a1a2e);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.mobile-action-bar-inline .mobile-spell {
+  width: 38px;
+  height: 38px;
+}
+
+.mobile-action-bar-inline .mobile-cooldown {
+  font-size: 16px;
+}
+
+/* Mobile Totem Bar Inline - Under action bar */
+.mobile-totem-bar-inline {
+  display: flex;
+  justify-content: space-around;
+  padding: 4px 2px;
+  background: linear-gradient(180deg, #1a2a1a, #0a1a0a);
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+.mobile-totem-element-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-left: 2px solid;
+  padding-left: 4px;
+}
+
+.mobile-totem-label-inline {
+  font-size: 8px;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+
+.mobile-totem-buttons-inline {
+  display: flex;
+  gap: 2px;
+}
+
+.mobile-totem-inline {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  border: 1px solid #4a4a4a;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.mobile-totem-inline img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mobile-totem-inline.active {
+  border-color: #4aff4a;
+  box-shadow: 0 0 6px rgba(74, 255, 74, 0.5);
+}
+
+.mobile-totem-inline.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mobile-totem-timer-inline {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 8px;
+  text-align: center;
+  padding: 1px;
+}
+
+/* Mobile Modal Overrides */
+.mobile-ui ~ .modal-overlay .loot-modal,
+.mobile-ui ~ .modal-overlay .save-modal,
+.mobile-ui ~ .modal-overlay .load-modal,
+.mobile-ui ~ .modal-overlay .admin-panel,
+.mobile-ui ~ .modal-overlay .inventory-modal,
+.mobile-ui ~ .modal-overlay .inspect-modal,
+.mobile-ui ~ .modal-overlay .encounter-journal {
+  width: 95%;
+  max-width: none;
+  max-height: 85vh;
+  margin: 10px;
+}
+
+/* Adjust header for mobile toggle button */
+.app-header {
+  position: relative;
+}

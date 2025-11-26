@@ -2,6 +2,28 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.9.0] - 2025-11-26
+
+### Added
+- **Mobile/Phone UI Mode**: Toggle between Desktop and Phone UI with a single button click
+  - Complete mobile-optimized interface built from the ground up (not responsive, a separate UI)
+  - Mobile player header with class icon, mana bar, and stats
+  - Mobile boss frame with health bar and enrage timer
+  - Mobile cast bar
+  - Tab navigation (Raid, Buffs, Log) for easy switching
+  - Compact 4-column raid grid layout to fit all 40 raid members on screen
+  - Inline action bar positioned directly under raid frames for easy access
+  - Inline totem bar for Shaman players (right under action bar)
+  - Mobile-optimized buff/consumable/world buff management
+  - Mobile combat log with scrollable history
+  - All encounter controls accessible on mobile (boss selection, faction toggle, save/load)
+- **Phone UI Toggle Button**: Located in the header - switch between Desktop and Phone modes instantly
+
+### Changed
+- Mobile raid frames now show truncated names (6 characters) with health values
+- Mobile spell buttons sized for touch interaction (38x38px)
+- Mobile totem buttons compact for screen space (26x26px)
+
 ## [0.8.0] - 2025-11-26
 
 ### Added
