@@ -233,10 +233,10 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 1000000,
     enrageTimer: 180,
     damageEvents: [
-      { type: 'tank_damage', damage: 600, interval: 2 }, // Shadow Shock on tank
+      { type: 'tank_damage', damage: 600, interval: 2, damageType: 'shadow' }, // Shadow Shock on tank
       { type: 'debuff', damage: 0, interval: 15, debuffId: 'impending_doom' }, // Must dispel!
       { type: 'debuff', damage: 0, interval: 20, debuffId: 'lucifrons_curse' }, // Curse on random
-      { type: 'raid_damage', damage: 150, interval: 8, targetCount: 5 }, // Shadow Shock cleave
+      { type: 'raid_damage', damage: 150, interval: 8, targetCount: 5, damageType: 'shadow' }, // Shadow Shock cleave
     ],
   },
   // Boss 2: Magmadar
@@ -248,11 +248,11 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 1200000,
     enrageTimer: 240,
     damageEvents: [
-      { type: 'tank_damage', damage: 900, interval: 2 }, // Normal melee
-      { type: 'tank_damage', damage: 1800, interval: 25 }, // Frenzy burst (tranq shot needed)
+      { type: 'tank_damage', damage: 900, interval: 2 }, // Normal melee (physical)
+      { type: 'tank_damage', damage: 1800, interval: 25 }, // Frenzy burst (physical)
       { type: 'debuff', damage: 0, interval: 30, debuffId: 'panic' }, // Mass fear
-      { type: 'raid_damage', damage: 350, interval: 8, targetCount: 8 }, // Lava Bomb AoE
-      { type: 'random_target', damage: 500, interval: 6 }, // Lava Bomb direct
+      { type: 'raid_damage', damage: 350, interval: 8, targetCount: 8, damageType: 'fire' }, // Lava Bomb AoE
+      { type: 'random_target', damage: 500, interval: 6, damageType: 'fire' }, // Lava Bomb direct
     ],
   },
   // Boss 3: Gehennas
@@ -264,11 +264,11 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 900000,
     enrageTimer: 180,
     damageEvents: [
-      { type: 'tank_damage', damage: 700, interval: 2 },
+      { type: 'tank_damage', damage: 700, interval: 2 }, // Melee (physical)
       { type: 'debuff', damage: 0, interval: 12, debuffId: 'gehennas_curse' }, // Healing reduction curse
       { type: 'debuff', damage: 0, interval: 10, debuffId: 'rain_of_fire' }, // Rain of Fire DoT
-      { type: 'random_target', damage: 800, interval: 5 }, // Shadow Bolt
-      { type: 'raid_damage', damage: 250, interval: 8, targetCount: 6 }, // Rain of Fire splash
+      { type: 'random_target', damage: 800, interval: 5, damageType: 'shadow' }, // Shadow Bolt
+      { type: 'raid_damage', damage: 250, interval: 8, targetCount: 6, damageType: 'fire' }, // Rain of Fire splash
     ],
   },
   // Boss 4: Garr
@@ -280,11 +280,11 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 1500000,
     enrageTimer: 300,
     damageEvents: [
-      { type: 'tank_damage', damage: 800, interval: 2 },
+      { type: 'tank_damage', damage: 800, interval: 2 }, // Melee (physical)
       { type: 'debuff', damage: 0, interval: 15, debuffId: 'magma_shackles' },
-      { type: 'raid_damage', damage: 600, interval: 20, targetCount: 12 }, // Firesworn Explosion (simulated)
-      { type: 'random_target', damage: 400, interval: 4 }, // Add damage
-      { type: 'raid_damage', damage: 200, interval: 10, targetCount: 20 }, // Anti-magic Pulse
+      { type: 'raid_damage', damage: 600, interval: 20, targetCount: 12, damageType: 'fire' }, // Firesworn Explosion
+      { type: 'random_target', damage: 400, interval: 4, damageType: 'fire' }, // Add damage (fire)
+      { type: 'raid_damage', damage: 200, interval: 10, targetCount: 20, damageType: 'arcane' }, // Anti-magic Pulse
     ],
   },
   // Boss 5: Shazzrah
@@ -296,11 +296,11 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 850000,
     enrageTimer: 180,
     damageEvents: [
-      { type: 'tank_damage', damage: 500, interval: 1.5 }, // Fast attacks
+      { type: 'tank_damage', damage: 500, interval: 1.5 }, // Fast melee (physical)
       { type: 'debuff', damage: 0, interval: 10, debuffId: 'shazzrahs_curse' }, // Increases magic damage
-      { type: 'raid_damage', damage: 400, interval: 3, targetCount: 10 }, // Arcane Explosion spam
-      { type: 'tank_damage', damage: 1200, interval: 20 }, // Blink + new tank takes hit
-      { type: 'random_target', damage: 600, interval: 8 }, // Post-blink chaos
+      { type: 'raid_damage', damage: 400, interval: 3, targetCount: 10, damageType: 'arcane' }, // Arcane Explosion spam
+      { type: 'tank_damage', damage: 1200, interval: 20 }, // Blink + new tank (physical)
+      { type: 'random_target', damage: 600, interval: 8, damageType: 'arcane' }, // Post-blink chaos
     ],
   },
   // Boss 6: Baron Geddon
@@ -312,11 +312,11 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 1300000,
     enrageTimer: 240,
     damageEvents: [
-      { type: 'tank_damage', damage: 900, interval: 2 },
+      { type: 'tank_damage', damage: 900, interval: 2, damageType: 'fire' }, // Fire elemental melee
       { type: 'debuff', damage: 0, interval: 20, debuffId: 'living_bomb' }, // LIVING BOMB! Run away!
       { type: 'debuff', damage: 0, interval: 15, debuffId: 'ignite_mana' }, // Mana burn
-      { type: 'raid_damage', damage: 500, interval: 10, targetCount: 15 }, // Inferno pulse
-      { type: 'raid_damage', damage: 300, interval: 5, targetCount: 8 }, // Inferno buildup
+      { type: 'raid_damage', damage: 500, interval: 10, targetCount: 15, damageType: 'fire' }, // Inferno pulse
+      { type: 'raid_damage', damage: 300, interval: 5, targetCount: 8, damageType: 'fire' }, // Inferno buildup
     ],
   },
   // Boss 7: Sulfuron Harbinger
@@ -328,12 +328,12 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 1100000,
     enrageTimer: 240,
     damageEvents: [
-      { type: 'tank_damage', damage: 750, interval: 2 },
+      { type: 'tank_damage', damage: 750, interval: 2 }, // Melee (physical)
       { type: 'debuff', damage: 0, interval: 8, debuffId: 'shadow_word_pain' }, // Priest SW:P
       { type: 'debuff', damage: 0, interval: 25, debuffId: 'hand_of_ragnaros' }, // Stun tank
-      { type: 'tank_damage', damage: 1500, interval: 25 }, // Dark Strike during stun
-      { type: 'raid_damage', damage: 300, interval: 6, targetCount: 8 }, // Flamewaker damage
-      { type: 'random_target', damage: 450, interval: 5 },
+      { type: 'tank_damage', damage: 1500, interval: 25, damageType: 'fire' }, // Dark Strike during stun
+      { type: 'raid_damage', damage: 300, interval: 6, targetCount: 8, damageType: 'fire' }, // Flamewaker damage
+      { type: 'random_target', damage: 450, interval: 5, damageType: 'shadow' }, // Shadow Bolt from priests
     ],
   },
   // Boss 8: Golemagg the Incinerator
@@ -345,12 +345,12 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 2000000,
     enrageTimer: 300,
     damageEvents: [
-      { type: 'tank_damage', damage: 800, interval: 2 },
+      { type: 'tank_damage', damage: 800, interval: 2 }, // Melee (physical)
       { type: 'debuff', damage: 0, interval: 12, debuffId: 'magma_splash' }, // Stacking debuff
       { type: 'debuff', damage: 0, interval: 18, debuffId: 'pyroblast' }, // Pyroblast DoT
-      { type: 'tank_damage', damage: 1400, interval: 15 }, // Increased damage from stacks
-      { type: 'raid_damage', damage: 400, interval: 10, targetCount: 8 }, // Earthquake (at low HP)
-      { type: 'random_target', damage: 600, interval: 7 }, // Core Rager damage
+      { type: 'tank_damage', damage: 1400, interval: 15, damageType: 'fire' }, // Fire damage from stacks
+      { type: 'raid_damage', damage: 400, interval: 10, targetCount: 8 }, // Earthquake (physical)
+      { type: 'random_target', damage: 600, interval: 7, damageType: 'fire' }, // Core Rager fire damage
     ],
   },
   // Boss 9: Majordomo Executus
@@ -362,12 +362,12 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 1600000,
     enrageTimer: 240,
     damageEvents: [
-      { type: 'tank_damage', damage: 700, interval: 2 }, // Elite damage
+      { type: 'tank_damage', damage: 700, interval: 2 }, // Elite melee (physical)
       { type: 'debuff', damage: 0, interval: 10, debuffId: 'blast_wave' }, // Blast Wave
       { type: 'debuff', damage: 0, interval: 15, debuffId: 'shadow_word_pain' }, // Healer SW:P
-      { type: 'raid_damage', damage: 350, interval: 5, targetCount: 8 }, // Multi-add cleave
-      { type: 'random_target', damage: 800, interval: 12 }, // Teleport fire damage
-      { type: 'tank_damage', damage: 1000, interval: 8 }, // Elite Shield Slam
+      { type: 'raid_damage', damage: 350, interval: 5, targetCount: 8, damageType: 'fire' }, // Blast Wave fire
+      { type: 'random_target', damage: 800, interval: 12, damageType: 'fire' }, // Teleport fire damage
+      { type: 'tank_damage', damage: 1000, interval: 8 }, // Elite Shield Slam (physical)
     ],
   },
   // Boss 10: Ragnaros (Final Boss)
@@ -379,18 +379,18 @@ export const ENCOUNTERS: Boss[] = [
     currentHealth: 3500000,
     enrageTimer: 480,
     damageEvents: [
-      { type: 'tank_damage', damage: 1200, interval: 2.5 }, // Massive melee
+      { type: 'tank_damage', damage: 1200, interval: 2.5, damageType: 'fire' }, // Massive fire melee
       { type: 'debuff', damage: 0, interval: 12, debuffId: 'elemental_fire' }, // Fire DoT on tank
       { type: 'debuff', damage: 0, interval: 30, debuffId: 'wrath_of_ragnaros' }, // Knockback
-      { type: 'raid_damage', damage: 600, interval: 8, targetCount: 10 }, // Wrath splash damage
-      { type: 'random_target', damage: 1500, interval: 15 }, // Magma Blast (if no melee)
-      { type: 'raid_damage', damage: 400, interval: 60, targetCount: 20 }, // Sons of Flame phase
-      { type: 'tank_damage', damage: 2000, interval: 45 }, // Lava Splash burst
+      { type: 'raid_damage', damage: 600, interval: 8, targetCount: 10, damageType: 'fire' }, // Wrath splash damage
+      { type: 'random_target', damage: 1500, interval: 15, damageType: 'fire' }, // Magma Blast (if no melee)
+      { type: 'raid_damage', damage: 400, interval: 60, targetCount: 20, damageType: 'fire' }, // Sons of Flame phase
+      { type: 'tank_damage', damage: 2000, interval: 45, damageType: 'fire' }, // Lava Splash burst
     ],
   },
 ];
 
-// Training dummy for practice
+// Training dummy for practice - mix of damage types for testing resistances
 export const TRAINING_ENCOUNTER: Boss = {
   id: 'training',
   name: 'Training Dummy',
@@ -398,9 +398,9 @@ export const TRAINING_ENCOUNTER: Boss = {
   currentHealth: 5000000,
   enrageTimer: 600,
   damageEvents: [
-    { type: 'tank_damage', damage: 400, interval: 3 },
-    { type: 'random_target', damage: 300, interval: 5 },
-    { type: 'raid_damage', damage: 150, interval: 10, targetCount: 5 },
+    { type: 'tank_damage', damage: 400, interval: 3 }, // Physical melee
+    { type: 'random_target', damage: 300, interval: 5, damageType: 'fire' }, // Fire blast
+    { type: 'raid_damage', damage: 150, interval: 10, targetCount: 5, damageType: 'shadow' }, // Shadow pulse
   ],
 };
 
@@ -428,20 +428,20 @@ export const ONYXIA_ENCOUNTER: Boss = {
     // PHASE 1: Ground Phase (100% - 65%)
     // Tank her at the back of the room, melee behind her
     // =====================================================
-    // Melee attacks + Cleave - hits tank and nearby melee
+    // Melee attacks + Cleave - hits tank and nearby melee (physical)
     { type: 'tank_damage', damage: 700, interval: 2, activeInPhases: [1] },
     { type: 'debuff', damage: 0, interval: 8, debuffId: 'cleave', activeInPhases: [1] },
-    { type: 'raid_damage', damage: 400, interval: 8, targetCount: 3, activeInPhases: [1] },  // Cleave splash on melee
+    { type: 'raid_damage', damage: 400, interval: 8, targetCount: 3, activeInPhases: [1] },  // Cleave splash (physical)
 
-    // Wing Buffet - frontal knockback, reduces threat
+    // Wing Buffet - frontal knockback, reduces threat (physical)
     { type: 'debuff', damage: 0, interval: 15, debuffId: 'wing_buffet', activeInPhases: [1] },
-    { type: 'raid_damage', damage: 350, interval: 15, targetCount: 4, activeInPhases: [1] },  // Wing Buffet damage
+    { type: 'raid_damage', damage: 350, interval: 15, targetCount: 4, activeInPhases: [1] },  // Wing Buffet (physical)
 
-    // Tail Sweep - hits anyone behind her (melee who aren't careful)
+    // Tail Sweep - hits anyone behind her (physical)
     { type: 'debuff', damage: 0, interval: 12, debuffId: 'tail_sweep', targetCount: 4, activeInPhases: [1] },
-    { type: 'raid_damage', damage: 500, interval: 12, targetCount: 4, activeInPhases: [1] },  // Tail Sweep damage
+    { type: 'raid_damage', damage: 500, interval: 12, targetCount: 4, activeInPhases: [1] },  // Tail Sweep (physical)
 
-    // Flame Breath - massive frontal cone, why you don't stand in front
+    // Flame Breath - massive frontal cone, fire damage
     { type: 'debuff', damage: 0, interval: 20, debuffId: 'flame_breath', targetCount: 2, activeInPhases: [1] },
 
     // =====================================================
@@ -451,50 +451,50 @@ export const ONYXIA_ENCOUNTER: Boss = {
     // =====================================================
     // No tank damage while flying - she's in the air!
 
-    // DEEP BREATH - The iconic Onyxia ability!
+    // DEEP BREATH - The iconic Onyxia ability! Fire damage
     // "Onyxia takes a deep breath..." - GET OUT OF THE WAY!
     { type: 'debuff', damage: 0, interval: 18, debuffId: 'deep_breath', targetCount: 5, activeInPhases: [2] },
 
-    // Fireballs rain down while she's flying - applies burning DoT
+    // Fireballs rain down while she's flying - fire damage
     { type: 'debuff', damage: 0, interval: 5, debuffId: 'onyxia_fireball', targetCount: 3, activeInPhases: [2] },
-    { type: 'raid_damage', damage: 400, interval: 5, targetCount: 6, activeInPhases: [2] },  // Fireball impact
+    { type: 'raid_damage', damage: 400, interval: 5, targetCount: 6, activeInPhases: [2], damageType: 'fire' },  // Fireball impact
 
-    // Onyxian Whelps - swarm from the eggs! Lots of small hits
-    { type: 'random_target', damage: 150, interval: 2, activeInPhases: [2] },  // Whelp swarm
-    { type: 'random_target', damage: 150, interval: 3, activeInPhases: [2] },  // More whelps
-    { type: 'random_target', damage: 150, interval: 4, activeInPhases: [2] },  // Even more whelps
-    { type: 'raid_damage', damage: 200, interval: 6, targetCount: 5, activeInPhases: [2] },  // Whelp cleave damage
+    // Onyxian Whelps - swarm from the eggs! Fire breath whelps
+    { type: 'random_target', damage: 150, interval: 2, activeInPhases: [2], damageType: 'fire' },  // Whelp fire breath
+    { type: 'random_target', damage: 150, interval: 3, activeInPhases: [2], damageType: 'fire' },  // More whelps
+    { type: 'random_target', damage: 150, interval: 4, activeInPhases: [2], damageType: 'fire' },  // Even more whelps
+    { type: 'raid_damage', damage: 200, interval: 6, targetCount: 5, activeInPhases: [2] },  // Whelp melee (physical)
 
     // =====================================================
     // PHASE 3: Ground Phase (40% - 0%) - CHAOS!
     // She lands and is ANGRY. More abilities, more damage.
     // Bellowing Roar fears the raid, causing lava eruptions
     // =====================================================
-    // Harder hitting melee + Cleave
+    // Harder hitting melee + Cleave (physical)
     { type: 'tank_damage', damage: 900, interval: 2, activeInPhases: [3] },
     { type: 'debuff', damage: 0, interval: 6, debuffId: 'cleave', activeInPhases: [3] },
-    { type: 'raid_damage', damage: 500, interval: 6, targetCount: 4, activeInPhases: [3] },  // Cleave splash
+    { type: 'raid_damage', damage: 500, interval: 6, targetCount: 4, activeInPhases: [3] },  // Cleave splash (physical)
 
-    // Wing Buffet - more frequent in P3
+    // Wing Buffet - more frequent in P3 (physical)
     { type: 'debuff', damage: 0, interval: 12, debuffId: 'wing_buffet', activeInPhases: [3] },
     { type: 'raid_damage', damage: 400, interval: 12, targetCount: 5, activeInPhases: [3] },
 
-    // Tail Sweep - still dangerous
+    // Tail Sweep - still dangerous (physical)
     { type: 'debuff', damage: 0, interval: 10, debuffId: 'tail_sweep', targetCount: 5, activeInPhases: [3] },
     { type: 'raid_damage', damage: 550, interval: 10, targetCount: 5, activeInPhases: [3] },
 
-    // Flame Breath - more frequent and hits more people
+    // Flame Breath - more frequent and hits more people (fire)
     { type: 'debuff', damage: 0, interval: 15, debuffId: 'flame_breath', targetCount: 3, activeInPhases: [3] },
 
     // BELLOWING ROAR - AoE Fear! The whole raid runs in terror
     { type: 'debuff', damage: 0, interval: 22, debuffId: 'bellowing_roar', targetCount: 20, activeInPhases: [3] },
 
-    // Lava Eruptions - floor cracks erupt during fear!
+    // Lava Eruptions - floor cracks erupt during fear! Fire damage
     { type: 'debuff', damage: 0, interval: 22, debuffId: 'lava_eruption', targetCount: 8, activeInPhases: [3] },
-    { type: 'raid_damage', damage: 350, interval: 22, targetCount: 10, activeInPhases: [3] },  // Eruption burst
+    { type: 'raid_damage', damage: 350, interval: 22, targetCount: 10, activeInPhases: [3], damageType: 'fire' },  // Eruption burst
 
-    // Remaining whelps from Phase 2 still attacking
-    { type: 'random_target', damage: 100, interval: 5, activeInPhases: [3] },
+    // Remaining whelps from Phase 2 still attacking (fire)
+    { type: 'random_target', damage: 100, interval: 5, activeInPhases: [3], damageType: 'fire' },
   ],
 };
 

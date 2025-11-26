@@ -2,6 +2,19 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.4.0] - 2025-11-26
+
+### Added
+- Damage types for all boss abilities (fire, shadow, arcane, frost, nature, physical)
+- Resistance auras now properly reduce elemental damage
+- README screenshot for GitHub repository
+
+### Fixed
+- Fire Resistance Aura, Shadow Resistance Aura, etc. now actually reduce damage from matching ability types
+- Molten Core bosses deal appropriate fire/shadow/arcane damage
+- Onyxia's fire abilities (Deep Breath, Fireballs, Whelps) now deal fire damage
+- Ragnaros deals fire damage with all abilities (as the Firelord should!)
+
 ## [0.3.0] - 2025-11-26
 
 ### Added

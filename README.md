@@ -2,6 +2,8 @@
 
 A browser-based Classic WoW (Vanilla) Holy Paladin raid healing simulator. Experience the nostalgia of healing Molten Core and Onyxia's Lair with authentic spell mechanics, boss abilities, and raid management systems.
 
+![Game Screenshot](screenshots/screenshot.png)
+
 ![React](https://img.shields.io/badge/React-19.2-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-7.2-646CFF?logo=vite)
