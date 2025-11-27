@@ -2485,8 +2485,8 @@ body {
   background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
   border: 2px solid #4a3a6a;
   border-radius: 8px;
-  min-width: 800px;
-  max-width: 900px;
+  min-width: 1000px;
+  max-width: 1200px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
@@ -2743,6 +2743,101 @@ body {
   color: #88ff88;
 }
 
+/* Two-column layout for boss details */
+.journal-details-columns {
+  display: flex;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+
+.journal-left-column {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.journal-right-column {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid #333;
+  padding-left: 20px;
+  overflow-y: auto;
+}
+
+/* Loot section styles */
+.journal-loot h4 {
+  margin: 0 0 12px 0;
+  color: #ffd700;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.no-loot {
+  color: #666;
+  font-style: italic;
+  padding: 20px;
+  text-align: center;
+}
+
+.loot-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.loot-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #333;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.loot-item:hover {
+  background: rgba(50, 50, 70, 0.4);
+}
+
+.loot-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 2px solid #666;
+  flex-shrink: 0;
+}
+
+.loot-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.loot-item-name {
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loot-item-slot {
+  color: #888;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loot-item.legendary-material {
+  background: rgba(255, 128, 0, 0.15);
+  border-color: rgba(255, 128, 0, 0.4);
+}
+
 @media (max-width: 900px) {
   .encounter-journal-modal {
     min-width: 95%;
@@ -2751,6 +2846,18 @@ body {
 
   .journal-boss-list {
     width: 160px;
+  }
+
+  .journal-details-columns {
+    flex-direction: column;
+  }
+
+  .journal-right-column {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid #333;
+    padding-left: 0;
+    padding-top: 16px;
   }
 }
 
@@ -3687,6 +3794,85 @@ body {
 .admin-world-buff-item .world-buff-status.locked {
   background: rgba(100, 100, 100, 0.2);
   color: #888;
+}
+
+/* Legendary Materials */
+.admin-legendary-materials {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.admin-legendary-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(20, 20, 40, 0.5);
+  border: 1px solid #3a2a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.admin-legendary-item:hover {
+  background: rgba(40, 40, 60, 0.5);
+}
+
+.admin-legendary-item.owned {
+  border-left: 3px solid #ff8000;
+  background: rgba(60, 40, 20, 0.3);
+}
+
+.admin-legendary-item .legendary-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  border: 2px solid #ff8000;
+}
+
+.admin-legendary-item .legendary-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-legendary-item .legendary-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.admin-legendary-item .legendary-desc {
+  color: #888;
+  font-size: 11px;
+}
+
+.admin-legendary-item .legendary-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.admin-legendary-item .legendary-status.owned {
+  background: rgba(255, 128, 0, 0.2);
+  color: #ff8000;
+}
+
+.admin-legendary-item .legendary-status.missing {
+  background: rgba(100, 100, 100, 0.2);
+  color: #888;
+}
+
+.legendary-crafting-status {
+  display: flex;
+  gap: 20px;
+  padding: 10px 12px;
+  background: rgba(20, 20, 40, 0.3);
+  border-radius: 4px;
+  font-size: 13px;
+  color: #aaa;
 }
 
 /* Bad Luck Protection */

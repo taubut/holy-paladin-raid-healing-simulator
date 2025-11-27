@@ -6,7 +6,8 @@ import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
 import { ENCOUNTERS, DEBUFFS } from './game/encounters';
 import { RAIDS } from './game/raids';
-import { calculateDKPCost } from './game/lootTables';
+import { calculateDKPCost, BOSS_LOOT_TABLES } from './game/lootTables';
+import { ALL_ITEMS, LEGENDARY_MATERIALS } from './game/items';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
 import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
@@ -2252,46 +2253,124 @@ function App() {
                         </div>
                       </div>
 
-                      <div className="journal-abilities">
-                        <h4>Abilities</h4>
-                        {abilities.map((ability, idx) => (
-                          <div key={idx} className={`journal-ability ability-${ability.type}`}>
-                            <div className="ability-header">
-                              {ability.icon && (
-                                <img src={ability.icon} alt={ability.name} className="ability-icon" />
-                              )}
-                              <div className="ability-title">
-                                <span className="ability-name">{ability.name}</span>
-                                <span className={`ability-type type-${ability.type}`}>
-                                  {ability.type.charAt(0).toUpperCase() + ability.type.slice(1)}
-                                </span>
+                      <div className="journal-details-columns">
+                        {/* Left Column - Abilities & Strategy */}
+                        <div className="journal-left-column">
+                          <div className="journal-abilities">
+                            <h4>Abilities</h4>
+                            {abilities.map((ability, idx) => (
+                              <div key={idx} className={`journal-ability ability-${ability.type}`}>
+                                <div className="ability-header">
+                                  {ability.icon && (
+                                    <img src={ability.icon} alt={ability.name} className="ability-icon" />
+                                  )}
+                                  <div className="ability-title">
+                                    <span className="ability-name">{ability.name}</span>
+                                    <span className={`ability-type type-${ability.type}`}>
+                                      {ability.type.charAt(0).toUpperCase() + ability.type.slice(1)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="ability-description">{ability.description}</div>
+                                <div className="ability-timing">
+                                  Cast every {ability.interval} seconds
+                                </div>
                               </div>
-                            </div>
-                            <div className="ability-description">{ability.description}</div>
-                            <div className="ability-timing">
-                              Cast every {ability.interval} seconds
-                            </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
 
-                      <div className="journal-strategy">
-                        <h4>Healer Tips</h4>
-                        <ul>
-                          {boss.damageEvents.some(e => e.type === 'debuff' && e.debuffId && DEBUFFS[e.debuffId]?.type === 'magic') && (
-                            <li>⚡ <strong>Dispel priority:</strong> Watch for magic debuffs and Cleanse them quickly!</li>
-                          )}
-                          {boss.damageEvents.some(e => e.type === 'debuff' && e.debuffId && DEBUFFS[e.debuffId]?.type === 'curse') && (
-                            <li>💀 <strong>Curse alert:</strong> Coordinate with Mages/Druids to decurse raid members.</li>
-                          )}
-                          {boss.damageEvents.some(e => e.type === 'tank_damage' && e.damage > 1000) && (
-                            <li>🛡️ <strong>Tank buster:</strong> Keep Blessing of Light on tanks and be ready with Holy Light!</li>
-                          )}
-                          {boss.damageEvents.some(e => e.type === 'raid_damage' && (e.targetCount || 5) > 8) && (
-                            <li>👥 <strong>Heavy raid damage:</strong> Expect significant AoE damage. Flash of Light spam recommended.</li>
-                          )}
-                          <li>💧 Keep an eye on your mana. Use potions during high damage phases.</li>
-                        </ul>
+                          <div className="journal-strategy">
+                            <h4>Healer Tips</h4>
+                            <ul>
+                              {boss.damageEvents.some(e => e.type === 'debuff' && e.debuffId && DEBUFFS[e.debuffId]?.type === 'magic') && (
+                                <li>⚡ <strong>Dispel priority:</strong> Watch for magic debuffs and Cleanse them quickly!</li>
+                              )}
+                              {boss.damageEvents.some(e => e.type === 'debuff' && e.debuffId && DEBUFFS[e.debuffId]?.type === 'curse') && (
+                                <li>💀 <strong>Curse alert:</strong> Coordinate with Mages/Druids to decurse raid members.</li>
+                              )}
+                              {boss.damageEvents.some(e => e.type === 'tank_damage' && e.damage > 1000) && (
+                                <li>🛡️ <strong>Tank buster:</strong> Keep Blessing of Light on tanks and be ready with Holy Light!</li>
+                              )}
+                              {boss.damageEvents.some(e => e.type === 'raid_damage' && (e.targetCount || 5) > 8) && (
+                                <li>👥 <strong>Heavy raid damage:</strong> Expect significant AoE damage. Flash of Light spam recommended.</li>
+                              )}
+                              <li>💧 Keep an eye on your mana. Use potions during high damage phases.</li>
+                            </ul>
+                          </div>
+                        </div>
+
+                        {/* Right Column - Loot */}
+                        <div className="journal-right-column">
+                          <div className="journal-loot">
+                            <h4>Loot</h4>
+                            {(() => {
+                              const lootTable = BOSS_LOOT_TABLES[selectedJournalBoss];
+                              if (!lootTable) return <div className="no-loot">No loot data available</div>;
+
+                              const items = lootTable.items
+                                .map(itemId => ALL_ITEMS[itemId])
+                                .filter(item => item != null)
+                                .sort((a, b) => {
+                                  // Sort by rarity (legendary > epic > rare > uncommon)
+                                  const rarityOrder = { legendary: 0, epic: 1, rare: 2, uncommon: 3 };
+                                  return rarityOrder[a.rarity] - rarityOrder[b.rarity];
+                                });
+
+                              // Get legendary material if this boss drops one
+                              const legendaryMat = lootTable.legendaryMaterial
+                                ? LEGENDARY_MATERIALS[lootTable.legendaryMaterial]
+                                : null;
+
+                              return (
+                                <div className="loot-items">
+                                  {/* Show legendary material first if exists */}
+                                  {legendaryMat && (
+                                    <div className="loot-item legendary-material">
+                                      <img
+                                        src={legendaryMat.icon}
+                                        alt={legendaryMat.name}
+                                        className="loot-item-icon"
+                                        style={{ borderColor: RARITY_COLORS.legendary }}
+                                      />
+                                      <div className="loot-item-info">
+                                        <span
+                                          className="loot-item-name"
+                                          style={{ color: RARITY_COLORS.legendary }}
+                                        >
+                                          {legendaryMat.name}
+                                        </span>
+                                        <span className="loot-item-slot">
+                                          Legendary Material • {Math.round(legendaryMat.dropChance * 100)}% drop
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {items.map((item, idx) => (
+                                    <div key={idx} className="loot-item">
+                                      <img
+                                        src={item.icon}
+                                        alt={item.name}
+                                        className="loot-item-icon"
+                                        style={{ borderColor: RARITY_COLORS[item.rarity] }}
+                                      />
+                                      <div className="loot-item-info">
+                                        <span
+                                          className="loot-item-name"
+                                          style={{ color: RARITY_COLORS[item.rarity] }}
+                                        >
+                                          {item.name}
+                                        </span>
+                                        <span className="loot-item-slot">
+                                          {item.slot.charAt(0).toUpperCase() + item.slot.slice(1)} • {item.classes.join(', ')}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </div>
                       </div>
                     </>
                   );
@@ -2642,6 +2721,36 @@ function App() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Legendary Materials */}
+                  <div className="admin-section">
+                    <div className="admin-section-header">Legendary Materials</div>
+                    <div className="admin-legendary-materials">
+                      {Object.values(LEGENDARY_MATERIALS).map(mat => {
+                        const hasIt = engine.adminHasLegendaryMaterial(mat.id);
+                        return (
+                          <div
+                            key={mat.id}
+                            className={`admin-legendary-item ${hasIt ? 'owned' : ''}`}
+                            onClick={() => engine.adminToggleLegendaryMaterial(mat.id)}
+                          >
+                            <img src={mat.icon} alt={mat.name} className="legendary-icon" />
+                            <div className="legendary-info">
+                              <span className="legendary-name" style={{ color: RARITY_COLORS.legendary }}>{mat.name}</span>
+                              <span className="legendary-desc">{mat.description}</span>
+                            </div>
+                            <span className={`legendary-status ${hasIt ? 'owned' : 'missing'}`}>
+                              {hasIt ? 'Owned' : 'Not Owned'}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="legendary-crafting-status">
+                      <span>Can craft Thunderfury: {engine.canCraftThunderfury() ? 'Yes' : 'No'}</span>
+                      <span>Can craft Sulfuras: {engine.canCraftSulfuras() ? 'Yes' : 'No'}</span>
                     </div>
                   </div>
 

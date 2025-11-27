@@ -26,212 +26,235 @@ export interface BossLootTable {
 
 export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   // =========================================================================
-  // LUCIFRON - First boss, drops T1 boots
+  // LUCIFRON - First boss
+  // Drops: T1 Feet (Paladin, Druid, Mage, Shaman) + T1 Hands (Warlock)
+  // + T1 Belts (normally trash drops, but we have no trash)
   // =========================================================================
   lucifron: {
     items: [
+      // T1 Feet
       'lawbringer_boots',       // Paladin
-      'earthfury_boots',        // Shaman
-      'boots_of_prophecy',      // Priest
-      'cenarion_boots',         // Druid
       'arcanist_boots',         // Mage
-      'felheart_slippers',      // Warlock
-      'giantstalker_boots',     // Hunter
-      'sabatons_of_might',      // Warrior
-      'nightslayer_boots',      // Rogue
-      'sorcerous_dagger',       // Non-set caster
+      'cenarion_boots',         // Druid
+      'earthfury_boots',        // Shaman
+      // T1 Hands
+      'felheart_gloves',        // Warlock
+      // T1 Belts (normally trash drops)
+      'lawbringer_belt',        // Paladin
+      'arcanist_belt',          // Mage
+      'cenarion_belt',          // Druid
+      'earthfury_belt',         // Shaman
+      'girdle_of_prophecy',     // Priest
+      'felheart_belt',          // Warlock
+      'giantstalker_belt',      // Hunter
+      'belt_of_might',          // Warrior
+      'nightslayer_belt',       // Rogue
+      // Shared Flamewaker loot
+      'sorcerous_dagger',       // Caster weapon
+      'salamander_scale_pants', // Leather legs
     ],
     dropCount: 2,
     dkpReward: 10,
   },
 
   // =========================================================================
-  // MAGMADAR - Second boss, drops T1 legs
+  // MAGMADAR - Second boss
+  // Drops: All T1 Legs + Striker's Mark, Earthshaker
+  // + T1 Bracers (normally trash drops, but we have no trash)
   // =========================================================================
   magmadar: {
     items: [
-      'lawbringer_legplates',   // Paladin
-      'earthfury_legguards',    // Shaman
-      'pants_of_prophecy',      // Priest
-      'cenarion_leggings',      // Druid
+      // T1 Legs
       'arcanist_leggings',      // Mage
       'felheart_pants',         // Warlock
-      'giantstalker_leggings',  // Hunter
-      'legplates_of_might',     // Warrior
+      'cenarion_leggings',      // Druid
       'nightslayer_pants',      // Rogue
-      'salamander_scale_pants', // Non-set healer
+      'earthfury_legguards',    // Shaman
+      'giantstalker_leggings',  // Hunter
+      // T1 Bracers (normally trash drops)
+      'lawbringer_bracers',     // Paladin
+      'arcanist_bindings',      // Mage
+      'cenarion_bracers',       // Druid
+      'earthfury_bracers',      // Shaman
+      'vambraces_of_prophecy',  // Priest
+      'felheart_bracers',       // Warlock
+      'giantstalker_bracers',   // Hunter
+      'bracers_of_might',       // Warrior
+      'nightslayer_bracelets',  // Rogue
+      // Non-set
+      'strikers_mark',          // Hunter ranged
+      'fire_runed_grimoire',    // Caster offhand
+      'salamander_scale_pants', // Leather legs
     ],
     dropCount: 2,
     dkpReward: 10,
   },
 
   // =========================================================================
-  // GEHENNAS - Third boss, drops T1 gloves/boots
+  // GEHENNAS - Third boss
+  // Drops: T1 Hands (Priest, Hunter, Rogue, Shaman) + T1 Feet (Hunter)
   // =========================================================================
   gehennas: {
     items: [
-      'lawbringer_gauntlets',   // Paladin
-      'earthfury_gauntlets',    // Shaman
+      // T1 Hands
       'gloves_of_prophecy',     // Priest
-      'cenarion_gloves',        // Druid
-      'arcanist_gloves',        // Mage
-      'felheart_gloves',        // Warlock
-      'giantstalker_gloves',    // Hunter
-      'gauntlets_of_might',     // Warrior
+      'earthfury_gauntlets',    // Shaman
       'nightslayer_gloves',     // Rogue
-      'sorcerous_dagger',       // Non-set caster
+      // T1 Feet
+      'giantstalker_boots',     // Hunter
+      // Shared Flamewaker loot
+      'sorcerous_dagger',       // Caster weapon
+      'salamander_scale_pants', // Leather legs
     ],
     dropCount: 2,
     dkpReward: 10,
   },
 
   // =========================================================================
-  // GARR - Fourth boss, drops T1 helm + Left Binding
+  // GARR - Fourth boss
+  // Drops: All T1 Helms + Aurastone Hammer, Brutality Blade, Gutgore Ripper
+  // Bindings of the Windseeker (Right half)
   // =========================================================================
   garr: {
     items: [
-      'lawbringer_helm',        // Paladin
-      'earthfury_helmet',       // Shaman
-      'circlet_of_prophecy',    // Priest
-      'cenarion_helm',          // Druid
+      // T1 Helms
       'arcanist_crown',         // Mage
+      'circlet_of_prophecy',    // Priest
       'felheart_horns',         // Warlock
-      'giantstalker_helm',      // Hunter
-      'helm_of_might',          // Warrior
+      'cenarion_helm',          // Druid
       'nightslayer_cover',      // Rogue
-      'gutgutter',              // Non-set melee
-      'perditions_blade',       // Rogue/Warrior dagger
+      'earthfury_helmet',       // Shaman
+      'giantstalker_helm',      // Hunter
+      // Non-set weapons
+      'aurastone_hammer',       // Healer mace
+      // Shared Non-Flamewaker loot
+      'fire_runed_grimoire',    // Caster offhand
     ],
     dropCount: 3,
-    dkpReward: 15,
-    legendaryMaterial: 'bindings_of_the_windseeker_left',
-  },
-
-  // =========================================================================
-  // BARON GEDDON - Fifth boss, drops T1 shoulders + Right Binding
-  // =========================================================================
-  baron_geddon: {
-    items: [
-      'lawbringer_spaulders',   // Paladin
-      'earthfury_epaulets',     // Shaman
-      'mantle_of_prophecy',     // Priest
-      'cenarion_spaulders',     // Druid
-      'arcanist_mantle',        // Mage
-      'felheart_shoulder_pads', // Warlock
-      'giantstalker_epaulets',  // Hunter
-      'pauldrons_of_might',     // Warrior
-      'nightslayer_shoulder_pads', // Rogue
-      'staff_of_dominance',     // Non-set caster
-    ],
-    dropCount: 2,
     dkpReward: 15,
     legendaryMaterial: 'bindings_of_the_windseeker_right',
   },
 
   // =========================================================================
-  // SHAZZRAH - Sixth boss, drops T1 gloves/boots mix
+  // BARON GEDDON - Fifth boss
+  // Drops: T1 Shoulders (Mage, Warlock, Druid, Shaman, Hunter)
+  // Bindings of the Windseeker (Left half)
+  // =========================================================================
+  baron_geddon: {
+    items: [
+      // T1 Shoulders
+      'arcanist_mantle',        // Mage
+      'felheart_shoulder_pads', // Warlock
+      'cenarion_spaulders',     // Druid
+      'earthfury_epaulets',     // Shaman
+      'giantstalker_epaulets',  // Hunter
+      // Shared Non-Flamewaker loot
+      'fire_runed_grimoire',    // Caster offhand
+    ],
+    dropCount: 2,
+    dkpReward: 15,
+    legendaryMaterial: 'bindings_of_the_windseeker_left',
+  },
+
+  // =========================================================================
+  // SHAZZRAH - Sixth boss
+  // Drops: T1 Hands (Mage, Druid, Hunter) + T1 Feet (Priest, Warlock, Rogue)
   // =========================================================================
   shazzrah: {
     items: [
-      'lawbringer_gauntlets',   // Paladin (alt drop)
-      'lawbringer_boots',       // Paladin (alt drop)
-      'earthfury_gauntlets',    // Shaman (alt drop)
-      'earthfury_boots',        // Shaman (alt drop)
-      'gloves_of_prophecy',     // Priest
-      'cenarion_gloves',        // Druid
+      // T1 Hands
       'arcanist_gloves',        // Mage
-      'felheart_gloves',        // Warlock
-      'fire_runed_grimoire',    // Non-set caster
+      'cenarion_gloves',        // Druid
+      'giantstalker_gloves',    // Hunter
+      // T1 Feet
+      'boots_of_prophecy',      // Priest
+      'felheart_slippers',      // Warlock
+      'nightslayer_boots',      // Rogue
+      // Shared Flamewaker loot
+      'sorcerous_dagger',       // Caster weapon
+      'salamander_scale_pants', // Leather legs
     ],
     dropCount: 2,
     dkpReward: 15,
   },
 
   // =========================================================================
-  // SULFURON HARBINGER - Seventh boss, drops T1 Bracers/Belts
+  // SULFURON HARBINGER - Seventh boss
+  // Drops: T1 Shoulders (Priest, Rogue, Hunter) - NOT bracers/belts!
+  // Note: Bracers/Belts drop from MC trash, not bosses
   // =========================================================================
   sulfuron: {
     items: [
-      'lawbringer_bracers',     // Paladin
-      'lawbringer_belt',        // Paladin
-      'earthfury_bracers',      // Shaman
-      'earthfury_belt',         // Shaman
-      'vambraces_of_prophecy',  // Priest
-      'girdle_of_prophecy',     // Priest
-      'cenarion_bracers',       // Druid
-      'cenarion_belt',          // Druid
-      'arcanist_bindings',      // Mage
-      'arcanist_belt',          // Mage
-      'felheart_bracers',       // Warlock
-      'felheart_belt',          // Warlock
-      'giantstalker_bracers',   // Hunter
-      'giantstalker_belt',      // Hunter
-      'bracers_of_might',       // Warrior
-      'belt_of_might',          // Warrior
-      'nightslayer_bracelets',  // Rogue
-      'nightslayer_belt',       // Rogue
-      'gutgutter',              // Non-set melee weapon
+      // T1 Shoulders
+      'mantle_of_prophecy',     // Priest
+      'nightslayer_shoulder_pads', // Rogue
+      'giantstalker_epaulets',  // Hunter (also drops here)
+      // Shared Flamewaker loot
+      'sorcerous_dagger',       // Caster weapon
+      'salamander_scale_pants', // Leather legs
     ],
     dropCount: 2,
     dkpReward: 15,
   },
 
   // =========================================================================
-  // GOLEMAGG - Eighth boss, drops T1 chest
+  // GOLEMAGG - Eighth boss
+  // Drops: All T1 Chests + Azuresong Mageblade, Staff of Dominance
   // =========================================================================
   golemagg: {
     items: [
-      'lawbringer_chestguard',  // Paladin
-      'earthfury_vestments',    // Shaman
+      // T1 Chests
+      'arcanist_robes',         // Mage
       'robes_of_prophecy',      // Priest
       'cenarion_vestments',     // Druid
-      'arcanist_robes',         // Mage
-      'felheart_robes',         // Warlock
+      'nightslayer_chestpiece', // Rogue
+      'earthfury_vestments',    // Shaman
       'giantstalker_breastplate', // Hunter
       'breastplate_of_might',   // Warrior
-      'nightslayer_chestpiece', // Rogue
-      'azuresong_mageblade',    // Non-set caster weapon
-      'strikers_mark',          // Hunter ranged
+      'lawbringer_chestguard',  // Paladin
+      // Non-set weapons
+      'azuresong_mageblade',    // Caster sword
+      'staff_of_dominance',     // Caster staff
+      // Shared Non-Flamewaker loot
+      'fire_runed_grimoire',    // Caster offhand
     ],
     dropCount: 3,
     dkpReward: 20,
   },
 
   // =========================================================================
-  // MAJORDOMO EXECUTUS - Eighth boss, cache drops
+  // MAJORDOMO EXECUTUS - Ninth boss (Cache)
+  // Drops: Unique cache items - Core Hound Tooth, Sash of Whispered Secrets, etc.
+  // Also: Ancient Petrified Leaf (Hunter quest), Eye of Divinity (Priest quest)
+  // NOTE: Majordomo drops unique items we don't have defined yet (Core Hound Tooth,
+  // Finkle's Lava Dredger, Cauterizing Band, Gloves of the Hypnotic Flame, etc.)
+  // Using shared MC drops as placeholder until those items are added
   // =========================================================================
   majordomo: {
     items: [
-      'aurastone_hammer',       // Healer weapon
-      'azuresong_mageblade',    // Caster weapon
-      'staff_of_dominance',     // Caster weapon
-      'sorcerous_dagger',       // Caster weapon
+      // Placeholder drops until Majordomo-specific items are added
       'fire_runed_grimoire',    // Caster offhand
-      'gutgutter',              // Melee weapon
+      'sorcerous_dagger',       // Caster dagger
+      'salamander_scale_pants', // Leather legs
     ],
     dropCount: 2,
     dkpReward: 20,
   },
 
   // =========================================================================
-  // RAGNAROS - Final boss, best loot + Eye of Sulfuras
+  // RAGNAROS - Final boss
+  // Drops: T2 Legs + Perdition's Blade, Bonereaver's Edge, Spinal Reaper, etc.
+  // Eye of Sulfuras (legendary component)
+  // NOTE: Does NOT drop T1 gear. Drops T2 legs (not implemented) and unique weapons/accessories
   // =========================================================================
   ragnaros: {
     items: [
-      // Best weapons
-      'azuresong_mageblade',
-      'aurastone_hammer',
-      'staff_of_dominance',
-      'bonereaver_edge',        // Warrior DPS sword
-      'perditions_blade',       // Rogue/Warrior dagger
-      // Some T1 pieces as bonus
-      'lawbringer_chestguard',
-      'earthfury_vestments',    // Shaman chest
-      'robes_of_prophecy',
-      'breastplate_of_might',
-      'nightslayer_chestpiece',
-      // Best non-set
-      'salamander_scale_pants',
+      // Ragnaros-only weapons (authentic drops)
+      'perditions_blade',       // Rogue dagger
+      'bonereaver_edge',        // Warrior 2H sword
+      // Note: Spinal Reaper, Band of Accuria, Band of Sulfuras, Onslaught Girdle,
+      // Crown of Destruction, Choker of the Fire Lord, Malistar's Defender, etc.
+      // are authentic Rag drops but we don't have items defined for them yet
     ],
     dropCount: 4,
     dkpReward: 30,

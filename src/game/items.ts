@@ -1422,27 +1422,27 @@ export const LEGENDARY_MATERIALS: Record<LegendaryMaterialId, LegendaryMaterial>
   bindings_of_the_windseeker_left: {
     id: 'bindings_of_the_windseeker_left',
     name: 'Left Binding of the Windseeker',
-    icon: `${ICON_BASE}/inv_misc_stonetablet_11.jpg`,
+    icon: `${ICON_BASE}/spell_ice_lament.jpg`,
     description: 'One half of the legendary bindings needed to forge Thunderfury.',
     dropChance: 0.03, // 3% drop chance
-    dropsFrom: 'garr',
+    dropsFrom: 'baron_geddon', // Left Binding drops from Baron Geddon
     requiresOther: 'bindings_of_the_windseeker_right',
     requiresBossKill: 'firemaw', // Must kill Firemaw in BWL
   },
   bindings_of_the_windseeker_right: {
     id: 'bindings_of_the_windseeker_right',
     name: 'Right Binding of the Windseeker',
-    icon: `${ICON_BASE}/inv_misc_stonetablet_11.jpg`,
+    icon: `${ICON_BASE}/spell_ice_lament.jpg`,
     description: 'One half of the legendary bindings needed to forge Thunderfury.',
     dropChance: 0.03, // 3% drop chance
-    dropsFrom: 'baron_geddon',
+    dropsFrom: 'garr', // Right Binding drops from Garr
     requiresOther: 'bindings_of_the_windseeker_left',
     requiresBossKill: 'firemaw', // Must kill Firemaw in BWL
   },
   eye_of_sulfuras: {
     id: 'eye_of_sulfuras',
     name: 'Eye of Sulfuras',
-    icon: `${ICON_BASE}/inv_misc_gem_flamespessarite_02.jpg`,
+    icon: `${ICON_BASE}/inv_misc_gem_pearl_05.jpg`,
     description: 'The burning eye of Ragnaros. Can be forged into Sulfuras, Hand of Ragnaros.',
     dropChance: 0.02, // 2% drop chance
     dropsFrom: 'ragnaros',

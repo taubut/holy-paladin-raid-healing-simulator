@@ -2,6 +2,33 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.10.0] - 2025-11-27
+
+### Added
+- **Encounter Journal Loot Display**: Boss loot now shown in encounter journal
+  - Two-column layout with abilities on left, loot on right
+  - Items sorted by rarity (legendary first)
+  - Item icons with rarity-colored borders and names
+  - Slot type and class restrictions displayed
+  - Legendary materials shown at top with drop chance percentage
+- **Admin Panel Legendary Materials Section**: Test legendary crafting easily
+  - Toggle Bindings of the Windseeker (Left/Right) and Eye of Sulfuras
+  - Shows crafting status for Thunderfury and Sulfuras
+- **Legendary Materials Save/Load**: Materials now persist across game saves
+
+### Fixed
+- **Ragnaros Loot Table**: Removed incorrect drops (Azuresong Mageblade, Aurastone Hammer, Staff of Dominance)
+  - Ragnaros now correctly drops only Perdition's Blade and Bonereaver's Edge
+- **Majordomo Loot Table**: Removed Aurastone Hammer (not an authentic drop)
+- **Legendary Material Icons**: Updated to correct WoW icons
+  - Bindings of the Windseeker: `spell_ice_lament`
+  - Eye of Sulfuras: `inv_misc_gem_pearl_05`
+- **Legendary Materials Persistence**: Fixed bug where materials were lost on save/load (save version 7)
+
+### Changed
+- Encounter journal modal widened to accommodate loot column (1000-1200px)
+- Loot tables sanitized for authentic Vanilla WoW drops
+
 ## [0.9.0] - 2025-11-26
 
 ### Added

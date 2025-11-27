@@ -2952,7 +2952,7 @@ export class GameEngine {
 
   saveGame(slotName: string = 'default') {
     const saveData = {
-      version: 6, // Bumped for spec and paladin aura assignments support
+      version: 7, // Bumped for legendary materials support
       timestamp: Date.now(),
       player: {
         name: this.state.playerName,
@@ -2983,6 +2983,7 @@ export class GameEngine {
       shamanTotemAssignments: this.state.shamanTotemAssignments, // v7: Shaman totem assignments
       unlockedWorldBuffs: this.state.unlockedWorldBuffs, // Persist world buff unlocks
       bossKillsWithoutPaladinLoot: this.state.bossKillsWithoutPaladinLoot, // Bad luck protection
+      legendaryMaterials: this.state.legendaryMaterials, // v7: Legendary materials (Bindings, Eye of Sulfuras)
     };
 
     localStorage.setItem(`mc_healer_save_${slotName}`, JSON.stringify(saveData));
@@ -3093,6 +3094,11 @@ export class GameEngine {
         // Restore bad luck protection counter (v3+)
         if (data.bossKillsWithoutPaladinLoot !== undefined) {
           this.state.bossKillsWithoutPaladinLoot = data.bossKillsWithoutPaladinLoot;
+        }
+
+        // Restore legendary materials (v7+)
+        if (data.legendaryMaterials) {
+          this.state.legendaryMaterials = data.legendaryMaterials;
         }
 
         // Restore multi-raid progression (v4+)
@@ -3885,6 +3891,34 @@ export class GameEngine {
       type: 'system',
     });
     this.notify();
+  }
+
+  // Admin: Toggle legendary material in inventory
+  adminToggleLegendaryMaterial(materialId: LegendaryMaterialId): boolean {
+    const hasIt = this.state.legendaryMaterials.includes(materialId);
+    const material = LEGENDARY_MATERIALS[materialId];
+
+    if (hasIt) {
+      this.state.legendaryMaterials = this.state.legendaryMaterials.filter(id => id !== materialId);
+      this.addCombatLogEntry({
+        message: `[Admin] Removed ${material?.name || materialId}`,
+        type: 'system',
+      });
+    } else {
+      this.state.legendaryMaterials.push(materialId);
+      this.addCombatLogEntry({
+        message: `[Admin] Added ${material?.name || materialId}`,
+        type: 'system',
+      });
+    }
+
+    this.notify();
+    return !hasIt;
+  }
+
+  // Admin: Check if player has a legendary material
+  adminHasLegendaryMaterial(materialId: LegendaryMaterialId): boolean {
+    return this.state.legendaryMaterials.includes(materialId);
   }
 
   // Admin: Clear all progression (defeated bosses, DKP earned this raid)
