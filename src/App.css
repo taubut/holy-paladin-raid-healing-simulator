@@ -4928,6 +4928,58 @@ body {
   font-weight: normal;
 }
 
+/* Special Alert (Legendary unlocks, secret boss summons) */
+.special-alert {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 24px 48px;
+  background: linear-gradient(180deg, rgba(60, 40, 0, 0.98) 0%, rgba(30, 20, 0, 0.98) 100%);
+  border: 3px solid #ff8000;
+  border-radius: 12px;
+  color: #ffcc00;
+  font-size: 22px;
+  font-weight: bold;
+  text-align: center;
+  text-shadow: 0 0 15px rgba(255, 128, 0, 0.9), 0 0 30px rgba(255, 128, 0, 0.5);
+  box-shadow:
+    0 0 40px rgba(255, 128, 0, 0.7),
+    0 0 80px rgba(255, 128, 0, 0.4),
+    inset 0 0 30px rgba(255, 128, 0, 0.2);
+  animation: specialAlertGlow 1s ease-in-out infinite, specialAlertFadeIn 0.5s ease-out;
+  z-index: 2000;
+  max-width: 600px;
+}
+
+@keyframes specialAlertGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 40px rgba(255, 128, 0, 0.7),
+      0 0 80px rgba(255, 128, 0, 0.4),
+      inset 0 0 30px rgba(255, 128, 0, 0.2);
+    border-color: #ff8000;
+  }
+  50% {
+    box-shadow:
+      0 0 60px rgba(255, 160, 0, 0.9),
+      0 0 120px rgba(255, 160, 0, 0.6),
+      inset 0 0 40px rgba(255, 160, 0, 0.3);
+    border-color: #ffaa00;
+  }
+}
+
+@keyframes specialAlertFadeIn {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 /* ==================== RAID MANAGEMENT SYSTEM ==================== */
 
 /* Raid Management Toggle Button */

@@ -351,6 +351,227 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   },
 
   // =========================================================================
+  // BLACKWING LAIR
+  // =========================================================================
+
+  // =========================================================================
+  // RAZORGORE THE UNTAMED - BWL Boss 1
+  // Drops: T2 Bracers (normally trash drops, assigned here since no trash)
+  // + The Untamed Blade, shared BWL loot
+  // =========================================================================
+  razorgore: {
+    items: [
+      // T2 Bracers
+      'judgment_bindings',          // Paladin T2
+      'bindings_of_transcendence',  // Priest T2
+      'stormrage_bracers',          // Druid T2
+      'bracelets_of_wrath',         // Warrior T2
+      'dragonstalker_bracers',      // Hunter T2
+      'netherwind_bindings',        // Mage T2
+      'bloodfang_bracers',          // Rogue T2
+      'nemesis_bracers',            // Warlock T2
+      // Non-set weapons
+      'the_untamed_blade',          // Warrior 2H sword
+      'bracers_of_arcane_accuracy', // Caster bracers
+    ],
+    dropCount: 2,
+    dkpReward: 15,
+  },
+
+  // =========================================================================
+  // VAELASTRASZ THE CORRUPT - BWL Boss 2
+  // Drops: T2 Belts (normally trash drops, assigned here since no trash)
+  // + Dragonfang Blade
+  // =========================================================================
+  vaelastrasz: {
+    items: [
+      // T2 Belts
+      'judgment_belt',              // Paladin T2
+      'belt_of_transcendence',      // Priest T2
+      'stormrage_belt',             // Druid T2
+      'waistband_of_wrath',         // Warrior T2
+      'dragonstalker_belt',         // Hunter T2
+      'netherwind_belt',            // Mage T2
+      'bloodfang_belt',             // Rogue T2
+      'nemesis_belt',               // Warlock T2
+      // Non-set
+      'dragonfang_blade',           // Rogue dagger
+      'angelista_grasp',            // Caster belt
+    ],
+    dropCount: 2,
+    dkpReward: 20,
+  },
+
+  // =========================================================================
+  // BROODLORD LASHLAYER - BWL Boss 3
+  // Drops: T2 Boots + Maladath, Heartstriker
+  // =========================================================================
+  broodlord: {
+    items: [
+      // T2 Boots
+      'judgment_sabatons',          // Paladin T2
+      'boots_of_transcendence',     // Priest T2
+      'stormrage_boots',            // Druid T2
+      'sabatons_of_wrath',          // Warrior T2
+      'dragonstalker_greaves',      // Hunter T2
+      'netherwind_boots',           // Mage T2
+      'bloodfang_boots',            // Rogue T2
+      'nemesis_boots',              // Warlock T2
+      // Non-set
+      'maladath',                   // Sword +4 Sword Skill
+      'heartstriker',               // Hunter bow
+      'boots_of_the_shadow_flame',  // Leather boots
+    ],
+    dropCount: 2,
+    dkpReward: 20,
+  },
+
+  // =========================================================================
+  // FIREMAW - BWL Boss 4 (Drake)
+  // Drops: T2 Gloves + Crul'shorukh
+  // =========================================================================
+  firemaw: {
+    items: [
+      // T2 Gloves
+      'judgment_gauntlets',         // Paladin T2
+      'handguards_of_transcendence', // Priest T2
+      'stormrage_handguards',       // Druid T2
+      'gauntlets_of_wrath',         // Warrior T2
+      'dragonstalker_gauntlets',    // Hunter T2
+      'netherwind_gloves',          // Mage T2
+      'bloodfang_gloves',           // Rogue T2
+      'nemesis_gloves',             // Warlock T2
+      // Non-set
+      'crul_shorukh',               // Warrior axe
+      'ebony_flame_gloves',         // Leather gloves
+      'black_brood_pauldrons',      // Plate shoulders
+    ],
+    dropCount: 2,
+    dkpReward: 20,
+  },
+
+  // =========================================================================
+  // EBONROC - BWL Boss 5 (Drake)
+  // Drops: T2 Gloves + Shadow Wing Focus Staff
+  // =========================================================================
+  ebonroc: {
+    items: [
+      // T2 Gloves (same as other drakes)
+      'judgment_gauntlets',         // Paladin T2
+      'handguards_of_transcendence', // Priest T2
+      'stormrage_handguards',       // Druid T2
+      'gauntlets_of_wrath',         // Warrior T2
+      'dragonstalker_gauntlets',    // Hunter T2
+      'netherwind_gloves',          // Mage T2
+      'bloodfang_gloves',           // Rogue T2
+      'nemesis_gloves',             // Warlock T2
+      // Non-set
+      'shadow_wing_focus_staff',    // Caster staff
+      'malfurions_blessed_bulwark', // Druid chest
+      'shroud_of_pure_thought',     // Healer cloak
+    ],
+    dropCount: 2,
+    dkpReward: 20,
+  },
+
+  // =========================================================================
+  // FLAMEGOR - BWL Boss 6 (Drake)
+  // Drops: T2 Gloves + Drake Talon Cleaver
+  // =========================================================================
+  flamegor: {
+    items: [
+      // T2 Gloves (same as other drakes)
+      'judgment_gauntlets',         // Paladin T2
+      'handguards_of_transcendence', // Priest T2
+      'stormrage_handguards',       // Druid T2
+      'gauntlets_of_wrath',         // Warrior T2
+      'dragonstalker_gauntlets',    // Hunter T2
+      'netherwind_gloves',          // Mage T2
+      'bloodfang_gloves',           // Rogue T2
+      'nemesis_gloves',             // Warlock T2
+      // Non-set
+      'drake_talon_cleaver',        // Warrior 2H axe
+      'taut_dragonhide_belt',       // Leather belt
+      'drake_talon_pauldrons',      // Plate shoulders
+    ],
+    dropCount: 2,
+    dkpReward: 20,
+  },
+
+  // =========================================================================
+  // CHROMAGGUS - BWL Boss 7
+  // Drops: T2 Shoulders + Ashjre'thul, Chromatically Tempered Sword
+  // =========================================================================
+  chromaggus: {
+    items: [
+      // T2 Shoulders
+      'judgment_spaulders',         // Paladin T2
+      'pauldrons_of_transcendence', // Priest T2
+      'stormrage_pauldrons',        // Druid T2
+      'pauldrons_of_wrath',         // Warrior T2
+      'dragonstalker_spaulders',    // Hunter T2
+      'netherwind_mantle',          // Mage T2
+      'bloodfang_spaulders',        // Rogue T2
+      'nemesis_spaulders',          // Warlock T2
+      // Non-set
+      'ashjrethul',                 // Hunter crossbow
+      'chromatically_tempered_sword', // Sword
+      'elementium_threaded_cloak',  // Resist cloak
+      'mantle_of_the_blackwing_cabal', // Caster shoulders
+    ],
+    dropCount: 3,
+    dkpReward: 25,
+  },
+
+  // =========================================================================
+  // NEFARIAN - BWL Final Boss
+  // Drops: T2 Chest + Ashkandi, Staff of the Shadow Flame, Lok'amir,
+  // Neltharion's Tear, Prestor's Talisman, Mish'undare
+  // =========================================================================
+  nefarian: {
+    items: [
+      // T2 Chest
+      'judgment_breastplate',       // Paladin T2
+      'robes_of_transcendence',     // Priest T2
+      'stormrage_chestguard',       // Druid T2
+      'breastplate_of_wrath',       // Warrior T2
+      'dragonstalker_breastplate',  // Hunter T2
+      'netherwind_robes',           // Mage T2
+      'bloodfang_chestpiece',       // Rogue T2
+      'nemesis_robes',              // Warlock T2
+      // Non-set weapons
+      'ashkandi',                   // Warrior 2H sword
+      'staff_of_the_shadow_flame', // Caster staff
+      'lok_amir',                   // Healer mace
+      // Armor
+      'mishundare',                 // Caster helm
+      'scrolls_of_blinding_light',  // Healer offhand
+      'helm_of_endless_rage',       // Warrior helm
+      'red_dragonscale_protector',  // Tank shield
+    ],
+    dropCount: 4,
+    dkpReward: 35,
+  },
+
+  // =========================================================================
+  // SILITHUS - PRINCE THUNDERAAN
+  // Secret boss unlocked by collecting both Bindings + killing Firemaw
+  // Drops: Unique loot, no tier gear
+  // =========================================================================
+  thunderaan: {
+    items: [
+      // Since Thunderaan is the legendary boss for Thunderfury, he doesn't drop
+      // traditional loot - killing him unlocks the ability to craft Thunderfury
+      // We can add some thematic wind/elemental items here as bonus
+      'elementium_threaded_cloak',  // Resist cloak
+      'shroud_of_pure_thought',     // Healer cloak
+      'mantle_of_the_blackwing_cabal', // Caster shoulders
+    ],
+    dropCount: 2,
+    dkpReward: 40,
+  },
+
+  // =========================================================================
   // ONYXIA'S LAIR
   // =========================================================================
   onyxia: {

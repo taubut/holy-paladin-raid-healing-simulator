@@ -161,6 +161,7 @@ export interface BuffEffect {
   manaRegenBonus?: number;
   spellCritBonus?: number;
   attackPowerBonus?: number;
+  attackSpeedBonus?: number; // Percentage attack speed increase (e.g., 15 = 15% faster)
   mana?: number; // Flat mana bonus (e.g., Flask of Distilled Wisdom)
   healingPower?: number; // Flat healing power bonus
   // Resistance stats for party auras
@@ -471,6 +472,9 @@ export interface GameState {
   hordeEquipment: Equipment;
   hordeBag: GearItem[];
   hordeDKP: DKPState;
+  // Hidden boss unlocks
+  silithusUnlocked: boolean;      // True when Silithus raid is visible (both bindings + Firemaw kill)
+  thunderaanDefeated: boolean;    // True when Thunderaan has been killed (allows Thunderfury crafting)
 }
 
 // Class colors matching Classic WoW

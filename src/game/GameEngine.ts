@@ -304,10 +304,10 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
     name: "Warchief's Blessing",
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_teleportorgrimmar.jpg',
     duration: 7200,
-    effect: { staminaBonus: 30, manaRegenBonus: 10 }, // 300 HP = ~30 sta
+    effect: { staminaBonus: 30, manaRegenBonus: 10, attackSpeedBonus: 15 }, // 300 HP = ~30 sta, 15% atk speed, 10 mp5
     unlockBoss: 'nefarian',
     unlockRaid: 'Blackwing Lair',
-    comingSoon: true,
+    // Unlocks when player defeats Nefarian for the first time
   },
   spirit_of_zandalar: {
     id: 'spirit_of_zandalar',
@@ -329,6 +329,7 @@ export class GameEngine {
   private actionBar: Spell[];
   private castTimeout: number | null = null;
   private aiHealerCooldowns: Record<string, number> = {};
+  private specialAlertCallback: ((message: string) => void) | null = null;
 
   constructor() {
     this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
@@ -416,6 +417,9 @@ export class GameEngine {
       hordeEquipment: createEmptyEquipment(),
       hordeBag: [],
       hordeDKP: { points: 0, earnedThisRaid: 0 },
+      // Hidden boss unlocks
+      silithusUnlocked: false,
+      thunderaanDefeated: false,
     };
   }
 
@@ -667,6 +671,18 @@ export class GameEngine {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  // Set callback for special alerts (like Thunderaan summon)
+  setSpecialAlertCallback(callback: (message: string) => void): void {
+    this.specialAlertCallback = callback;
+  }
+
+  // Trigger a special alert (used for legendary/secret unlocks)
+  private triggerSpecialAlert(message: string): void {
+    if (this.specialAlertCallback) {
+      this.specialAlertCallback(message);
+    }
   }
 
   // =========================================================================
@@ -1461,6 +1477,14 @@ export class GameEngine {
   }
 
   castSpell(spell: Spell) {
+    // Check if player is dead - can't cast if dead!
+    const player = this.state.raid.find(m => m.name === this.state.playerName);
+    if (!player?.isAlive) {
+      this.addCombatLogEntry({ message: 'You are dead!', type: 'system' });
+      this.notify();
+      return;
+    }
+
     // If already casting, cancel the current cast
     if (this.state.isCasting) {
       this.cancelCast();
@@ -1985,6 +2009,24 @@ export class GameEngine {
     return finalDamage;
   }
 
+  // Handle member death - cancel player cast if player dies
+  private handleMemberDeath(member: RaidMember): void {
+    member.isAlive = false;
+    this.addCombatLogEntry({ message: `${member.name} has died!`, type: 'damage' });
+
+    // If the player died, cancel any in-progress cast
+    if (member.name === this.state.playerName) {
+      if (this.state.isCasting && this.castTimeout !== null) {
+        clearTimeout(this.castTimeout);
+        this.castTimeout = null;
+        this.state.isCasting = false;
+        this.state.castingSpell = null;
+        this.state.castProgress = 0;
+      }
+      this.addCombatLogEntry({ message: 'You have fallen in battle!', type: 'system' });
+    }
+  }
+
   // Get active auras affecting a specific member based on their group (used by UI)
   public getActiveAurasForMember(member: RaidMember): PartyAura[] {
     const activeAuras: PartyAura[] = [];
@@ -2402,8 +2444,7 @@ export class GameEngine {
                 const reducedDamage = this.calculateDamageReduction(tank, damage, damageType);
                 tank.currentHealth = Math.max(0, tank.currentHealth - reducedDamage);
                 if (tank.currentHealth === 0) {
-                  tank.isAlive = false;
-                  this.addCombatLogEntry({ message: `${tank.name} has died!`, type: 'damage' });
+                  this.handleMemberDeath(tank);
                 }
               }
               break;
@@ -2416,8 +2457,7 @@ export class GameEngine {
                 const reducedDamage = this.calculateDamageReduction(member, damage, damageType);
                 member.currentHealth = Math.max(0, member.currentHealth - reducedDamage);
                 if (member.currentHealth === 0) {
-                  member.isAlive = false;
-                  this.addCombatLogEntry({ message: `${member.name} has died!`, type: 'damage' });
+                  this.handleMemberDeath(member);
                 }
               });
               break;
@@ -2430,8 +2470,7 @@ export class GameEngine {
                 const reducedDamage = this.calculateDamageReduction(target, damage, damageType);
                 target.currentHealth = Math.max(0, target.currentHealth - reducedDamage);
                 if (target.currentHealth === 0) {
-                  target.isAlive = false;
-                  this.addCombatLogEntry({ message: `${target.name} has died!`, type: 'damage' });
+                  this.handleMemberDeath(target);
                 }
               }
               break;
@@ -2479,8 +2518,7 @@ export class GameEngine {
               member.currentHealth -= tickDamage;
               if (member.currentHealth <= 0) {
                 member.currentHealth = 0;
-                member.isAlive = false;
-                this.addCombatLogEntry({ message: `${member.name} has died!`, type: 'damage' });
+                this.handleMemberDeath(member);
               }
             }
             return { ...debuff, duration: debuff.duration - delta };
@@ -2549,6 +2587,7 @@ export class GameEngine {
 
           // Calculate DPS bonus from buffs (Attack Power, crit, etc.)
           let buffDpsBonus = 0;
+          let attackSpeedMultiplier = 1;
           m.buffs.forEach(buff => {
             if (buff.effect) {
               // Attack Power: 14 AP = 1 DPS for physical classes
@@ -2563,10 +2602,14 @@ export class GameEngine {
               if (buff.effect.allStatsBonus && m.role === 'dps') {
                 buffDpsBonus += buff.effect.allStatsBonus * 0.5;
               }
+              // Attack speed bonus: directly multiplies DPS
+              if (buff.effect.attackSpeedBonus) {
+                attackSpeedMultiplier *= (1 + buff.effect.attackSpeedBonus / 100);
+              }
             }
           });
 
-          return sum + m.dps + gearDpsBonus + buffDpsBonus;
+          return sum + (m.dps + gearDpsBonus + buffDpsBonus) * attackSpeedMultiplier;
         }, 0);
 
       this.state.boss.currentHealth = Math.max(0, this.state.boss.currentHealth - totalDps * delta);
@@ -2700,6 +2743,25 @@ export class GameEngine {
       this.addCombatLogEntry({ message: 'MOLTEN CORE CLEARED! You have defeated Ragnaros!', type: 'system' });
     } else if (bossId === 'onyxia') {
       this.addCombatLogEntry({ message: "ONYXIA'S LAIR CLEARED! The dragon is slain!", type: 'system' });
+    } else if (bossId === 'nefarian') {
+      this.addCombatLogEntry({ message: 'BLACKWING LAIR CLEARED! Nefarian has been defeated!', type: 'system' });
+    } else if (bossId === 'thunderaan') {
+      // Mark Thunderaan as defeated - allows Thunderfury crafting
+      this.state.thunderaanDefeated = true;
+      this.addCombatLogEntry({ message: 'PRINCE THUNDERAAN DEFEATED! You may now forge Thunderfury!', type: 'system' });
+    }
+
+    // Check for Silithus unlock: requires both bindings + Firemaw kill
+    if (bossId === 'firemaw' && !this.state.silithusUnlocked) {
+      const hasLeftBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_left');
+      const hasRightBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_right');
+
+      if (hasLeftBinding && hasRightBinding) {
+        this.state.silithusUnlocked = true;
+        this.addCombatLogEntry({ message: 'The Bindings resonate with power...', type: 'system' });
+        // Trigger special alert for the UI
+        this.triggerSpecialAlert('Prince Thunderaan has been summoned! Check the raid list to challenge him in Silithus!');
+      }
     }
 
     this.notify();
@@ -3847,6 +3909,25 @@ export class GameEngine {
         this.state.firstKills.push(bossId);
       }
       this.addCombatLogEntry({ message: `[Admin] ${bossId} marked as defeated`, type: 'system' });
+
+      // Check for special unlocks (same as handleBossVictory)
+      // Thunderaan defeat tracking
+      if (bossId === 'thunderaan') {
+        this.state.thunderaanDefeated = true;
+        this.addCombatLogEntry({ message: '[Admin] Thunderaan defeated - Thunderfury can now be forged!', type: 'system' });
+      }
+
+      // Silithus unlock: requires both bindings + Firemaw kill
+      if (bossId === 'firemaw' && !this.state.silithusUnlocked) {
+        const hasLeftBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_left');
+        const hasRightBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_right');
+
+        if (hasLeftBinding && hasRightBinding) {
+          this.state.silithusUnlocked = true;
+          this.addCombatLogEntry({ message: '[Admin] Silithus unlocked - Prince Thunderaan is now available!', type: 'system' });
+          this.triggerSpecialAlert('Prince Thunderaan has been summoned! Check the raid list to challenge him in Silithus!');
+        }
+      }
     }
 
     // Update raid in progress status for the currently selected raid
@@ -4201,20 +4282,20 @@ export class GameEngine {
     return this.state.legendaryMaterials.includes('eye_of_sulfuras');
   }
 
-  // Check if player can craft Thunderfury (has both bindings + killed Firemaw)
+  // Check if player can craft Thunderfury (has both bindings + defeated Thunderaan)
   canCraftThunderfury(): boolean {
     const hasLeftBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_left');
     const hasRightBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_right');
-    const hasKilledFiremaw = this.state.defeatedBosses.includes('firemaw');
-    return hasLeftBinding && hasRightBinding && hasKilledFiremaw;
+    const hasDefeatedThunderaan = this.state.thunderaanDefeated;
+    return hasLeftBinding && hasRightBinding && hasDefeatedThunderaan;
   }
 
-  // Check if player has the materials for Thunderfury but needs Firemaw
-  hasThunderfuryMaterialsButNeedsFiremaw(): boolean {
+  // Check if player has the materials for Thunderfury but needs to defeat Thunderaan
+  hasThunderfuryMaterialsButNeedsThunderaan(): boolean {
     const hasLeftBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_left');
     const hasRightBinding = this.state.legendaryMaterials.includes('bindings_of_the_windseeker_right');
-    const hasKilledFiremaw = this.state.defeatedBosses.includes('firemaw');
-    return hasLeftBinding && hasRightBinding && !hasKilledFiremaw;
+    const hasDefeatedThunderaan = this.state.thunderaanDefeated;
+    return hasLeftBinding && hasRightBinding && !hasDefeatedThunderaan;
   }
 
   // Craft Sulfuras and equip on a raid member
@@ -4275,12 +4356,12 @@ export class GameEngine {
     return true;
   }
 
-  // Craft Thunderfury and equip on a raid member (requires Prince Thunderaan kill simulation)
+  // Craft Thunderfury and equip on a raid member (requires Prince Thunderaan defeat)
   craftThunderfury(memberId: string): boolean {
     if (!this.canCraftThunderfury()) {
-      if (this.hasThunderfuryMaterialsButNeedsFiremaw()) {
+      if (this.hasThunderfuryMaterialsButNeedsThunderaan()) {
         this.addCombatLogEntry({
-          message: 'Cannot craft Thunderfury - must defeat Firemaw in Blackwing Lair first!',
+          message: 'Cannot craft Thunderfury - must defeat Prince Thunderaan in Silithus first!',
           type: 'system'
         });
       } else {

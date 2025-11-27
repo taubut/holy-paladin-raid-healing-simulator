@@ -1,6 +1,6 @@
 // Raid Registry - defines all available raids in the game
 import type { Boss } from './types';
-import { ENCOUNTERS, ONYXIA_ENCOUNTERS } from './encounters';
+import { ENCOUNTERS, ONYXIA_ENCOUNTERS, BWL_ENCOUNTERS, SILITHUS_ENCOUNTERS } from './encounters';
 
 export interface Raid {
   id: string;
@@ -10,6 +10,7 @@ export interface Raid {
   minPlayers: number;
   maxPlayers: number;
   available: boolean;  // false = greyed out "Coming Soon"
+  hidden?: boolean;    // true = only visible when unlocked (e.g., Silithus after both bindings + Firemaw)
   encounters: Boss[];
   worldBuffUnlock?: string;  // Boss ID that unlocks a world buff when killed
 }
@@ -40,11 +41,23 @@ export const RAIDS: Raid[] = [
     id: 'blackwing_lair',
     name: 'Blackwing Lair',
     shortName: 'BWL',
-    description: '8 bosses - Coming Soon',
+    description: '8 bosses - Nefarian awaits',
     minPlayers: 40,
     maxPlayers: 40,
-    available: false,  // Greyed out
-    encounters: [],
+    available: true,
+    encounters: BWL_ENCOUNTERS,
+    worldBuffUnlock: 'nefarian',  // Killing Nefarian unlocks Rallying Cry of the Dragonslayer
+  },
+  {
+    id: 'silithus',
+    name: 'Silithus - The Summoning',
+    shortName: 'SIL',
+    description: '1 boss - Prince Thunderaan',
+    minPlayers: 20,
+    maxPlayers: 40,
+    available: true,
+    hidden: true,  // Only visible when silithusUnlocked is true
+    encounters: SILITHUS_ENCOUNTERS,
   },
 ];
 

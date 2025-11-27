@@ -220,6 +220,334 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     damagePerTick: 175, // Standing in lava crack
     tickInterval: 1,
   },
+
+  // =========================================================================
+  // BLACKWING LAIR DEBUFFS
+  // =========================================================================
+
+  // Razorgore the Untamed
+  conflagration: {
+    id: 'conflagration',
+    name: 'Conflagration',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    maxDuration: 10,
+    type: 'magic',
+    damagePerTick: 150,
+    tickInterval: 2,
+  },
+
+  // Vaelastrasz the Corrupt - THE signature BWL debuff
+  burning_adrenaline: {
+    id: 'burning_adrenaline',
+    name: 'Burning Adrenaline',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_unholyfrenzy.jpg',
+    maxDuration: 20,
+    type: 'magic', // Undispellable in reality, but magic for consistency
+    damagePerTick: 500, // Increasing damage until death
+    tickInterval: 1,
+  },
+  essence_of_the_red: {
+    id: 'essence_of_the_red',
+    name: 'Essence of the Red',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_red.jpg',
+    maxDuration: 180,
+    type: 'magic',
+    damagePerTick: 0, // Buff that gives unlimited mana - no damage
+  },
+
+  // Broodlord Lashlayer
+  mortal_strike: {
+    id: 'mortal_strike',
+    name: 'Mortal Strike',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_savageblow.jpg',
+    maxDuration: 5,
+    type: 'disease', // Cleansable
+    damagePerTick: 0, // 50% healing reduction effect - simulated
+  },
+  blast_wave_broodlord: {
+    id: 'blast_wave_broodlord',
+    name: 'Blast Wave',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_excorcism_02.jpg',
+    maxDuration: 6,
+    type: 'magic',
+    damagePerTick: 100,
+    tickInterval: 1,
+  },
+  knock_away: {
+    id: 'knock_away',
+    name: 'Knock Away',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_gauntlets_05.jpg',
+    maxDuration: 2,
+    type: 'magic',
+    damagePerTick: 0, // Threat reduction
+  },
+
+  // Drake debuffs (Firemaw, Ebonroc, Flamegor)
+  wing_buffet_bwl: {
+    id: 'wing_buffet_bwl',
+    name: 'Wing Buffet',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_dragonflightblue_wingbuffet.jpg',
+    maxDuration: 3,
+    type: 'magic',
+    damagePerTick: 0, // Knockback + threat reduction
+  },
+  flame_buffet: {
+    id: 'flame_buffet',
+    name: 'Flame Buffet',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+    maxDuration: 20,
+    type: 'magic',
+    damagePerTick: 150, // Stacking fire vulnerability
+    tickInterval: 3,
+  },
+  shadow_flame: {
+    id: 'shadow_flame',
+    name: 'Shadow Flame',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    maxDuration: 4,
+    type: 'magic',
+    damagePerTick: 1000, // MASSIVE damage - need Onyxia Scale Cloak!
+    tickInterval: 2,
+  },
+  shadow_of_ebonroc: {
+    id: 'shadow_of_ebonroc',
+    name: 'Shadow of Ebonroc',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_gathershadows.jpg',
+    maxDuration: 8,
+    type: 'magic',
+    damagePerTick: 0, // Heals the boss when tank is healed - tank swap!
+  },
+  frenzy_bwl: {
+    id: 'frenzy_bwl',
+    name: 'Frenzy',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_challangingroar.jpg',
+    maxDuration: 10,
+    type: 'magic', // Hunter can Tranq Shot
+    damagePerTick: 0, // Increased attack speed/damage
+  },
+
+  // Chromaggus - 5 breath types (random 2 per reset)
+  incinerate: {
+    id: 'incinerate',
+    name: 'Incinerate',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flamebolt.jpg',
+    maxDuration: 6,
+    type: 'magic',
+    damagePerTick: 400,
+    tickInterval: 1,
+  },
+  corrosive_acid: {
+    id: 'corrosive_acid',
+    name: 'Corrosive Acid',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_acid_01.jpg',
+    maxDuration: 15,
+    type: 'magic',
+    damagePerTick: 175, // Also reduces armor
+    tickInterval: 3,
+  },
+  frost_burn: {
+    id: 'frost_burn',
+    name: 'Frost Burn',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_chillingblast.jpg',
+    maxDuration: 10,
+    type: 'magic',
+    damagePerTick: 75, // Also slows attack/cast speed
+    tickInterval: 2,
+  },
+  ignite_flesh: {
+    id: 'ignite_flesh',
+    name: 'Ignite Flesh',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fire.jpg',
+    maxDuration: 8,
+    type: 'magic',
+    damagePerTick: 300,
+    tickInterval: 1,
+  },
+  time_lapse: {
+    id: 'time_lapse',
+    name: 'Time Lapse',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_portalironforge.jpg',
+    maxDuration: 8,
+    type: 'magic',
+    damagePerTick: 0, // Stun + reduces health/mana
+  },
+  // Brood Afflictions - signature Chromaggus mechanic
+  brood_affliction_red: {
+    id: 'brood_affliction_red',
+    name: 'Brood Affliction: Red',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_red.jpg',
+    maxDuration: 60,
+    type: 'disease',
+    damagePerTick: 50,
+    tickInterval: 3,
+  },
+  brood_affliction_green: {
+    id: 'brood_affliction_green',
+    name: 'Brood Affliction: Green',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_green.jpg',
+    maxDuration: 60,
+    type: 'poison',
+    damagePerTick: 100, // Nature damage, heals Chromaggus
+    tickInterval: 5,
+  },
+  brood_affliction_blue: {
+    id: 'brood_affliction_blue',
+    name: 'Brood Affliction: Blue',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_blue.jpg',
+    maxDuration: 60,
+    type: 'magic',
+    damagePerTick: 0, // Drains mana, slows cast speed
+  },
+  brood_affliction_black: {
+    id: 'brood_affliction_black',
+    name: 'Brood Affliction: Black',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_black.jpg',
+    maxDuration: 60,
+    type: 'curse',
+    damagePerTick: 75, // Fire damage + increases fire damage taken
+    tickInterval: 3,
+  },
+  brood_affliction_bronze: {
+    id: 'brood_affliction_bronze',
+    name: 'Brood Affliction: Bronze',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_bronze.jpg',
+    maxDuration: 4,
+    type: 'magic', // 4 second stun
+    damagePerTick: 0,
+  },
+
+  // Nefarian - Final Boss
+  shadowflame_nef: {
+    id: 'shadowflame_nef',
+    name: 'Shadowflame',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    maxDuration: 4,
+    type: 'magic',
+    damagePerTick: 800, // Massive if no Onyxia Scale Cloak!
+    tickInterval: 1,
+  },
+  veil_of_shadow: {
+    id: 'veil_of_shadow',
+    name: 'Veil of Shadow',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_gathershadows.jpg',
+    maxDuration: 30,
+    type: 'magic',
+    damagePerTick: 0, // 75% healing reduction - MUST dispel!
+  },
+  fear_nef: {
+    id: 'fear_nef',
+    name: 'Fear',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_possession.jpg',
+    maxDuration: 4,
+    type: 'magic',
+    damagePerTick: 0,
+  },
+  // Class calls - unique debuffs for each class
+  class_call_warrior: {
+    id: 'class_call_warrior',
+    name: 'Warrior Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_sunder.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 0, // Forces Berserker Stance (take 10% more damage)
+  },
+  class_call_paladin: {
+    id: 'class_call_paladin',
+    name: 'Paladin Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofwisdom.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 0, // Bubbles Nefarian, healing him
+  },
+  class_call_priest: {
+    id: 'class_call_priest',
+    name: 'Priest Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_guardianspirit.jpg',
+    maxDuration: 10,
+    type: 'magic',
+    damagePerTick: 100, // Direct heals hurt targets instead
+    tickInterval: 2,
+  },
+  class_call_druid: {
+    id: 'class_call_druid',
+    name: 'Druid Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_catform.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 0, // Forces cat form, stuck
+  },
+  class_call_mage: {
+    id: 'class_call_mage',
+    name: 'Mage Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_icestorm.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 0, // Polymorphs raid members
+  },
+  class_call_warlock: {
+    id: 'class_call_warlock',
+    name: 'Warlock Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_demonictactics.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 150, // Hellfire effect - damages self and nearby
+    tickInterval: 1,
+  },
+  class_call_hunter: {
+    id: 'class_call_hunter',
+    name: 'Hunter Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_pet_goto.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 0, // Ranged weapons break
+  },
+  class_call_rogue: {
+    id: 'class_call_rogue',
+    name: 'Rogue Call',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_rogue_ambush.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 0, // Teleports rogues to Nefarian
+  },
+
+  // =========================================================================
+  // SILITHUS - THUNDERAAN DEBUFFS
+  // =========================================================================
+  chain_lightning: {
+    id: 'chain_lightning',
+    name: 'Chain Lightning',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_chainlightning.jpg',
+    maxDuration: 4,
+    type: 'magic',
+    damagePerTick: 250,
+    tickInterval: 1,
+  },
+  thunderclap_thunderaan: {
+    id: 'thunderclap_thunderaan',
+    name: 'Thunderclap',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_thunderclap.jpg',
+    maxDuration: 6,
+    type: 'magic',
+    damagePerTick: 0, // Stun + initial burst
+  },
+  storm_cloud: {
+    id: 'storm_cloud',
+    name: 'Storm Cloud',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_eyeofthestorm.jpg',
+    maxDuration: 10,
+    type: 'magic',
+    damagePerTick: 175,
+    tickInterval: 2,
+  },
+  winds_of_the_windlord: {
+    id: 'winds_of_the_windlord',
+    name: 'Winds of the Windlord',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_cyclone.jpg',
+    maxDuration: 8,
+    type: 'magic',
+    damagePerTick: 200,
+    tickInterval: 2,
+  },
 };
 
 // Molten Core encounters with authentic abilities
@@ -503,3 +831,298 @@ export const ONYXIA_ENCOUNTERS: Boss[] = [ONYXIA_ENCOUNTER];
 
 // Rename ENCOUNTERS to MOLTEN_CORE_ENCOUNTERS for clarity (keep ENCOUNTERS as alias for backward compat)
 export const MOLTEN_CORE_ENCOUNTERS: Boss[] = ENCOUNTERS;
+
+// =========================================================================
+// BLACKWING LAIR - 8 bosses (Nefarian's domain)
+// =========================================================================
+
+// Boss 1: Razorgore the Untamed
+// 2-phase fight: P1 destroy eggs while controlling Razorgore, P2 kill him
+export const RAZORGORE: Boss = {
+  id: 'razorgore',
+  name: 'Razorgore the Untamed',
+  maxHealth: 1000000,
+  currentHealth: 1000000,
+  enrageTimer: 300,
+  currentPhase: 1,
+  phaseTransitions: [
+    { phase: 2, healthPercent: 99, message: 'All eggs have been destroyed! Razorgore breaks free of his control!' },
+  ],
+  damageEvents: [
+    // Phase 1: Egg destruction - raid takes damage from adds
+    { type: 'raid_damage', damage: 200, interval: 3, targetCount: 6, activeInPhases: [1] },
+    { type: 'raid_damage', damage: 150, interval: 4, targetCount: 4, activeInPhases: [1] },
+    { type: 'random_target', damage: 300, interval: 5, activeInPhases: [1] },
+    { type: 'tank_damage', damage: 500, interval: 2.5, activeInPhases: [1] },
+    { type: 'debuff', damage: 0, interval: 12, debuffId: 'conflagration', activeInPhases: [1] },
+    // Phase 2: Fighting Razorgore directly
+    { type: 'tank_damage', damage: 1000, interval: 2, activeInPhases: [2] },
+    { type: 'raid_damage', damage: 400, interval: 10, targetCount: 8, activeInPhases: [2] },
+    { type: 'raid_damage', damage: 300, interval: 20, targetCount: 15, activeInPhases: [2] },
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'conflagration', activeInPhases: [2] },
+    { type: 'random_target', damage: 600, interval: 6, activeInPhases: [2], damageType: 'fire' },
+  ],
+};
+
+// Boss 2: Vaelastrasz the Corrupt
+// Brutal DPS race with Burning Adrenaline (20s death timer on random players)
+export const VAELASTRASZ: Boss = {
+  id: 'vaelastrasz',
+  name: 'Vaelastrasz the Corrupt',
+  maxHealth: 1800000,
+  currentHealth: 1800000,
+  enrageTimer: 180, // Very short - essence of the red makes it a DPS race
+  damageEvents: [
+    { type: 'tank_damage', damage: 1200, interval: 1.5, damageType: 'fire' },
+    { type: 'tank_damage', damage: 2000, interval: 15, damageType: 'fire' },
+    { type: 'debuff', damage: 0, interval: 8, debuffId: 'cleave' },
+    { type: 'raid_damage', damage: 500, interval: 8, targetCount: 4 },
+    // Burning Adrenaline - THE signature mechanic
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'burning_adrenaline' },
+    { type: 'raid_damage', damage: 800, interval: 20, targetCount: 10, damageType: 'fire' },
+    // Fire Nova - raid-wide pulse
+    { type: 'raid_damage', damage: 600, interval: 12, targetCount: 25, damageType: 'fire' },
+    // Tail Sweep
+    { type: 'raid_damage', damage: 400, interval: 10, targetCount: 5 },
+  ],
+};
+
+// Boss 3: Broodlord Lashlayer
+// Heavy tank damage with Mortal Strike healing reduction
+export const BROODLORD: Boss = {
+  id: 'broodlord',
+  name: 'Broodlord Lashlayer',
+  maxHealth: 1500000,
+  currentHealth: 1500000,
+  enrageTimer: 360,
+  damageEvents: [
+    { type: 'tank_damage', damage: 1100, interval: 2 },
+    { type: 'debuff', damage: 0, interval: 8, debuffId: 'mortal_strike' },
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'knock_away' },
+    { type: 'tank_damage', damage: 1500, interval: 15 },
+    // Blast Wave
+    { type: 'debuff', damage: 0, interval: 12, debuffId: 'blast_wave_broodlord' },
+    { type: 'raid_damage', damage: 700, interval: 12, targetCount: 12, damageType: 'fire' },
+    // Cleave
+    { type: 'raid_damage', damage: 400, interval: 6, targetCount: 3 },
+    { type: 'random_target', damage: 350, interval: 5 },
+  ],
+};
+
+// Boss 4: Firemaw
+// Stacking Flame Buffet - must LoS to reset stacks
+export const FIREMAW: Boss = {
+  id: 'firemaw',
+  name: 'Firemaw',
+  maxHealth: 1600000,
+  currentHealth: 1600000,
+  enrageTimer: 420,
+  damageEvents: [
+    { type: 'tank_damage', damage: 1000, interval: 2 },
+    { type: 'tank_damage', damage: 800, interval: 4 },
+    // Wing Buffet
+    { type: 'debuff', damage: 0, interval: 18, debuffId: 'wing_buffet_bwl' },
+    { type: 'raid_damage', damage: 350, interval: 18, targetCount: 6 },
+    // Flame Buffet - STACKING debuff
+    { type: 'debuff', damage: 0, interval: 5, debuffId: 'flame_buffet' },
+    { type: 'raid_damage', damage: 250, interval: 5, targetCount: 20, damageType: 'fire' },
+    // Shadow Flame - need Onyxia Scale Cloak
+    { type: 'debuff', damage: 0, interval: 25, debuffId: 'shadow_flame', targetCount: 5 },
+    { type: 'raid_damage', damage: 1500, interval: 25, targetCount: 5, damageType: 'shadow' },
+    // Tail Sweep
+    { type: 'raid_damage', damage: 400, interval: 12, targetCount: 4 },
+  ],
+};
+
+// Boss 5: Ebonroc
+// Shadow of Ebonroc - healing the tank heals the boss (tank swap required)
+export const EBONROC: Boss = {
+  id: 'ebonroc',
+  name: 'Ebonroc',
+  maxHealth: 1600000,
+  currentHealth: 1600000,
+  enrageTimer: 420,
+  damageEvents: [
+    { type: 'tank_damage', damage: 1100, interval: 2 },
+    { type: 'tank_damage', damage: 900, interval: 4 },
+    // Shadow of Ebonroc - signature mechanic
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'shadow_of_ebonroc' },
+    { type: 'tank_damage', damage: 600, interval: 15 },
+    // Wing Buffet
+    { type: 'debuff', damage: 0, interval: 20, debuffId: 'wing_buffet_bwl' },
+    { type: 'raid_damage', damage: 350, interval: 20, targetCount: 5 },
+    // Shadow Flame
+    { type: 'debuff', damage: 0, interval: 28, debuffId: 'shadow_flame', targetCount: 4 },
+    { type: 'raid_damage', damage: 1400, interval: 28, targetCount: 4, damageType: 'shadow' },
+    // Tail Sweep
+    { type: 'raid_damage', damage: 400, interval: 10, targetCount: 4 },
+  ],
+};
+
+// Boss 6: Flamegor
+// Frenzy - increased damage, Tranq Shot required
+export const FLAMEGOR: Boss = {
+  id: 'flamegor',
+  name: 'Flamegor',
+  maxHealth: 1600000,
+  currentHealth: 1600000,
+  enrageTimer: 420,
+  damageEvents: [
+    { type: 'tank_damage', damage: 1000, interval: 2 },
+    { type: 'tank_damage', damage: 800, interval: 4 },
+    // Frenzy - big damage increase
+    { type: 'debuff', damage: 0, interval: 20, debuffId: 'frenzy_bwl' },
+    { type: 'tank_damage', damage: 1800, interval: 20 },
+    // Fire Nova - raid-wide
+    { type: 'raid_damage', damage: 450, interval: 10, targetCount: 25, damageType: 'fire' },
+    // Wing Buffet
+    { type: 'debuff', damage: 0, interval: 22, debuffId: 'wing_buffet_bwl' },
+    { type: 'raid_damage', damage: 350, interval: 22, targetCount: 5 },
+    // Shadow Flame
+    { type: 'debuff', damage: 0, interval: 30, debuffId: 'shadow_flame', targetCount: 4 },
+    { type: 'raid_damage', damage: 1400, interval: 30, targetCount: 4, damageType: 'shadow' },
+    // Tail Sweep
+    { type: 'raid_damage', damage: 400, interval: 12, targetCount: 4 },
+  ],
+};
+
+// Boss 7: Chromaggus
+// 5 Brood Afflictions - different dispel types, 2 random breath attacks
+export const CHROMAGGUS: Boss = {
+  id: 'chromaggus',
+  name: 'Chromaggus',
+  maxHealth: 2200000,
+  currentHealth: 2200000,
+  enrageTimer: 600,
+  currentPhase: 1,
+  phaseTransitions: [
+    { phase: 2, healthPercent: 20, message: 'Chromaggus goes into a frenzy! He is now ENRAGED!' },
+  ],
+  damageEvents: [
+    // Standard melee
+    { type: 'tank_damage', damage: 900, interval: 2, activeInPhases: [1] },
+    { type: 'tank_damage', damage: 1400, interval: 2, activeInPhases: [2] },
+    // Breath attacks (simulating 2 random breaths)
+    { type: 'raid_damage', damage: 600, interval: 15, targetCount: 20, damageType: 'fire' },
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'incinerate' },
+    { type: 'raid_damage', damage: 300, interval: 18, targetCount: 25, damageType: 'arcane' },
+    { type: 'debuff', damage: 0, interval: 18, debuffId: 'time_lapse' },
+    // Brood Afflictions - multiple debuff types
+    { type: 'debuff', damage: 0, interval: 10, debuffId: 'brood_affliction_red' },
+    { type: 'debuff', damage: 0, interval: 12, debuffId: 'brood_affliction_green' },
+    { type: 'debuff', damage: 0, interval: 14, debuffId: 'brood_affliction_blue' },
+    { type: 'debuff', damage: 0, interval: 16, debuffId: 'brood_affliction_black' },
+    { type: 'debuff', damage: 0, interval: 20, debuffId: 'brood_affliction_bronze' },
+    // Frenzy
+    { type: 'debuff', damage: 0, interval: 25, debuffId: 'frenzy_bwl' },
+    { type: 'tank_damage', damage: 1500, interval: 25, activeInPhases: [1] },
+    { type: 'tank_damage', damage: 2200, interval: 25, activeInPhases: [2] },
+    { type: 'random_target', damage: 500, interval: 8, damageType: 'shadow' },
+  ],
+};
+
+// Boss 8: Nefarian (Final Boss)
+// 3-phase fight: P1 adds, P2 Nefarian with class calls, P3 bone constructs
+export const NEFARIAN: Boss = {
+  id: 'nefarian',
+  name: 'Nefarian',
+  maxHealth: 3200000,
+  currentHealth: 3200000,
+  enrageTimer: 900,
+  currentPhase: 1,
+  phaseTransitions: [
+    { phase: 2, healthPercent: 99, message: 'Nefarian lands! "Enough! Now you vermin shall feel the force of my anger!"' },
+    { phase: 3, healthPercent: 20, message: 'Bone Constructs rise from the fallen! "Impossible! Rise, my fallen minions!"' },
+  ],
+  damageEvents: [
+    // PHASE 1: Drakonid Adds
+    { type: 'tank_damage', damage: 700, interval: 2, activeInPhases: [1] },
+    { type: 'raid_damage', damage: 300, interval: 4, targetCount: 8, activeInPhases: [1] },
+    { type: 'random_target', damage: 400, interval: 3, activeInPhases: [1], damageType: 'fire' },
+    { type: 'raid_damage', damage: 250, interval: 5, targetCount: 6, activeInPhases: [1], damageType: 'shadow' },
+    // PHASE 2: Nefarian (100% - 20%)
+    { type: 'tank_damage', damage: 1300, interval: 2, activeInPhases: [2] },
+    { type: 'debuff', damage: 0, interval: 6, debuffId: 'cleave', activeInPhases: [2] },
+    { type: 'raid_damage', damage: 500, interval: 6, targetCount: 4, activeInPhases: [2] },
+    // Veil of Shadow - 75% healing reduction
+    { type: 'debuff', damage: 0, interval: 20, debuffId: 'veil_of_shadow', activeInPhases: [2] },
+    // Shadowflame breath
+    { type: 'debuff', damage: 0, interval: 18, debuffId: 'shadowflame_nef', targetCount: 6, activeInPhases: [2] },
+    { type: 'raid_damage', damage: 1200, interval: 18, targetCount: 6, activeInPhases: [2], damageType: 'shadow' },
+    // Fear
+    { type: 'debuff', damage: 0, interval: 30, debuffId: 'fear_nef', targetCount: 10, activeInPhases: [2] },
+    // Class Calls
+    { type: 'debuff', damage: 0, interval: 25, debuffId: 'class_call_priest', activeInPhases: [2] },
+    { type: 'debuff', damage: 0, interval: 35, debuffId: 'class_call_paladin', activeInPhases: [2] },
+    { type: 'debuff', damage: 0, interval: 45, debuffId: 'class_call_warlock', activeInPhases: [2] },
+    { type: 'debuff', damage: 0, interval: 55, debuffId: 'class_call_mage', activeInPhases: [2] },
+    // Tail Sweep
+    { type: 'raid_damage', damage: 450, interval: 12, targetCount: 5, activeInPhases: [2] },
+    // PHASE 3: Bone Constructs (20% - 0%)
+    { type: 'tank_damage', damage: 1500, interval: 1.8, activeInPhases: [3] },
+    { type: 'debuff', damage: 0, interval: 5, debuffId: 'cleave', activeInPhases: [3] },
+    { type: 'raid_damage', damage: 600, interval: 5, targetCount: 5, activeInPhases: [3] },
+    // Bone Constructs attacking raid
+    { type: 'raid_damage', damage: 350, interval: 3, targetCount: 10, activeInPhases: [3] },
+    { type: 'random_target', damage: 500, interval: 4, activeInPhases: [3] },
+    // Continue Shadowflame
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'shadowflame_nef', targetCount: 8, activeInPhases: [3] },
+    { type: 'raid_damage', damage: 1400, interval: 15, targetCount: 8, activeInPhases: [3], damageType: 'shadow' },
+    // Continue Veil of Shadow
+    { type: 'debuff', damage: 0, interval: 18, debuffId: 'veil_of_shadow', activeInPhases: [3] },
+    // Fear continues
+    { type: 'debuff', damage: 0, interval: 25, debuffId: 'fear_nef', targetCount: 12, activeInPhases: [3] },
+    // Continued class calls
+    { type: 'debuff', damage: 0, interval: 22, debuffId: 'class_call_priest', activeInPhases: [3] },
+  ],
+};
+
+// Export all BWL encounters
+export const BWL_ENCOUNTERS: Boss[] = [
+  RAZORGORE,
+  VAELASTRASZ,
+  BROODLORD,
+  FIREMAW,
+  EBONROC,
+  FLAMEGOR,
+  CHROMAGGUS,
+  NEFARIAN,
+];
+
+// =========================================================================
+// SILITHUS - THUNDERAAN (Hidden boss for Thunderfury questline)
+// =========================================================================
+
+// Prince Thunderaan, the Wind Lord
+// Unlocked after collecting both Bindings of the Windseeker + killing Firemaw
+export const THUNDERAAN_ENCOUNTER: Boss = {
+  id: 'thunderaan',
+  name: 'Prince Thunderaan, the Wind Lord',
+  maxHealth: 3000000,
+  currentHealth: 3000000,
+  enrageTimer: 600,
+  currentPhase: 1,
+  phaseTransitions: [
+    { phase: 2, healthPercent: 50, message: 'Thunderaan summons Air Elementals! "Feel the fury of the wind!"' },
+    { phase: 3, healthPercent: 20, message: 'Thunderaan unleashes the storm! "I AM THE WIND LORD!"' },
+  ],
+  damageEvents: [
+    // PHASE 1: Wind Lord basics (100%-50%)
+    { type: 'tank_damage', damage: 1000, interval: 2, activeInPhases: [1], damageType: 'nature' },
+    { type: 'debuff', damage: 0, interval: 10, debuffId: 'chain_lightning', targetCount: 3, activeInPhases: [1, 2, 3] },
+    { type: 'debuff', damage: 0, interval: 15, debuffId: 'thunderclap_thunderaan', targetCount: 8, activeInPhases: [1, 2, 3] },
+    { type: 'raid_damage', damage: 400, interval: 15, targetCount: 8, activeInPhases: [1], damageType: 'nature' },
+    // PHASE 2: Air Elemental adds (50%-20%)
+    { type: 'tank_damage', damage: 1100, interval: 2, activeInPhases: [2], damageType: 'nature' },
+    { type: 'debuff', damage: 0, interval: 8, debuffId: 'storm_cloud', targetCount: 4, activeInPhases: [2, 3] },
+    { type: 'random_target', damage: 300, interval: 3, activeInPhases: [2], damageType: 'nature' },
+    { type: 'raid_damage', damage: 350, interval: 6, targetCount: 6, activeInPhases: [2], damageType: 'nature' },
+    // PHASE 3: Full storm fury (20%-0%)
+    { type: 'tank_damage', damage: 1400, interval: 2, activeInPhases: [3], damageType: 'nature' },
+    { type: 'debuff', damage: 0, interval: 6, debuffId: 'winds_of_the_windlord', targetCount: 6, activeInPhases: [3] },
+    { type: 'raid_damage', damage: 500, interval: 5, targetCount: 10, activeInPhases: [3], damageType: 'nature' },
+    { type: 'random_target', damage: 600, interval: 4, activeInPhases: [3], damageType: 'nature' },
+  ],
+};
+
+export const SILITHUS_ENCOUNTERS: Boss[] = [THUNDERAAN_ENCOUNTER];

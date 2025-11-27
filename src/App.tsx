@@ -48,6 +48,8 @@ function App() {
   // Phase transition alert
   const [phaseAlert, setPhaseAlert] = useState<string | null>(null);
   const lastPhaseRef = useRef<number>(1);
+  // Special alert (legendary unlocks, secret boss summons)
+  const [specialAlert, setSpecialAlert] = useState<string | null>(null);
   // Raid management state
   const [showRaidGroupManager, setShowRaidGroupManager] = useState(false);
   const [selectedPaladinForAura, setSelectedPaladinForAura] = useState<string | null>(null);
@@ -59,7 +61,7 @@ function App() {
   const [isMobileMode, setIsMobileMode] = useState(false);
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.11.0';
+  const CURRENT_PATCH_VERSION = '0.12.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -85,6 +87,15 @@ function App() {
       forceUpdate(n => n + 1);
     });
     return unsubscribe;
+  }, [engine]);
+
+  // Set up special alert callback (for Thunderaan summon, etc.)
+  useEffect(() => {
+    engine.setSpecialAlertCallback((message: string) => {
+      setSpecialAlert(message);
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setSpecialAlert(null), 5000);
+    });
   }, [engine]);
 
   // Phase transition detection
@@ -390,6 +401,13 @@ function App() {
             </div>
           )}
 
+          {/* Special Alert (Legendary unlocks, secret boss summons) */}
+          {specialAlert && (
+            <div className="special-alert">
+              {specialAlert}
+            </div>
+          )}
+
           {/* Boss Frame */}
           {state.boss && (
             <div className="boss-frame">
@@ -534,7 +552,12 @@ function App() {
                     value={state.selectedRaidId}
                     onChange={(e) => engine.selectRaid(e.target.value)}
                   >
-                    {RAIDS.map(raid => {
+                    {RAIDS.filter(raid => {
+                      // Filter out hidden raids unless they're unlocked
+                      if (!raid.hidden) return true;
+                      if (raid.id === 'silithus' && state.silithusUnlocked) return true;
+                      return false;
+                    }).map(raid => {
                       const defeatedCount = state.defeatedBossesByRaid[raid.id]?.length || 0;
                       const totalBosses = raid.encounters.length;
                       const progressText = defeatedCount > 0 ? ` (${defeatedCount}/${totalBosses})` : '';
@@ -1118,6 +1141,13 @@ function App() {
           {/* Phase Alert */}
           {phaseAlert && (
             <div className="mobile-phase-alert">{phaseAlert}</div>
+          )}
+
+          {/* Special Alert (Legendary unlocks, secret boss summons) */}
+          {specialAlert && (
+            <div className="special-alert">
+              {specialAlert}
+            </div>
           )}
 
           {/* Boss Frame (when in encounter) */}
@@ -2257,6 +2287,46 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.12.0</h3>
+                <span className="patch-date">November 27, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>New Raid: Blackwing Lair</h4>
+                <ul>
+                  <li><strong>8 New Boss Encounters</strong>: Razorgore, Vaelastrasz, Broodlord, Firemaw, Ebonroc, Flamegor, Chromaggus, and Nefarian</li>
+                  <li><strong>Tier 2 Armor Sets</strong>: Complete T2 sets for all 8 classes with authentic set bonuses</li>
+                  <li><strong>BWL Non-Set Loot</strong>: Ashkandi, Chromatically Tempered Sword, Lok'amir, and more iconic items</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Secret Boss: Prince Thunderaan</h4>
+                <ul>
+                  <li><strong>Hidden Silithus Raid</strong>: Unlocks when you have both Bindings of the Windseeker and defeat Firemaw</li>
+                  <li><strong>Legendary Alert System</strong>: Special on-screen alert when Thunderaan is summoned</li>
+                  <li><strong>Thunderfury Quest Complete</strong>: Defeat Thunderaan to unlock Thunderfury crafting</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>World Buff: Warchief's Blessing</h4>
+                <ul>
+                  <li>Unlocks after defeating Nefarian for the first time</li>
+                  <li>Grants +300 HP, +15% attack speed (more raid DPS), and +10 mp5</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Bug Fixes</h4>
+                <ul>
+                  <li><strong>Player Death Lockout</strong>: Dead players can no longer cast spells - action bar properly locked until encounter ends</li>
+                  <li><strong>BWL Loot Sanitized</strong>: Removed trinkets, rings, and neck items that had invalid equipment slots</li>
+                  <li><strong>Admin Panel Unlocks</strong>: Toggling boss defeats now properly triggers special unlocks (Silithus, world buffs)</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.11.0</h3>
                 <span className="patch-date">November 27, 2025</span>
               </div>
@@ -3239,7 +3309,7 @@ function App() {
                 </div>
 
                 {/* Thunderfury Crafting Card */}
-                <div className={`craft-card ${engine.canCraftThunderfury() ? 'available' : engine.hasThunderfuryMaterialsButNeedsFiremaw() ? 'needs-boss' : 'unavailable'}`}>
+                <div className={`craft-card ${engine.canCraftThunderfury() ? 'available' : engine.hasThunderfuryMaterialsButNeedsThunderaan() ? 'needs-boss' : 'unavailable'}`}>
                   <div className="craft-card-header">
                     <img
                       src="https://wow.zamimg.com/images/wow/icons/large/inv_sword_39.jpg"
@@ -3258,14 +3328,16 @@ function App() {
                     <div className={`req ${state.legendaryMaterials.includes('bindings_of_the_windseeker_right') ? 'met' : 'unmet'}`}>
                       {state.legendaryMaterials.includes('bindings_of_the_windseeker_right') ? '✓' : '○'} Right Binding
                     </div>
-                    <div className={`req ${state.defeatedBosses.includes('firemaw') ? 'met' : 'unmet'}`}>
-                      {state.defeatedBosses.includes('firemaw') ? '✓' : '○'} Defeat Firemaw
-                      {!state.defeatedBosses.includes('firemaw') && <span className="coming-soon">(BWL - Coming Soon)</span>}
+                    <div className={`req ${state.thunderaanDefeated ? 'met' : 'unmet'}`}>
+                      {state.thunderaanDefeated ? '✓' : '○'} Defeat Prince Thunderaan
+                      {!state.thunderaanDefeated && !state.silithusUnlocked && <span className="coming-soon">(Silithus - Locked)</span>}
                     </div>
                   </div>
-                  {engine.hasThunderfuryMaterialsButNeedsFiremaw() && (
+                  {engine.hasThunderfuryMaterialsButNeedsThunderaan() && (
                     <div className="craft-card-blocked">
-                      You have both bindings! Defeat Firemaw in BWL to summon Prince Thunderaan.
+                      {state.silithusUnlocked
+                        ? 'You have both bindings! Defeat Prince Thunderaan in Silithus to forge Thunderfury.'
+                        : 'You have both bindings! Defeat Firemaw in BWL to summon Prince Thunderaan.'}
                     </div>
                   )}
                   {engine.canCraftThunderfury() && (
