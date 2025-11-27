@@ -58,6 +58,19 @@ function App() {
   // Mobile UI mode
   const [isMobileMode, setIsMobileMode] = useState(false);
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
+  // Patch notes modal - track if user has seen current version
+  const CURRENT_PATCH_VERSION = '0.11.0';
+  const [showPatchNotes, setShowPatchNotes] = useState(false);
+  const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
+    const seenVersion = localStorage.getItem('seenPatchNotesVersion');
+    return seenVersion === CURRENT_PATCH_VERSION;
+  });
+
+  const handleOpenPatchNotes = () => {
+    setShowPatchNotes(true);
+    setHasSeenPatchNotes(true);
+    localStorage.setItem('seenPatchNotesVersion', CURRENT_PATCH_VERSION);
+  };
 
   // Initialize engine once
   if (!engineRef.current) {
@@ -253,6 +266,14 @@ function App() {
       <header className="app-header">
         <h1>Classic WoW Raid Healing Simulator</h1>
         <span className="subtitle">Classic Era - Vanilla Only</span>
+        {!hasSeenPatchNotes && (
+          <button
+            className="patch-notes-btn"
+            onClick={handleOpenPatchNotes}
+          >
+            NEW PATCH NOTES!
+          </button>
+        )}
         <button
           className={`mobile-toggle-btn ${isMobileMode ? 'active' : ''}`}
           onClick={() => setIsMobileMode(!isMobileMode)}
@@ -1599,21 +1620,34 @@ function App() {
               Gear Score: {state.inspectedMember.gearScore}
             </div>
             <div className="inspection-equipment">
-              {(['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'] as EquipmentSlot[]).map(slot => {
-                const item = state.inspectedMember!.equipment[slot];
-                return (
-                  <div key={slot} className="equipment-slot">
-                    <span className="slot-name">{slot.charAt(0).toUpperCase() + slot.slice(1)}:</span>
-                    {item ? (
-                      <span className="slot-item" style={{ color: RARITY_COLORS[item.rarity] }}>
-                        {item.name}
-                      </span>
-                    ) : (
-                      <span className="slot-empty">Empty</span>
-                    )}
-                  </div>
-                );
-              })}
+              {(() => {
+                // Build dynamic slot list based on class
+                const baseSlots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'];
+                const memberClass = state.inspectedMember!.class;
+                // Warriors and Rogues can dual wield (offhand)
+                if (memberClass === 'warrior' || memberClass === 'rogue') {
+                  baseSlots.push('offhand');
+                }
+                // Hunters get ranged slot
+                if (memberClass === 'hunter') {
+                  baseSlots.push('ranged');
+                }
+                return baseSlots.map(slot => {
+                  const item = state.inspectedMember!.equipment[slot];
+                  return (
+                    <div key={slot} className="equipment-slot">
+                      <span className="slot-name">{slot.charAt(0).toUpperCase() + slot.slice(1)}:</span>
+                      {item ? (
+                        <span className="slot-item" style={{ color: RARITY_COLORS[item.rarity] }}>
+                          {item.name}
+                        </span>
+                      ) : (
+                        <span className="slot-empty">Empty</span>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
             </div>
             {state.inspectedMember.role === 'healer' && (
               <div className="inspection-stats">
@@ -2213,6 +2247,73 @@ function App() {
         </div>
       )}
 
+      {/* Patch Notes Modal */}
+      {showPatchNotes && (
+        <div className="modal-overlay" onClick={() => setShowPatchNotes(false)}>
+          <div className="patch-notes-modal" onClick={e => e.stopPropagation()}>
+            <div className="patch-notes-header">
+              <h2>Patch Notes</h2>
+              <button className="close-inspection" onClick={() => setShowPatchNotes(false)}>X</button>
+            </div>
+            <div className="patch-notes-content">
+              <div className="patch-version">
+                <h3>Version 0.11.0</h3>
+                <span className="patch-date">November 27, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>New Features</h4>
+                <ul>
+                  <li><strong>Dual Wield Support</strong>: Warriors and Rogues now have an Offhand weapon slot</li>
+                  <li><strong>Hunter Ranged Slot</strong>: Hunters now have a dedicated Ranged weapon slot</li>
+                  <li><strong>Spec-Aware Loot Distribution</strong>: Loot assignment now considers spec - caster weapons go to caster specs, melee to melee specs</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Weapon Classification</h4>
+                <ul>
+                  <li>All weapons now have a type: One-Hand, Two-Hand, Offhand Only, or Ranged</li>
+                  <li>All weapons categorized for smart loot: Melee, Caster, Healer, or Physical Ranged</li>
+                  <li>Protection Warriors can still dual wield (Fury/Prot tank spec)</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>UI Improvements</h4>
+                <ul>
+                  <li>Inspection panel now shows class-appropriate weapon slots</li>
+                  <li>Admin panel equipment grid updated for new slots</li>
+                  <li>Item filter dropdown includes Offhand and Ranged options</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
+                <h3>Version 0.10.0</h3>
+                <span className="patch-date">November 27, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Added</h4>
+                <ul>
+                  <li><strong>Encounter Journal Loot Display</strong>: Boss loot now shown in encounter journal</li>
+                  <li><strong>Admin Panel Legendary Materials</strong>: Toggle materials for testing</li>
+                  <li><strong>Legendary Materials Persistence</strong>: Materials now save/load correctly</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Fixed</h4>
+                <ul>
+                  <li>Ragnaros loot table corrected (removed non-authentic drops)</li>
+                  <li>Legendary material icons updated to correct WoW icons</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Encounter Journal Modal */}
       {showEncounterJournal && (
         <div className="modal-overlay" onClick={() => setShowEncounterJournal(false)}>
@@ -2468,28 +2569,40 @@ function App() {
                             <span className="gear-score-display">GS: {selectedMember.gearScore}</span>
                           </div>
                           <div className="admin-equipment-grid">
-                            {(['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'] as EquipmentSlot[]).map(slot => {
-                              const item = selectedMember.equipment[slot];
-                              return (
-                                <div key={slot} className="admin-equipment-slot">
-                                  <span className="slot-label">{slot}:</span>
-                                  {item ? (
-                                    <div className="equipped-item">
-                                      <span style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</span>
-                                      <button
-                                        className="remove-item-btn"
-                                        onClick={() => engine.adminRemoveItemFromMember(selectedMember.id, slot)}
-                                        title="Remove item"
-                                      >
-                                        X
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="empty-slot">Empty</span>
-                                  )}
-                                </div>
-                              );
-                            })}
+                            {(() => {
+                              // Build dynamic slot list based on class
+                              const baseSlots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'];
+                              // Warriors and Rogues can dual wield (offhand)
+                              if (selectedMember.class === 'warrior' || selectedMember.class === 'rogue') {
+                                baseSlots.push('offhand');
+                              }
+                              // Hunters get ranged slot
+                              if (selectedMember.class === 'hunter') {
+                                baseSlots.push('ranged');
+                              }
+                              return baseSlots.map(slot => {
+                                const item = selectedMember.equipment[slot];
+                                return (
+                                  <div key={slot} className="admin-equipment-slot">
+                                    <span className="slot-label">{slot}:</span>
+                                    {item ? (
+                                      <div className="equipped-item">
+                                        <span style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</span>
+                                        <button
+                                          className="remove-item-btn"
+                                          onClick={() => engine.adminRemoveItemFromMember(selectedMember.id, slot)}
+                                          title="Remove item"
+                                        >
+                                          X
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="empty-slot">Empty</span>
+                                    )}
+                                  </div>
+                                );
+                              });
+                            })()}
                           </div>
                         </div>
 
@@ -2514,6 +2627,8 @@ function App() {
                               <option value="legs">Legs</option>
                               <option value="feet">Feet</option>
                               <option value="weapon">Weapon</option>
+                              <option value="offhand">Offhand</option>
+                              <option value="ranged">Ranged</option>
                             </select>
                             <input
                               type="text"

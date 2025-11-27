@@ -8,7 +8,7 @@ import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
 import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial } from './items';
 import { ALL_ITEMS, LEGENDARY_MATERIALS } from './items';
-import { rollBossLoot, getBossDKPReward, calculateDKPCost } from './lootTables';
+import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
 
 const GCD_DURATION = 1.5;
@@ -2710,6 +2710,12 @@ export class GameEngine {
     return item.classes.includes('all') || item.classes.includes(wowClass as WearableClass);
   }
 
+  // Check if a raid member can benefit from an item based on their spec
+  // Used for intelligent loot assignment (e.g., caster weapons don't go to warriors)
+  canBenefitFrom(member: RaidMember, item: GearItem): boolean {
+    return canSpecBenefitFrom(member.spec, item.itemCategory);
+  }
+
   // Compute player stats from equipment
   computePlayerStats(): PlayerStats {
     let spellPower = 0;
@@ -2889,10 +2895,12 @@ export class GameEngine {
 
     const item = this.state.pendingLoot[itemIndex];
 
-    // Find eligible raid members who can use this item
+    // Find eligible raid members who can use AND benefit from this item
+    // Spec-aware: caster weapons won't go to warriors, melee weapons won't go to mages, etc.
     const eligibleMembers = this.state.raid.filter(m =>
       m.isAlive &&
       this.canEquip(m.class, item) &&
+      this.canBenefitFrom(m, item) && // NEW: Check if spec can benefit from item category
       // Prefer members who don't have this slot filled yet, or have lower ilvl item
       (!m.equipment[item.slot] || m.equipment[item.slot]!.itemLevel < item.itemLevel)
     );

@@ -2,8 +2,74 @@
 // Each boss drops specific T1 pieces plus shared loot pool items
 
 import { ALL_ITEMS, LEGENDARY_MATERIALS } from './items';
-import type { GearItem, LegendaryMaterialId, LegendaryMaterial } from './items';
-import type { Faction, PlayerHealerClass } from './types';
+import type { GearItem, LegendaryMaterialId, LegendaryMaterial, ItemCategory } from './items';
+import type { Faction, PlayerHealerClass, WoWSpec } from './types';
+
+// =============================================================================
+// SPEC-AWARE ITEM AFFINITIES
+// Maps each spec to the item categories they can benefit from
+// Used for intelligent loot assignment (e.g., caster weapons go to caster specs)
+// =============================================================================
+
+export const SPEC_ITEM_AFFINITIES: Record<string, ItemCategory[]> = {
+  // Warriors - ALL specs can use melee (including Fury/Prot tanks who dual wield!)
+  'arms': ['melee', 'universal'],
+  'fury': ['melee', 'universal'],
+  'protection_warrior': ['melee', 'universal'],
+
+  // Rogues - all melee
+  'assassination': ['melee', 'universal'],
+  'combat': ['melee', 'universal'],
+  'subtlety': ['melee', 'universal'],
+
+  // Hunters - physical ranged primary, some melee for stat sticks
+  'beast_mastery': ['physical_ranged', 'melee', 'universal'],
+  'marksmanship': ['physical_ranged', 'melee', 'universal'],
+  'survival': ['physical_ranged', 'melee', 'universal'],
+
+  // Mages - caster only
+  'arcane': ['caster', 'universal'],
+  'fire_mage': ['caster', 'universal'],
+  'frost_mage': ['caster', 'universal'],
+
+  // Warlocks - caster only
+  'affliction': ['caster', 'universal'],
+  'demonology': ['caster', 'universal'],
+  'destruction': ['caster', 'universal'],
+
+  // Priests - healer for Holy/Disc, caster for Shadow
+  'discipline': ['healer', 'caster', 'universal'],
+  'holy_priest': ['healer', 'caster', 'universal'],
+  'shadow': ['caster', 'universal'],
+
+  // Druids - depends heavily on spec
+  'balance': ['caster', 'universal'],
+  'feral_tank': ['melee', 'universal'],
+  'feral_dps': ['melee', 'universal'],
+  'restoration': ['healer', 'caster', 'universal'],
+
+  // Paladins - Holy = healer, Ret/Prot = melee
+  'holy_paladin': ['healer', 'caster', 'universal'],
+  'protection_paladin': ['melee', 'universal'],
+  'retribution': ['melee', 'universal'],
+
+  // Shamans - Resto/Ele = caster/healer, Enhancement = melee
+  'elemental': ['caster', 'universal'],
+  'enhancement': ['melee', 'universal'],
+  'restoration_shaman': ['healer', 'caster', 'universal'],
+};
+
+// Helper function to check if a spec can benefit from an item category
+export function canSpecBenefitFrom(spec: WoWSpec, itemCategory: ItemCategory | undefined): boolean {
+  // If item has no category, allow (backwards compatibility)
+  if (!itemCategory) return true;
+
+  const affinities = SPEC_ITEM_AFFINITIES[spec];
+  // If spec not found (shouldn't happen), allow
+  if (!affinities) return true;
+
+  return affinities.includes(itemCategory);
+}
 
 export interface BossLootTable {
   items: string[];      // Item IDs that can drop

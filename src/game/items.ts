@@ -1,9 +1,15 @@
 // Molten Core Loot Items - Authentic Vanilla WoW Stats
 // Sources: classicdb.ch, vanilla-wow-archive.fandom.com, wowhead.com/classic
 
-export type EquipmentSlot = 'head' | 'shoulders' | 'chest' | 'waist' | 'legs' | 'hands' | 'wrist' | 'feet' | 'weapon';
+export type EquipmentSlot = 'head' | 'shoulders' | 'chest' | 'waist' | 'legs' | 'hands' | 'wrist' | 'feet' | 'weapon' | 'offhand' | 'ranged';
 export type ItemRarity = 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type WearableClass = 'paladin' | 'priest' | 'druid' | 'warrior' | 'mage' | 'warlock' | 'hunter' | 'rogue' | 'shaman' | 'all';
+
+// Weapon type classification for dual-wield and two-hand handling
+export type WeaponType = 'one_hand' | 'two_hand' | 'offhand_only' | 'ranged';
+
+// Item category for spec-aware loot filtering
+export type ItemCategory = 'melee' | 'caster' | 'healer' | 'physical_ranged' | 'universal';
 
 // Legendary material types
 export type LegendaryMaterialId =
@@ -47,6 +53,8 @@ export interface GearItem {
   stats: ItemStats;
   icon: string;
   setId?: string;
+  weaponType?: WeaponType;  // For weapons: one_hand, two_hand, offhand_only, ranged
+  itemCategory?: ItemCategory;  // For spec-aware loot filtering
 }
 
 const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
@@ -375,6 +383,8 @@ export const AZURESONG_MAGEBLADE: GearItem = {
   classes: ['all'],
   stats: { stamina: 7, intellect: 12, spellPower: 40, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_39.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'caster',
 };
 
 // =============================================================================
@@ -390,6 +400,8 @@ export const BONEREAVER_EDGE: GearItem = {
   classes: ['warrior'],
   stats: { strength: 25, stamina: 15, agility: 8, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_12.jpg`,
+  weaponType: 'two_hand',
+  itemCategory: 'melee',
 };
 
 export const PERDITIONS_BLADE: GearItem = {
@@ -401,17 +413,21 @@ export const PERDITIONS_BLADE: GearItem = {
   classes: ['rogue', 'warrior'],
   stats: { agility: 14, stamina: 9, critChance: 1, hitChance: 1 },
   icon: `${ICON_BASE}/inv_sword_48.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'melee',
 };
 
 export const STRIKERS_MARK: GearItem = {
   id: 'strikers_mark',
   name: "Striker's Mark",
-  slot: 'weapon',
+  slot: 'ranged',
   rarity: 'epic',
   itemLevel: 75,
   classes: ['hunter'],
   stats: { agility: 22, stamina: 8, hitChance: 1 },
   icon: `${ICON_BASE}/inv_weapon_bow_08.jpg`,
+  weaponType: 'ranged',
+  itemCategory: 'physical_ranged',
 };
 
 // =============================================================================
@@ -427,6 +443,8 @@ export const THUNDERFURY: GearItem = {
   classes: ['warrior', 'rogue', 'paladin', 'hunter'],
   stats: { agility: 15, stamina: 12, strength: 8, hitChance: 2, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_39.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'melee',
 };
 
 export const SULFURAS: GearItem = {
@@ -438,6 +456,8 @@ export const SULFURAS: GearItem = {
   classes: ['warrior', 'paladin'],
   stats: { strength: 30, stamina: 20, critChance: 2 },
   icon: `${ICON_BASE}/inv_hammer_unique_sulfuras.jpg`,
+  weaponType: 'two_hand',
+  itemCategory: 'melee',
 };
 
 export const AURASTONE_HAMMER: GearItem = {
@@ -449,6 +469,8 @@ export const AURASTONE_HAMMER: GearItem = {
   classes: ['paladin', 'priest', 'druid'],
   stats: { stamina: 8, intellect: 9, spirit: 8, healingPower: 55 },
   icon: `${ICON_BASE}/inv_mace_02.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'healer',
 };
 
 export const GUTGUTTER: GearItem = {
@@ -460,6 +482,8 @@ export const GUTGUTTER: GearItem = {
   classes: ['warrior', 'paladin'],
   stats: { strength: 15, stamina: 15, agility: 9 },
   icon: `${ICON_BASE}/inv_axe_12.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'melee',
 };
 
 export const STAFF_OF_DOMINANCE: GearItem = {
@@ -471,17 +495,21 @@ export const STAFF_OF_DOMINANCE: GearItem = {
   classes: ['all'],
   stats: { stamina: 11, intellect: 24, spirit: 10, spellPower: 33 },
   icon: `${ICON_BASE}/inv_staff_13.jpg`,
+  weaponType: 'two_hand',
+  itemCategory: 'caster',
 };
 
 export const FIRE_RUNED_GRIMOIRE: GearItem = {
   id: 'fire_runed_grimoire',
   name: 'Fire Runed Grimoire',
-  slot: 'weapon',
+  slot: 'offhand',
   rarity: 'epic',
   itemLevel: 66,
   classes: ['all'],
   stats: { stamina: 12, intellect: 8, spellPower: 21, hitChance: 1 },
   icon: `${ICON_BASE}/inv_misc_book_06.jpg`,
+  weaponType: 'offhand_only',
+  itemCategory: 'caster',
 };
 
 export const SORCEROUS_DAGGER: GearItem = {
@@ -493,6 +521,8 @@ export const SORCEROUS_DAGGER: GearItem = {
   classes: ['all'],
   stats: { stamina: 7, intellect: 6, spellPower: 20 },
   icon: `${ICON_BASE}/inv_weapon_shortblade_16.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'caster',
 };
 
 // =============================================================================
@@ -1224,6 +1254,8 @@ export const DEATHBRINGER: GearItem = {
   classes: ['warrior'],
   stats: { strength: 22, stamina: 12, agility: 16, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_26.jpg`,
+  weaponType: 'two_hand',
+  itemCategory: 'melee',
 };
 
 export const VIS_KAG: GearItem = {
@@ -1235,17 +1267,21 @@ export const VIS_KAG: GearItem = {
   classes: ['rogue', 'warrior'],
   stats: { agility: 16, stamina: 8, critChance: 1, hitChance: 1 },
   icon: `${ICON_BASE}/inv_sword_29.jpg`,
+  weaponType: 'one_hand',
+  itemCategory: 'melee',
 };
 
 export const ANCIENT_CORNERSTONE_GRIMOIRE: GearItem = {
   id: 'ancient_cornerstone_grimoire',
   name: 'Ancient Cornerstone Grimoire',
-  slot: 'weapon',
+  slot: 'offhand',
   rarity: 'epic',
   itemLevel: 71,
   classes: ['all'],
   stats: { stamina: 10, intellect: 11, spellPower: 32, mp5: 4 },
   icon: `${ICON_BASE}/inv_misc_book_09.jpg`,
+  weaponType: 'offhand_only',
+  itemCategory: 'caster',
 };
 
 export const SAPPHIRON_DRAPE: GearItem = {

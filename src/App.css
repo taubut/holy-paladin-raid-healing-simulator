@@ -6169,6 +6169,130 @@ body {
 }
 
 /* ============================================
+   PATCH NOTES BUTTON & MODAL
+   ============================================ */
+
+/* Pulse animation for the patch notes button */
+@keyframes patchNotesPulse {
+  0%, 100% {
+    text-shadow: 0 0 4px #00AEFF, 0 0 8px #00AEFF;
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    text-shadow: 0 0 8px #00AEFF, 0 0 16px #00AEFF, 0 0 24px #00AEFF;
+    transform: translateY(-50%) scale(1.05);
+  }
+}
+
+.patch-notes-btn {
+  position: absolute;
+  right: 140px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #00AEFF;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 8px 12px;
+  animation: patchNotesPulse 2s ease-in-out infinite;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.patch-notes-btn:hover {
+  color: #66CFFF;
+  text-shadow: 0 0 12px #00AEFF, 0 0 24px #00AEFF, 0 0 36px #00AEFF;
+}
+
+/* Patch Notes Modal */
+.patch-notes-modal {
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 2px solid #00AEFF;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 30px rgba(0, 174, 255, 0.3);
+}
+
+.patch-notes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 2px solid #00AEFF;
+  background: linear-gradient(180deg, #1a2a4a 0%, #0f1a2e 100%);
+  border-radius: 10px 10px 0 0;
+}
+
+.patch-notes-header h2 {
+  margin: 0;
+  color: #00AEFF;
+  font-size: 24px;
+  text-shadow: 0 0 10px rgba(0, 174, 255, 0.5);
+}
+
+.patch-notes-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.patch-version {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.patch-version.previous {
+  margin-top: 32px;
+  opacity: 0.8;
+}
+
+.patch-version h3 {
+  margin: 0;
+  color: #00AEFF;
+  font-size: 20px;
+}
+
+.patch-date {
+  color: #888;
+  font-size: 14px;
+}
+
+.patch-section {
+  margin-bottom: 20px;
+}
+
+.patch-section h4 {
+  color: #FFD700;
+  margin: 0 0 10px 0;
+  font-size: 16px;
+}
+
+.patch-section ul {
+  margin: 0;
+  padding-left: 24px;
+  color: #ccc;
+}
+
+.patch-section li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.patch-section li strong {
+  color: #fff;
+}
+
+/* ============================================
    MOBILE UI STYLES
    ============================================ */
 

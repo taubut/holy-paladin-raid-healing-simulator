@@ -279,6 +279,8 @@ export interface Equipment {
   wrist: GearItem | null;
   feet: GearItem | null;
   weapon: GearItem | null;
+  offhand: GearItem | null;
+  ranged: GearItem | null;
 }
 
 // Create empty equipment set
@@ -293,6 +295,8 @@ export function createEmptyEquipment(): Equipment {
     wrist: null,
     feet: null,
     weapon: null,
+    offhand: null,
+    ranged: null,
   };
 }
 
