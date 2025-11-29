@@ -461,6 +461,8 @@ export class GameEngine {
       // Hidden boss unlocks
       silithusUnlocked: false,
       thunderaanDefeated: false,
+      // Living Bomb Safe Zone
+      membersInSafeZone: new Set<string>(),
     };
   }
 
@@ -1721,7 +1723,7 @@ export class GameEngine {
     // Cleanse - remove a dispellable debuff
     if (spell.id === 'cleanse') {
       const dispellable = target.debuffs.find(
-        d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
+        d => (d.type === 'magic' || d.type === 'poison' || d.type === 'disease') && d.dispellable !== false
       );
 
       if (!dispellable) {
@@ -2308,6 +2310,67 @@ export class GameEngine {
     }
   }
 
+  // Living Bomb Safe Zone - set whether a member is in the safe zone
+  public setMemberInSafeZone(memberId: string, inSafeZone: boolean): void {
+    if (inSafeZone) {
+      this.state.membersInSafeZone.add(memberId);
+    } else {
+      this.state.membersInSafeZone.delete(memberId);
+    }
+    this.notify();
+  }
+
+  // Handle Living Bomb explosion when debuff expires
+  private handleLivingBombExplosion(member: RaidMember, damage: number): void {
+    const isInSafeZone = this.state.membersInSafeZone.has(member.id);
+
+    // Apply damage to the bomb target
+    member.currentHealth -= damage;
+    if (member.currentHealth <= 0) {
+      member.currentHealth = 0;
+      this.handleMemberDeath(member);
+    }
+
+    if (isInSafeZone) {
+      // Safe explosion - only target takes damage
+      this.addCombatLogEntry({
+        message: `${member.name}'s Living Bomb detonated safely in the safe zone!`,
+        type: 'system'
+      });
+      // Remove from safe zone
+      this.state.membersInSafeZone.delete(member.id);
+    } else {
+      // Raid explosion - splash damage to nearby members
+      this.addCombatLogEntry({
+        message: `${member.name}'s Living Bomb EXPLODED in the raid!`,
+        type: 'damage'
+      });
+
+      // Find 4-5 nearby targets (prioritize same group)
+      const aliveMembers = this.state.raid.filter(m => m.isAlive && m.id !== member.id);
+      const sameGroup = aliveMembers.filter(m => m.group === member.group);
+      const otherGroups = aliveMembers.filter(m => m.group !== member.group);
+
+      // Take up to 5 targets, same group first
+      const splashTargets = [...sameGroup, ...otherGroups].slice(0, 5);
+
+      splashTargets.forEach(target => {
+        target.currentHealth -= damage;
+        if (target.currentHealth <= 0) {
+          target.currentHealth = 0;
+          this.handleMemberDeath(target);
+        }
+      });
+
+      if (splashTargets.length > 0) {
+        this.addCombatLogEntry({
+          message: `Living Bomb hit ${splashTargets.length} nearby raiders for ${damage} damage each!`,
+          type: 'damage'
+        });
+      }
+    }
+  }
+
   // Get active auras affecting a specific member based on their group (used by UI)
   public getActiveAurasForMember(member: RaidMember): PartyAura[] {
     const activeAuras: PartyAura[] = [];
@@ -2811,7 +2874,13 @@ export class GameEngine {
             }
             return { ...debuff, duration: debuff.duration - delta };
           })
-          .filter(d => d.duration > 0);
+          .filter(debuff => {
+            // Check for Living Bomb explosion when debuff expires
+            if (debuff.duration <= 0 && debuff.explodesOnExpiry && debuff.explosionDamage) {
+              this.handleLivingBombExplosion(member, debuff.explosionDamage);
+            }
+            return debuff.duration > 0;
+          });
 
         // Update buff durations
         member.buffs = member.buffs
@@ -2951,7 +3020,7 @@ export class GameEngine {
 
           // Find raid members with dispellable debuffs (prioritize tanks/healers, then by debuff severity)
           const membersWithDebuffs = this.state.raid
-            .filter(m => m.isAlive && m.debuffs.some(d => dispellableTypes.includes(d.type)))
+            .filter(m => m.isAlive && m.debuffs.some(d => dispellableTypes.includes(d.type) && d.dispellable !== false))
             .sort((a, b) => {
               // Tanks get highest priority
               if (a.role === 'tank' && b.role !== 'tank') return -1;
@@ -2965,7 +3034,7 @@ export class GameEngine {
 
           if (membersWithDebuffs.length > 0) {
             const target = membersWithDebuffs[0];
-            const debuffToDispel = target.debuffs.find(d => dispellableTypes.includes(d.type));
+            const debuffToDispel = target.debuffs.find(d => dispellableTypes.includes(d.type) && d.dispellable !== false);
 
             if (debuffToDispel) {
               // Mana cost for dispel (~60-75 mana like player spells)

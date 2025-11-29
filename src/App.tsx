@@ -57,6 +57,10 @@ function App() {
   const lastPhaseRef = useRef<number>(1);
   // Special alert (legendary unlocks, secret boss summons)
   const [specialAlert, setSpecialAlert] = useState<string | null>(null);
+  // Living Bomb raid warning
+  const [livingBombWarning, setLivingBombWarning] = useState<string | null>(null);
+  const previousLivingBombTargetsRef = useRef<Set<string>>(new Set());
+  const airhornRef = useRef<HTMLAudioElement | null>(null);
   // Raid management state
   const [showRaidGroupManager, setShowRaidGroupManager] = useState(false);
   const [selectedPaladinForAura, setSelectedPaladinForAura] = useState<string | null>(null);
@@ -95,6 +99,10 @@ function App() {
   // Track all players' healing stats for the meter (host aggregates, clients receive)
   const [multiplayerHealingStats, setMultiplayerHealingStats] = useState<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
   const multiplayerHealingStatsRef = useRef<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
+
+  // Living Bomb Safe Zone state
+  const [evacuatedMembers, setEvacuatedMembers] = useState<Set<string>>(new Set());
+  const [safeZoneDragOver, setSafeZoneDragOver] = useState(false);
 
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -425,6 +433,8 @@ function App() {
                 defeatedBossesByRaid: gameState.defeatedBossesByRaid,
                 // Sync encounter result for summary display
                 lastEncounterResult: gameState.lastEncounterResult,
+                // Sync Living Bomb safe zone members
+                membersInSafeZone: Array.from(gameState.membersInSafeZone),
               },
             });
           }, 50);
@@ -449,6 +459,8 @@ function App() {
           // Loot bid fields
           itemId?: string;
           dkp?: number;
+          // Safe zone evacuation
+          memberId?: string;
         };
         const gameState = engine.getState();
 
@@ -512,6 +524,10 @@ function App() {
               }
             }
           }
+        } else if (data.type === 'evacuate_safe_zone' && data.memberId) {
+          // Apply safe zone evacuation from remote player
+          engine.setMemberInSafeZone(data.memberId, true);
+          setEvacuatedMembers(prev => new Set([...prev, data.memberId!]));
         }
       });
 
@@ -639,6 +655,11 @@ function App() {
           gameState.lastEncounterResult = data.lastEncounterResult;
         }
 
+        // Sync Living Bomb safe zone members from host
+        if (data.membersInSafeZone) {
+          setEvacuatedMembers(new Set(data.membersInSafeZone));
+        }
+
         // Force UI update
         forceUpdate(n => n + 1);
       });
@@ -761,6 +782,82 @@ function App() {
       setPhaseAlert(null);
     }
   }, [state.isRunning]);
+
+  // Living Bomb Safe Zone - auto-return members when their debuff expires
+  // Use elapsedTime as dependency since state.raid reference doesn't change when debuffs update
+  // Note: We don't call setMemberInSafeZone(false) here - the GameEngine handles cleanup
+  // after explosion in handleLivingBombExplosion. We just update React state to re-show the frame.
+  useEffect(() => {
+    if (evacuatedMembers.size === 0) return;
+
+    // Check if any evacuated member no longer has living_bomb
+    const stillBombed = new Set<string>();
+    evacuatedMembers.forEach(memberId => {
+      const member = state.raid.find(m => m.id === memberId);
+      if (member && member.debuffs.some(d => d.id === 'living_bomb')) {
+        stillBombed.add(memberId);
+      }
+      // Don't call setMemberInSafeZone(false) - GameEngine already did this in handleLivingBombExplosion
+    });
+
+    // If set changed, update state to show member back in raid
+    if (stillBombed.size !== evacuatedMembers.size) {
+      setEvacuatedMembers(stillBombed);
+    }
+  }, [state.elapsedTime, evacuatedMembers]);
+
+  // Clear evacuated members when encounter ends
+  useEffect(() => {
+    if (!state.isRunning) {
+      setEvacuatedMembers(new Set());
+      previousLivingBombTargetsRef.current = new Set();
+    }
+  }, [state.isRunning]);
+
+  // Living Bomb detection - show raid warning and play airhorn
+  useEffect(() => {
+    if (!state.isRunning) return;
+
+    // Find all members currently with Living Bomb that are NOT in safe zone
+    const currentBombTargets = new Set<string>();
+    const newBombTargets: string[] = [];
+
+    state.raid.forEach(member => {
+      if (member.isAlive && member.debuffs.some(d => d.id === 'living_bomb')) {
+        // Only count as active threat if NOT evacuated to safe zone
+        if (!evacuatedMembers.has(member.id)) {
+          currentBombTargets.add(member.id);
+          // Check if this is a NEW Living Bomb (wasn't there before)
+          if (!previousLivingBombTargetsRef.current.has(member.id)) {
+            newBombTargets.push(member.name);
+          }
+        }
+      }
+    });
+
+    // Always update the tracked targets first
+    previousLivingBombTargetsRef.current = currentBombTargets;
+
+    // If there are new Living Bomb targets, show warning and play sound
+    if (newBombTargets.length > 0) {
+      const warningText = newBombTargets.length === 1
+        ? `LIVING BOMB on ${newBombTargets[0]}!`
+        : `LIVING BOMB on ${newBombTargets.join(', ')}!`;
+
+      setLivingBombWarning(warningText);
+
+      // Play airhorn sound
+      if (airhornRef.current) {
+        airhornRef.current.currentTime = 0;
+        airhornRef.current.play().catch(() => {});
+      }
+    }
+
+    // Clear warning if no active bombs remain (moved to safe zone or exploded)
+    if (currentBombTargets.size === 0 && livingBombWarning) {
+      setLivingBombWarning(null);
+    }
+  }, [state.raid, state.isRunning, state.elapsedTime, livingBombWarning, evacuatedMembers]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -977,16 +1074,18 @@ function App() {
       <div className="background-overlay" />
 
       <header className="app-header">
-        <h1>Classic WoW Raid Healing Simulator</h1>
+        <div className="title-container">
+          <h1>Classic WoW Raid Healing Simulator</h1>
+          {!hasSeenPatchNotes && (
+            <button
+              className="patch-notes-overlay-btn"
+              onClick={handleOpenPatchNotes}
+            >
+              NEW PATCH NOTES!
+            </button>
+          )}
+        </div>
         <span className="subtitle">Classic Era - Vanilla Only</span>
-        {!hasSeenPatchNotes && (
-          <button
-            className="patch-notes-btn"
-            onClick={handleOpenPatchNotes}
-          >
-            NEW PATCH NOTES!
-          </button>
-        )}
       </header>
 
       {/* Multiplayer Lobby Modal */}
@@ -1172,6 +1271,16 @@ function App() {
             </div>
           )}
 
+          {/* Living Bomb Raid Warning */}
+          {livingBombWarning && (
+            <div className="living-bomb-warning">
+              {livingBombWarning}
+            </div>
+          )}
+
+          {/* Airhorn sound for Living Bomb */}
+          <audio ref={airhornRef} src="/airhorn.mp3" preload="auto" />
+
           {/* Boss Frame */}
           {state.boss && (
             <div className="boss-frame">
@@ -1232,10 +1341,27 @@ function App() {
                             : null;
                         const manaPercent = healerMana ? (healerMana.current / healerMana.max) * 100 : 0;
 
+                        // Living Bomb mechanic - check if member has the debuff
+                        const livingBombDebuff = member.debuffs.find(d => d.id === 'living_bomb');
+                        const hasLivingBomb = !!livingBombDebuff;
+                        const livingBombUrgency = livingBombDebuff
+                          ? livingBombDebuff.duration <= 3 ? 'critical' : livingBombDebuff.duration <= 5 ? 'urgent' : ''
+                          : '';
+
+                        // Skip rendering in normal grid if evacuated to safe zone
+                        if (evacuatedMembers.has(member.id)) return null;
+
                         return (
                           <div
                             key={member.id}
-                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''}`}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
+                            draggable={hasLivingBomb}
+                            onDragStart={(e) => {
+                              if (hasLivingBomb) {
+                                e.dataTransfer.setData('memberId', member.id);
+                                e.dataTransfer.effectAllowed = 'move';
+                              }
+                            }}
                             onClick={() => {
                               if (state.isRunning) {
                                 engine.selectTarget(member.id);
@@ -1308,6 +1434,79 @@ function App() {
                 );
               })}
             </div>
+
+            {/* Living Bomb Safe Zone - visible during Baron Geddon */}
+            {state.boss?.id === 'baron_geddon' && (
+              <div
+                className={`safe-zone ${safeZoneDragOver ? 'drag-over' : ''} ${evacuatedMembers.size > 0 ? 'has-members' : ''}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setSafeZoneDragOver(true);
+                }}
+                onDragLeave={() => setSafeZoneDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setSafeZoneDragOver(false);
+                  const memberId = e.dataTransfer.getData('memberId');
+                  if (memberId) {
+                    // In multiplayer mode, send action to host
+                    if (isMultiplayerMode && mpChannelRef.current) {
+                      mpChannelRef.current.send({
+                        type: 'broadcast',
+                        event: 'player_action',
+                        payload: { type: 'evacuate_safe_zone', memberId },
+                      });
+                      // If we're the host, also apply locally
+                      if (isHost) {
+                        setEvacuatedMembers(prev => new Set([...prev, memberId]));
+                        engine.setMemberInSafeZone(memberId, true);
+                      }
+                    } else {
+                      // Single-player: apply directly
+                      setEvacuatedMembers(prev => new Set([...prev, memberId]));
+                      engine.setMemberInSafeZone(memberId, true);
+                    }
+                  }
+                }}
+              >
+                <div className="safe-zone-label">
+                  {evacuatedMembers.size > 0 ? 'SAFE ZONE - Protected!' : 'SAFE ZONE - Drag Living Bomb here!'}
+                </div>
+                <div className="safe-zone-members">
+                  {Array.from(evacuatedMembers).map(memberId => {
+                    const member = state.raid.find(m => m.id === memberId);
+                    if (!member) return null;
+                    const healthPercent = (member.currentHealth / member.maxHealth) * 100;
+                    const classColor = CLASS_COLORS[member.class];
+                    const livingBombDebuff = member.debuffs.find(d => d.id === 'living_bomb');
+
+                    return (
+                      <div
+                        key={memberId}
+                        className={`evacuated-member ${state.selectedTargetId === member.id ? 'selected' : ''}`}
+                        onClick={() => engine.selectTarget(member.id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="class-indicator" style={{ backgroundColor: classColor }} />
+                        <div className="member-name" style={{ color: classColor }}>{member.name}</div>
+                        <div className="health-bar-container">
+                          <div
+                            className="health-bar"
+                            style={{
+                              width: `${healthPercent}%`,
+                              backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
+                            }}
+                          />
+                        </div>
+                        {livingBombDebuff && (
+                          <div className="living-bomb-countdown">{Math.ceil(livingBombDebuff.duration)}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Manage Groups Button - Only show when not in encounter */}
             {!state.isRunning && (
@@ -1950,9 +2149,9 @@ function App() {
 
       <footer className="app-footer">
         <div className="tips">
-          <span className="tip">Use Holy Light for tank healing, Flash of Light for efficiency</span>
-          <span className="tip">Apply Blessing of Light before big damage phases</span>
-          <span className="tip">Save Divine Favor + Holy Light for emergency tank saves</span>
+          <span className="tip">Press 1-5 to cast spells, ESC to cancel casting</span>
+          <span className="tip">Press B or click the Bag icon to open your inventory and equip loot</span>
+          <span className="tip">Sign in with Google or Apple to save your progress to the cloud</span>
         </div>
       </footer>
       </>
@@ -2010,6 +2209,13 @@ function App() {
           {specialAlert && (
             <div className="special-alert">
               {specialAlert}
+            </div>
+          )}
+
+          {/* Living Bomb Raid Warning */}
+          {livingBombWarning && (
+            <div className="living-bomb-warning">
+              {livingBombWarning}
             </div>
           )}
 
@@ -2203,10 +2409,20 @@ function App() {
                                 : null;
                             const manaPercent = healerMana ? (healerMana.current / healerMana.max) * 100 : 0;
 
+                            // Living Bomb detection for mobile
+                            const livingBombDebuff = member.debuffs.find(d => d.id === 'living_bomb');
+                            const hasLivingBomb = !!livingBombDebuff && !evacuatedMembers.has(member.id);
+                            const livingBombUrgency = livingBombDebuff
+                              ? livingBombDebuff.duration <= 3 ? 'critical' : livingBombDebuff.duration <= 5 ? 'urgent' : ''
+                              : '';
+
+                            // Skip if evacuated on mobile too
+                            if (evacuatedMembers.has(member.id)) return null;
+
                             return (
                               <div
                                 key={member.id}
-                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''}`}
+                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
                                 onClick={() => {
                                   if (state.isRunning) {
                                     engine.selectTarget(member.id);
@@ -2244,6 +2460,19 @@ function App() {
                                 {member.debuffs.length > 0 && (
                                   <div className="mobile-debuff-indicator" />
                                 )}
+                                {/* Living Bomb - tap to move to safe zone */}
+                                {hasLivingBomb && (
+                                  <button
+                                    className="mobile-living-bomb-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEvacuatedMembers(prev => new Set([...prev, member.id]));
+                                      engine.setMemberInSafeZone(member.id, true);
+                                    }}
+                                  >
+                                    MOVE! {Math.ceil(livingBombDebuff?.duration || 0)}s
+                                  </button>
+                                )}
                               </div>
                             );
                           })}
@@ -2252,6 +2481,27 @@ function App() {
                     );
                   })}
                 </div>
+
+                {/* Mobile Safe Zone for Living Bomb */}
+                {state.boss?.id === 'baron_geddon' && evacuatedMembers.size > 0 && (
+                  <div className="mobile-safe-zone">
+                    <div className="safe-zone-label">SAFE ZONE</div>
+                    <div className="safe-zone-members">
+                      {Array.from(evacuatedMembers).map(memberId => {
+                        const member = state.raid.find(m => m.id === memberId);
+                        if (!member) return null;
+                        const livingBombDebuff = member.debuffs.find(d => d.id === 'living_bomb');
+
+                        return (
+                          <div key={memberId} className="mobile-evacuated-member">
+                            <span style={{ color: CLASS_COLORS[member.class] }}>{member.name.substring(0, 6)}</span>
+                            {livingBombDebuff && <span className="countdown">{Math.ceil(livingBombDebuff.duration)}s</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Mobile Action Bar - Right under raid frames */}
                 <div className="mobile-action-bar-inline">
@@ -3408,6 +3658,29 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.17.0 - Living Bomb Mechanic Update</h3>
+                <span className="patch-date">November 29, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Living Bomb Safe Zone</h4>
+                <ul>
+                  <li><strong>Drag to Safety</strong>: When a raid member gets Living Bomb, drag them to the Safe Zone to prevent splash damage to the raid</li>
+                  <li><strong>Raid Warning</strong>: Large on-screen warning with airhorn sound when Living Bomb is applied</li>
+                  <li><strong>Auto Return</strong>: Bombed players automatically return to their raid position after the bomb explodes</li>
+                  <li><strong>Multiplayer Sync</strong>: Safe Zone evacuations now sync in co-op - when one player drags, all players see it</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Living Bomb Changes</h4>
+                <ul>
+                  <li><strong>Undispellable</strong>: Living Bomb can no longer be dispelled - you must use the Safe Zone!</li>
+                  <li><strong>Still Healable</strong>: Players in the Safe Zone can still be targeted and healed</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.16.0 - Cloud Saves Update</h3>
                 <span className="patch-date">November 29, 2025</span>
               </div>

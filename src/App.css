@@ -420,6 +420,264 @@ body {
   }
 }
 
+/* ============================================= */
+/* LIVING BOMB SAFE ZONE MECHANIC               */
+/* ============================================= */
+
+/* Living Bomb frame - draggable with pulsing glow */
+.raid-frame.has-living-bomb {
+  cursor: grab;
+  border-color: #ff6600 !important;
+  box-shadow: 0 0 12px rgba(255, 102, 0, 0.8), inset 0 0 8px rgba(255, 102, 0, 0.3);
+  animation: living-bomb-pulse 0.6s ease-in-out infinite;
+  z-index: 10;
+}
+
+.raid-frame.has-living-bomb:active {
+  cursor: grabbing;
+}
+
+/* Urgent phase (5-3 seconds) - faster, redder */
+.raid-frame.has-living-bomb.urgent {
+  border-color: #ff3300 !important;
+  animation: living-bomb-urgent 0.4s ease-in-out infinite;
+}
+
+/* Critical phase (3-0 seconds) - shake + intense glow */
+.raid-frame.has-living-bomb.critical {
+  border-color: #ff0000 !important;
+  animation: living-bomb-critical 0.15s ease-in-out infinite, living-bomb-pulse 0.3s ease-in-out infinite;
+}
+
+@keyframes living-bomb-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 102, 0, 0.6), inset 0 0 6px rgba(255, 102, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 102, 0, 1), inset 0 0 12px rgba(255, 102, 0, 0.4);
+  }
+}
+
+@keyframes living-bomb-urgent {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 50, 0, 0.7), inset 0 0 8px rgba(255, 50, 0, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 50, 0, 1), inset 0 0 15px rgba(255, 50, 0, 0.5);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes living-bomb-critical {
+  0% { transform: translateX(-2px); }
+  25% { transform: translateX(2px); }
+  50% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+
+/* Safe Zone container */
+.safe-zone {
+  margin-top: 16px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(0, 80, 0, 0.2) 0%, rgba(0, 40, 0, 0.4) 100%);
+  border: 2px dashed rgba(0, 170, 0, 0.6);
+  border-radius: 8px;
+  min-height: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.safe-zone.drag-over {
+  border-color: #00ff00;
+  border-style: solid;
+  background: linear-gradient(180deg, rgba(0, 120, 0, 0.4) 0%, rgba(0, 80, 0, 0.6) 100%);
+  box-shadow: 0 0 30px rgba(0, 255, 0, 0.4), inset 0 0 20px rgba(0, 255, 0, 0.1);
+}
+
+.safe-zone.has-members {
+  border-color: #00cc00;
+  border-style: solid;
+  background: linear-gradient(180deg, rgba(0, 100, 0, 0.3) 0%, rgba(0, 60, 0, 0.5) 100%);
+}
+
+.safe-zone-label {
+  color: #00cc00;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 8px rgba(0, 200, 0, 0.5);
+  margin-bottom: 8px;
+}
+
+.safe-zone-members {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Evacuated member in safe zone */
+.evacuated-member {
+  position: relative;
+  width: 120px;
+  height: 50px;
+  background: linear-gradient(180deg, #1a3a1a 0%, #0a200a 100%);
+  border: 2px solid #00aa00;
+  border-radius: 6px;
+  padding: 4px 8px;
+  box-shadow: 0 0 15px rgba(0, 170, 0, 0.5);
+  animation: safe-zone-protected 1.5s ease-in-out infinite;
+}
+
+.evacuated-member .class-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.evacuated-member .member-name {
+  font-size: 10px;
+  font-weight: 600;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evacuated-member .health-bar-container {
+  height: 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.evacuated-member .health-bar {
+  height: 100%;
+  transition: width 0.1s ease;
+}
+
+.evacuated-member.selected {
+  border-color: #ffcc00;
+  box-shadow: 0 0 15px rgba(255, 204, 0, 0.7), 0 0 25px rgba(0, 170, 0, 0.5);
+}
+
+/* Countdown overlay for Living Bomb */
+.living-bomb-countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  font-weight: bold;
+  color: #ff0000;
+  text-shadow: 0 0 10px rgba(255, 0, 0, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.8);
+  z-index: 20;
+}
+
+@keyframes safe-zone-protected {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 170, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 170, 0, 0.7);
+  }
+}
+
+/* Mobile Living Bomb Button */
+.mobile-living-bomb-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 4px 8px;
+  background: linear-gradient(180deg, #ff4400 0%, #cc0000 100%);
+  color: #fff;
+  border: 2px solid #ff6600;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px #000;
+  cursor: pointer;
+  z-index: 25;
+  animation: mobile-bomb-pulse 0.4s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+.mobile-living-bomb-btn:active {
+  transform: translate(-50%, -50%) scale(0.95);
+  background: linear-gradient(180deg, #00aa00 0%, #006600 100%);
+  border-color: #00cc00;
+}
+
+@keyframes mobile-bomb-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 68, 0, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 68, 0, 1), 0 0 25px rgba(255, 0, 0, 0.6);
+  }
+}
+
+/* Mobile Safe Zone */
+.mobile-safe-zone {
+  margin: 10px auto;
+  padding: 10px;
+  background: linear-gradient(180deg, rgba(0, 60, 0, 0.8) 0%, rgba(0, 40, 0, 0.9) 100%);
+  border: 2px solid #00aa00;
+  border-radius: 8px;
+  max-width: 300px;
+}
+
+.mobile-safe-zone-label {
+  text-align: center;
+  color: #00ff00;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.mobile-safe-zone-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.mobile-evacuated-member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  background: linear-gradient(180deg, rgba(0, 80, 0, 0.9) 0%, rgba(0, 50, 0, 0.9) 100%);
+  border: 2px solid #00cc00;
+  border-radius: 6px;
+  animation: safe-zone-protected 1.5s ease-in-out infinite;
+}
+
+.mobile-evacuated-member .member-name {
+  font-size: 11px;
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.mobile-evacuated-member .bomb-timer {
+  font-size: 14px;
+  color: #ff6600;
+  font-weight: bold;
+  text-shadow: 0 0 5px rgba(255, 102, 0, 0.8);
+}
+
 /* Raid frame mouseover target - for mouseover healing */
 .raid-frame.mouseover-target {
   border-color: #00ccff;
@@ -5938,6 +6196,48 @@ body {
   }
 }
 
+/* Living Bomb Raid Warning - positioned at top, doesn't block clicks */
+.living-bomb-warning {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 16px 40px;
+  background: linear-gradient(180deg, rgba(120, 40, 0, 0.95) 0%, rgba(60, 0, 0, 0.95) 100%);
+  border: 3px solid #ff4400;
+  border-radius: 10px;
+  color: #ff6600;
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow:
+    0 0 15px rgba(255, 68, 0, 1),
+    0 0 30px rgba(255, 68, 0, 0.6);
+  box-shadow:
+    0 0 40px rgba(255, 68, 0, 0.7),
+    0 0 80px rgba(255, 0, 0, 0.4);
+  animation: livingBombGlow 1s ease-in-out infinite;
+  z-index: 2500;
+  pointer-events: none;
+}
+
+@keyframes livingBombGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 40px rgba(255, 68, 0, 0.7),
+      0 0 80px rgba(255, 0, 0, 0.4);
+    border-color: #ff4400;
+  }
+  50% {
+    box-shadow:
+      0 0 60px rgba(255, 100, 0, 0.9),
+      0 0 100px rgba(255, 50, 0, 0.6);
+    border-color: #ff6600;
+  }
+}
+
 /* ==================== RAID MANAGEMENT SYSTEM ==================== */
 
 /* Raid Management Toggle Button */
@@ -7194,26 +7494,86 @@ body {
   }
 }
 
-.patch-notes-btn {
-  position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: #00AEFF;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  padding: 8px 12px;
-  animation: patchNotesPulse 2s ease-in-out infinite;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+.title-container {
+  position: relative;
+  display: inline-block;
 }
 
-.patch-notes-btn:hover {
+.patch-notes-overlay-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #00AEFF;
+  border-radius: 8px;
+  color: #00AEFF;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: patchNotesOverlayPulse 2s ease-in-out infinite, patchNotesShimmer 3s linear infinite;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  z-index: 10;
+  padding: 0 20px;
+  overflow: hidden;
+}
+
+.patch-notes-overlay-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(0, 174, 255, 0.3),
+    transparent
+  );
+  animation: patchNotesShimmerSlide 2s ease-in-out infinite;
+}
+
+.patch-notes-overlay-btn:hover {
+  background: rgba(0, 0, 0, 0.95);
+  border-color: #66CFFF;
   color: #66CFFF;
-  text-shadow: 0 0 12px #00AEFF, 0 0 24px #00AEFF, 0 0 36px #00AEFF;
+  box-shadow: 0 0 20px rgba(0, 174, 255, 0.5), inset 0 0 20px rgba(0, 174, 255, 0.1);
+}
+
+@keyframes patchNotesOverlayPulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(0, 174, 255, 0.3), 0 0 20px rgba(0, 174, 255, 0.2);
+    text-shadow: 0 0 8px rgba(0, 174, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(0, 174, 255, 0.6), 0 0 40px rgba(0, 174, 255, 0.4);
+    text-shadow: 0 0 16px rgba(0, 174, 255, 0.8), 0 0 24px rgba(0, 174, 255, 0.5);
+    transform: scale(1.02);
+  }
+}
+
+@keyframes patchNotesShimmerSlide {
+  0% {
+    left: -100%;
+  }
+  50%, 100% {
+    left: 100%;
+  }
+}
+
+/* Mobile patch notes overlay */
+@media (max-width: 768px) {
+  .patch-notes-overlay-btn {
+    font-size: 14px;
+    letter-spacing: 1px;
+    padding: 0 10px;
+  }
 }
 
 /* Patch Notes Modal */

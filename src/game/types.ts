@@ -267,6 +267,11 @@ export interface Debuff {
   type: 'magic' | 'poison' | 'disease' | 'curse';
   damagePerTick?: number;
   tickInterval?: number;
+  // Living Bomb mechanic
+  explodesOnExpiry?: boolean;
+  explosionDamage?: number;
+  // Some debuffs cannot be dispelled even if they have a dispellable type
+  dispellable?: boolean;
 }
 
 // Equipment slots for gear
@@ -515,6 +520,8 @@ export interface GameState {
   // Hidden boss unlocks
   silithusUnlocked: boolean;      // True when Silithus raid is visible (both bindings + Firemaw kill)
   thunderaanDefeated: boolean;    // True when Thunderaan has been killed (allows Thunderfury crafting)
+  // Living Bomb Safe Zone mechanic
+  membersInSafeZone: Set<string>; // Member IDs currently in the safe zone
 }
 
 // Class colors matching Classic WoW

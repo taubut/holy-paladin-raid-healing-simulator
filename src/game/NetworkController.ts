@@ -24,6 +24,9 @@ export interface CompressedGameState {
 
   // All players' casting state and stats
   ps: PlayerSyncState[];
+
+  // Living Bomb safe zone - member IDs in safe zone
+  sz: string[];
 }
 
 export interface CompressedHealEvent {
@@ -49,10 +52,11 @@ export interface PlayerSyncState {
 }
 
 export interface PlayerAction {
-  type: 'cast_spell' | 'cancel_cast' | 'select_target' | 'use_ability';
+  type: 'cast_spell' | 'cancel_cast' | 'select_target' | 'use_ability' | 'evacuate_to_safe_zone';
   playerId: string;
   spellId?: string;
   targetId?: string;
+  memberId?: string; // For evacuate_to_safe_zone
   timestamp: number;
 }
 
@@ -273,6 +277,7 @@ export function compressGameState(
     r: state.isRunning,
     hl: recentHeals,
     ps: players,
+    sz: Array.from(state.membersInSafeZone),
   };
 }
 

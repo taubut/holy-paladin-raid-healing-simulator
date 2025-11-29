@@ -74,8 +74,9 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_selfdestruct.jpg',
     maxDuration: 8,
     type: 'magic',
-    damagePerTick: 400, // Explodes at end - ticks represent building damage
-    tickInterval: 8,
+    dispellable: false, // Cannot be dispelled - must be moved to safe zone
+    explodesOnExpiry: true, // Special handling - explodes for 3200 damage to target + nearby if not in safe zone
+    explosionDamage: 3200,
   },
   ignite_mana: {
     id: 'ignite_mana',
