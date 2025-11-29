@@ -71,7 +71,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.14.0';
+  const CURRENT_PATCH_VERSION = '0.15.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -93,6 +93,113 @@ function App() {
   // Track all players' healing stats for the meter (host aggregates, clients receive)
   const [multiplayerHealingStats, setMultiplayerHealingStats] = useState<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
   const multiplayerHealingStatsRef = useRef<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
+
+  // Settings state
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'keybinds' | 'interface'>('keybinds');
+  const [recordingKeybind, setRecordingKeybind] = useState<string | null>(null);
+  // Utility menu dropdown state
+  const [showUtilityMenu, setShowUtilityMenu] = useState(false);
+
+  // Default keybinds
+  const DEFAULT_KEYBINDS = {
+    actionBar: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+    manaPotion: 'm',
+  };
+
+  // Keybinds state (persisted to localStorage)
+  const [keybinds, setKeybinds] = useState<{ actionBar: string[]; manaPotion: string }>(() => {
+    const saved = localStorage.getItem('keybinds');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return DEFAULT_KEYBINDS;
+      }
+    }
+    return DEFAULT_KEYBINDS;
+  });
+
+  // Persist keybinds to localStorage
+  useEffect(() => {
+    localStorage.setItem('keybinds', JSON.stringify(keybinds));
+  }, [keybinds]);
+
+  // Close utility menu when clicking outside
+  useEffect(() => {
+    if (!showUtilityMenu) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.utility-dropdown')) {
+        setShowUtilityMenu(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showUtilityMenu]);
+
+  // Handle keybind recording
+  useEffect(() => {
+    if (!recordingKeybind) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Don't allow Escape as a keybind (it's reserved for closing modals)
+      if (e.key === 'Escape') {
+        setRecordingKeybind(null);
+        return;
+      }
+
+      const newKey = e.key.toLowerCase();
+
+      // Check for conflicts
+      const isActionBarSlot = recordingKeybind.startsWith('actionBar_');
+      const slotIndex = isActionBarSlot ? parseInt(recordingKeybind.split('_')[1]) : -1;
+
+      if (isActionBarSlot) {
+        // Check if key is already used in another action bar slot
+        const conflictIndex = keybinds.actionBar.findIndex((k, i) => k === newKey && i !== slotIndex);
+        if (conflictIndex !== -1) {
+          // Swap the keybinds
+          const newActionBar = [...keybinds.actionBar];
+          newActionBar[conflictIndex] = keybinds.actionBar[slotIndex];
+          newActionBar[slotIndex] = newKey;
+          setKeybinds({ ...keybinds, actionBar: newActionBar });
+        } else if (newKey === keybinds.manaPotion) {
+          // Swap with mana potion
+          const oldKey = keybinds.actionBar[slotIndex];
+          const newActionBar = [...keybinds.actionBar];
+          newActionBar[slotIndex] = newKey;
+          setKeybinds({ actionBar: newActionBar, manaPotion: oldKey });
+        } else {
+          const newActionBar = [...keybinds.actionBar];
+          newActionBar[slotIndex] = newKey;
+          setKeybinds({ ...keybinds, actionBar: newActionBar });
+        }
+      } else if (recordingKeybind === 'manaPotion') {
+        // Check if key is already used in action bar
+        const conflictIndex = keybinds.actionBar.findIndex(k => k === newKey);
+        if (conflictIndex !== -1) {
+          // Swap with action bar slot
+          const oldKey = keybinds.manaPotion;
+          const newActionBar = [...keybinds.actionBar];
+          newActionBar[conflictIndex] = oldKey;
+          setKeybinds({ actionBar: newActionBar, manaPotion: newKey });
+        } else {
+          setKeybinds({ ...keybinds, manaPotion: newKey });
+        }
+      }
+
+      setRecordingKeybind(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [recordingKeybind, keybinds]);
 
   // These will be used for state sync - log them to satisfy the linter for now
   if (multiplayerSession && multiplayerPlayers.length > 0 && localPlayer) {
@@ -608,24 +715,27 @@ function App() {
       // Skip other keybindings if user is typing
       if (isTyping) return;
 
-      if (e.key === 'm' || e.key === 'M') {
+      const key = e.key.toLowerCase();
+
+      // Mana potion keybind
+      if (key === keybinds.manaPotion.toLowerCase()) {
         engine.useManaPotion();
       }
       // B key opens bags (only when not in encounter)
-      if ((e.key === 'b' || e.key === 'B') && !engine.getState().isRunning) {
+      if (key === 'b' && !engine.getState().isRunning) {
         setShowInventory(prev => !prev);
       }
-      // Number keys for spells
+      // Action bar keybinds
       const actionBar = engine.getActionBar();
-      const num = parseInt(e.key);
-      if (num >= 1 && num <= 9 && actionBar[num - 1]) {
-        engine.castSpell(actionBar[num - 1]);
+      const actionBarIndex = keybinds.actionBar.findIndex(k => k.toLowerCase() === key);
+      if (actionBarIndex !== -1 && actionBar[actionBarIndex]) {
+        engine.castSpell(actionBar[actionBarIndex]);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [engine, showInventory]);
+  }, [engine, showInventory, keybinds]);
 
   // Track when loot modal opens to start bidding in multiplayer
   const prevShowLootModalRef = useRef(false);
@@ -921,16 +1031,43 @@ function App() {
               </div>
             </div>
             {!state.isRunning && (
-              <div className="save-load-buttons">
-                <button className="save-btn" onClick={() => {
-                  setSaveSlotName(state.playerName);
-                  setShowSaveModal(true);
-                }}>Save</button>
-                <button className="load-btn" onClick={() => setShowLoadModal(true)}>Load</button>
-                <button className="admin-btn" onClick={() => {
-                  setSelectedAdminMemberId(state.playerId);
-                  setShowAdminPanel(true);
-                }}>Admin</button>
+              <div className="utility-dropdown">
+                <button
+                  className="utility-menu-btn"
+                  onClick={() => setShowUtilityMenu(!showUtilityMenu)}
+                >
+                  Menu {showUtilityMenu ? '▲' : '▼'}
+                </button>
+                {showUtilityMenu && (
+                  <div className="utility-menu">
+                    <button onClick={() => {
+                      setSaveSlotName(state.playerName);
+                      setShowSaveModal(true);
+                      setShowUtilityMenu(false);
+                    }}>
+                      Save
+                    </button>
+                    <button onClick={() => {
+                      setShowLoadModal(true);
+                      setShowUtilityMenu(false);
+                    }}>
+                      Load
+                    </button>
+                    <button onClick={() => {
+                      setShowSettings(true);
+                      setShowUtilityMenu(false);
+                    }}>
+                      Settings
+                    </button>
+                    <button onClick={() => {
+                      setSelectedAdminMemberId(state.playerId);
+                      setShowAdminPanel(true);
+                      setShowUtilityMenu(false);
+                    }}>
+                      Admin
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1000,6 +1137,15 @@ function App() {
                           state.selectedTargetId &&
                           engine.getChainHealBounceTargets(state.selectedTargetId, state.castingSpell?.maxBounces || 2).includes(member.id);
 
+                        // Healer mana - for player it's state.playerMana, for AI it's aiHealerStats
+                        const isHealer = member.role === 'healer';
+                        const healerMana = isPlayer
+                          ? { current: state.playerMana, max: state.maxMana }
+                          : state.aiHealerStats[member.id]
+                            ? { current: state.aiHealerStats[member.id].currentMana, max: state.aiHealerStats[member.id].maxMana }
+                            : null;
+                        const manaPercent = healerMana ? (healerMana.current / healerMana.max) * 100 : 0;
+
                         return (
                           <div
                             key={member.id}
@@ -1038,6 +1184,15 @@ function App() {
                                 )}
                               </div>
                             </div>
+                            {/* Healer mana bar */}
+                            {isHealer && healerMana && (
+                              <div className="healer-mana-bar-container">
+                                <div
+                                  className="healer-mana-bar"
+                                  style={{ width: `${manaPercent}%` }}
+                                />
+                              </div>
+                            )}
                             <div className="role-indicator">
                               {member.role === 'tank' && '🛡️'}
                               {member.role === 'healer' && '💚'}
@@ -1356,7 +1511,7 @@ function App() {
                     onMouseLeave={() => setHoveredSpell(null)}
                   >
                     <img src={spell.icon} alt={spell.name} />
-                    <div className="spell-keybind">{idx + 1}</div>
+                    <div className="spell-keybind">{keybinds.actionBar[idx]?.toUpperCase() || (idx + 1)}</div>
                     {isOnCooldown && (
                       <div className="cooldown-overlay">
                         <span>{Math.ceil(spell.currentCooldown)}</span>
@@ -1374,10 +1529,10 @@ function App() {
             <div
               className={`spell-button mana-potion ${state.manaPotionCooldown > 0 ? 'disabled' : ''}`}
               onClick={() => engine.useManaPotion()}
-              title="Major Mana Potion (M)"
+              title={`Major Mana Potion (${keybinds.manaPotion.toUpperCase()})`}
             >
               <img src="https://wow.zamimg.com/images/wow/icons/large/inv_potion_76.jpg" alt="Mana Potion" />
-              <div className="spell-keybind">M</div>
+              <div className="spell-keybind">{keybinds.manaPotion.toUpperCase()}</div>
               {state.manaPotionCooldown > 0 && (
                 <div className="cooldown-overlay">
                   <span>{Math.ceil(state.manaPotionCooldown)}</span>
@@ -1900,6 +2055,12 @@ function App() {
                         <button onClick={() => setShowRaidGroupManager(true)}>Groups</button>
                         <button onClick={() => setShowSaveModal(true)}>Save</button>
                         <button onClick={() => setShowLoadModal(true)}>Load</button>
+                        <button
+                          className={`mobile-lfg-btn ${isMultiplayerMode ? 'active' : ''}`}
+                          onClick={() => setShowMultiplayerLobby(true)}
+                        >
+                          {isMultiplayerMode ? 'Group' : 'LFG'}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1947,6 +2108,15 @@ function App() {
                               state.selectedTargetId &&
                               engine.getChainHealBounceTargets(state.selectedTargetId, state.castingSpell?.maxBounces || 2).includes(member.id);
 
+                            // Mobile healer mana
+                            const isHealer = member.role === 'healer';
+                            const healerMana = isPlayer
+                              ? { current: state.playerMana, max: state.maxMana }
+                              : state.aiHealerStats[member.id]
+                                ? { current: state.aiHealerStats[member.id].currentMana, max: state.aiHealerStats[member.id].maxMana }
+                                : null;
+                            const manaPercent = healerMana ? (healerMana.current / healerMana.max) * 100 : 0;
+
                             return (
                               <div
                                 key={member.id}
@@ -1966,6 +2136,13 @@ function App() {
                                     backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
                                   }}
                                 />
+                                {/* Mobile healer mana bar */}
+                                {isHealer && healerMana && (
+                                  <div
+                                    className="mobile-frame-mana"
+                                    style={{ width: `${manaPercent}%` }}
+                                  />
+                                )}
                                 <div className="mobile-frame-content">
                                   <span
                                     className="mobile-frame-name"
@@ -1992,7 +2169,7 @@ function App() {
 
                 {/* Mobile Action Bar - Right under raid frames */}
                 <div className="mobile-action-bar-inline">
-                  {actionBar.slice(0, 6).map((spell) => {
+                  {actionBar.map((spell) => {
                     const isOnCooldown = spell.currentCooldown > 0;
                     const isOnGCD = state.globalCooldown > 0 && spell.isOnGlobalCooldown;
                     const notEnoughMana = state.playerMana < spell.manaCost;
@@ -2024,6 +2201,18 @@ function App() {
                       <div className="mobile-cooldown">{Math.ceil(state.manaPotionCooldown)}</div>
                     )}
                   </div>
+                  {/* Bag Button - only when not in encounter */}
+                  {!state.isRunning && (
+                    <div
+                      className={`mobile-spell mobile-bag-btn ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
+                      onClick={() => setShowInventory(true)}
+                    >
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_07_green.jpg" alt="Bags" />
+                      {state.legendaryMaterials.length > 0 && (
+                        <div className="mobile-bag-count">{state.legendaryMaterials.length}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Mobile Totem Bar - Right under action bar (Shaman only) */}
@@ -2522,6 +2711,8 @@ function App() {
                   onClick={() => {
                     if (saveSlotName.trim()) {
                       engine.saveGame(saveSlotName.trim());
+                      // Save keybinds with this save slot
+                      localStorage.setItem(`mc_healer_keybinds_${saveSlotName.trim()}`, JSON.stringify(keybinds));
                       setShowSaveModal(false);
                       setSaveSlotName('');
                     }
@@ -2626,6 +2817,16 @@ function App() {
                             className="load-slot-btn"
                             onClick={() => {
                               engine.loadGame(saveName);
+                              // Load keybinds from this save slot if they exist
+                              const savedKeybinds = localStorage.getItem(`mc_healer_keybinds_${saveName}`);
+                              if (savedKeybinds) {
+                                try {
+                                  const parsed = JSON.parse(savedKeybinds);
+                                  setKeybinds(parsed);
+                                } catch {
+                                  // Keep current keybinds if parse fails
+                                }
+                              }
                               setShowLoadModal(false);
                             }}
                           >
@@ -2636,6 +2837,8 @@ function App() {
                             onClick={() => {
                               if (confirm(`Delete save "${saveName}"?`)) {
                                 engine.deleteSave(saveName);
+                                // Also delete associated keybinds
+                                localStorage.removeItem(`mc_healer_keybinds_${saveName}`);
                               }
                             }}
                           >
@@ -3083,12 +3286,57 @@ function App() {
       {showPatchNotes && (
         <div className="modal-overlay" onClick={() => setShowPatchNotes(false)}>
           <div className="patch-notes-modal" onClick={e => e.stopPropagation()}>
+            <button className="close-inspection" onClick={() => setShowPatchNotes(false)}>X</button>
             <div className="patch-notes-header">
               <h2>Patch Notes</h2>
-              <button className="close-inspection" onClick={() => setShowPatchNotes(false)}>X</button>
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.15.0 - AI Healer Intelligence Update</h3>
+                <span className="patch-date">November 29, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>AI Healer Mana System</h4>
+                <ul>
+                  <li><strong>Realistic Mana Pools</strong>: AI healers now have class-specific mana pools (Priest 5500, Druid 5000, Shaman 4800, Paladin 4500)</li>
+                  <li><strong>MP5 Regeneration</strong>: Each class regenerates mana over time at different rates</li>
+                  <li><strong>Smart Spell Selection</strong>: AI healers choose efficient small heals for top-offs, big expensive heals for emergencies</li>
+                  <li><strong>OOM Behavior</strong>: AI healers will pause healing when low on mana (except tank emergencies)</li>
+                  <li><strong>Balanced Mana Costs</strong>: AI healer spell costs now match player spell efficiency</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Healer Mana Bars on Raid Frames</h4>
+                <ul>
+                  <li><strong>Visible Mana</strong>: All healers now show mana bars on their raid frames</li>
+                  <li><strong>Real-Time Updates</strong>: Watch AI healers drain and regenerate mana during encounters</li>
+                  <li><strong>Mobile Support</strong>: Compact mana bars on mobile raid frames too</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>AI Healer Dispelling</h4>
+                <ul>
+                  <li><strong>Class-Specific Dispels</strong>: AI healers now dispel debuffs they can remove (Paladin: magic/poison/disease, Priest: magic/disease, Shaman: poison/disease, Druid: poison/curse)</li>
+                  <li><strong>Priority Targeting</strong>: AI prioritizes dispelling tanks, then healers, then DPS</li>
+                  <li><strong>GCD Cooldown</strong>: Dispels respect the 1.5s global cooldown like player spells</li>
+                  <li><strong>Mana Cost</strong>: AI dispels cost mana (65 per dispel)</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Mobile Improvements</h4>
+                <ul>
+                  <li><strong>Full Action Bar</strong>: Mobile now shows all action bar spells (was limited to 6)</li>
+                  <li><strong>Bag Button</strong>: Inventory button now visible on mobile when out of combat</li>
+                  <li><strong>LFG Button</strong>: Multiplayer access added to mobile utility buttons</li>
+                  <li><strong>Flex Wrap</strong>: Action bar wraps to multiple rows on narrow screens</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.14.0 - UI Polish Update</h3>
                 <span className="patch-date">November 29, 2025</span>
               </div>
@@ -3440,6 +3688,115 @@ function App() {
                   );
                 })()}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => { setShowSettings(false); setRecordingKeybind(null); }}>
+          <div className="settings-modal" onClick={e => e.stopPropagation()}>
+            <div className="settings-header">
+              <h2>Settings</h2>
+              <button className="settings-close-btn" onClick={() => { setShowSettings(false); setRecordingKeybind(null); }}>×</button>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="settings-tabs">
+              <button
+                className={`settings-tab ${settingsTab === 'keybinds' ? 'active' : ''}`}
+                onClick={() => setSettingsTab('keybinds')}
+              >
+                Keybinds
+              </button>
+              <button
+                className={`settings-tab ${settingsTab === 'interface' ? 'active' : ''}`}
+                onClick={() => setSettingsTab('interface')}
+              >
+                Interface
+              </button>
+            </div>
+
+            <div className="settings-content">
+              {/* KEYBINDS TAB */}
+              {settingsTab === 'keybinds' && (
+                <div className="settings-keybinds-tab">
+                  <div className="keybind-section">
+                    <div className="keybind-section-header">Action Bar</div>
+                    <div className="keybind-grid">
+                      {keybinds.actionBar.map((key, index) => (
+                        <div key={index} className="keybind-row">
+                          <span className="keybind-label">Slot {index + 1}</span>
+                          <button
+                            className={`keybind-button ${recordingKeybind === `actionBar_${index}` ? 'recording' : ''}`}
+                            onClick={() => setRecordingKeybind(`actionBar_${index}`)}
+                          >
+                            {recordingKeybind === `actionBar_${index}` ? 'Press a key...' : key.toUpperCase()}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="keybind-section">
+                    <div className="keybind-section-header">Items</div>
+                    <div className="keybind-grid">
+                      <div className="keybind-row">
+                        <span className="keybind-label">Mana Potion</span>
+                        <button
+                          className={`keybind-button ${recordingKeybind === 'manaPotion' ? 'recording' : ''}`}
+                          onClick={() => setRecordingKeybind('manaPotion')}
+                        >
+                          {recordingKeybind === 'manaPotion' ? 'Press a key...' : keybinds.manaPotion.toUpperCase()}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="keybind-actions">
+                    <button
+                      className="reset-keybinds-btn"
+                      onClick={() => setKeybinds(DEFAULT_KEYBINDS)}
+                    >
+                      Reset to Defaults
+                    </button>
+                  </div>
+
+                  <div className="keybind-hint">
+                    Click a key to rebind. Press Escape to cancel. Conflicting keys will be swapped.
+                  </div>
+                </div>
+              )}
+
+              {/* INTERFACE TAB */}
+              {settingsTab === 'interface' && (
+                <div className="settings-interface-tab">
+                  <div className="settings-section">
+                    <div className="settings-section-header">Layout Mode</div>
+                    <div className="settings-option">
+                      <span>UI Layout:</span>
+                      <div className="settings-toggle-group">
+                        <button
+                          className={!isMobileMode ? 'active' : ''}
+                          onClick={() => setIsMobileMode(false)}
+                        >
+                          Desktop
+                        </button>
+                        <button
+                          className={isMobileMode ? 'active' : ''}
+                          onClick={() => setIsMobileMode(true)}
+                        >
+                          Phone
+                        </button>
+                      </div>
+                    </div>
+                    <div className="settings-hint">
+                      Desktop mode shows all panels side by side. Phone mode uses a tabbed interface.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3855,26 +4212,6 @@ function App() {
               {/* RAID MANAGEMENT TAB */}
               {adminTab === 'raid' && (
                 <div className="admin-raid-tab">
-                  {/* UI Settings */}
-                  <div className="admin-section">
-                    <div className="admin-section-header">UI Settings</div>
-                    <div className="raid-size-controls">
-                      <span>Layout Mode:</span>
-                      <button
-                        className={!isMobileMode ? 'active' : ''}
-                        onClick={() => setIsMobileMode(false)}
-                      >
-                        🖥️ Desktop
-                      </button>
-                      <button
-                        className={isMobileMode ? 'active' : ''}
-                        onClick={() => setIsMobileMode(true)}
-                      >
-                        📱 Phone
-                      </button>
-                    </div>
-                  </div>
-
                   {/* Raid Size */}
                   <div className="admin-section">
                     <div className="admin-section-header">Raid Size</div>

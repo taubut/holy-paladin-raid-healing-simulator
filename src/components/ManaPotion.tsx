@@ -4,26 +4,27 @@ import './ManaPotion.css';
 interface ManaPotionProps {
   cooldown: number;
   onUse: () => void;
+  keybind?: string;
 }
 
-export const ManaPotion: React.FC<ManaPotionProps> = ({ cooldown, onUse }) => {
+export const ManaPotion: React.FC<ManaPotionProps> = ({ cooldown, onUse, keybind = 'm' }) => {
   const [isPressed, setIsPressed] = useState(false);
   const isOnCooldown = cooldown > 0;
 
-  // Keybind: M for mana potion
+  // Keybind for mana potion
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in an input, textarea, or contenteditable
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (e.key.toLowerCase() === 'm') {
+      if (e.key.toLowerCase() === keybind.toLowerCase()) {
         setIsPressed(true);
         onUse();
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === 'm') {
+      if (e.key.toLowerCase() === keybind.toLowerCase()) {
         setIsPressed(false);
       }
     };
@@ -35,13 +36,13 @@ export const ManaPotion: React.FC<ManaPotionProps> = ({ cooldown, onUse }) => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [onUse]);
+  }, [onUse, keybind]);
 
   return (
     <div
       className={`mana-potion ${isOnCooldown ? 'on-cooldown' : ''} ${isPressed ? 'pressed' : ''}`}
       onClick={onUse}
-      title="Major Mana Potion (M)\nRestores 1350-2250 mana\n2 minute cooldown"
+      title={`Major Mana Potion (${keybind.toUpperCase()})\nRestores 1350-2250 mana\n2 minute cooldown`}
     >
       <img
         src="https://wow.zamimg.com/images/wow/icons/large/inv_potion_76.jpg"
@@ -53,7 +54,7 @@ export const ManaPotion: React.FC<ManaPotionProps> = ({ cooldown, onUse }) => {
           <span className="cooldown-text">{Math.ceil(cooldown)}</span>
         </div>
       )}
-      <span className="keybind">M</span>
+      <span className="keybind">{keybind.toUpperCase()}</span>
       <span className="potion-label">Mana</span>
     </div>
   );

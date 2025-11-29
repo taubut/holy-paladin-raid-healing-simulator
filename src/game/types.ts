@@ -403,6 +403,10 @@ export interface AIHealerStats {
   healingDone: number;
   name: string;
   class: WoWClass;
+  // Mana system for realistic AI healer behavior
+  currentMana: number;
+  maxMana: number;
+  mp5: number;  // Mana per 5 seconds
 }
 
 // Multiplayer loot bidding

@@ -48,6 +48,14 @@ const AI_HEALER_HPS: Record<string, number> = {
   druid: 300,    // HoT based
 };
 
+// AI Healer mana pools and regeneration by class
+const AI_HEALER_MANA: Record<string, { maxMana: number; mp5: number }> = {
+  priest: { maxMana: 5500, mp5: 45 },   // Good pool and regen
+  paladin: { maxMana: 4500, mp5: 35 },  // Lower pool, efficient heals
+  shaman: { maxMana: 4800, mp5: 40 },   // Balanced
+  druid: { maxMana: 5000, mp5: 50 },    // Good regen
+};
+
 // Player's base health as a Holy Paladin
 const PLAYER_BASE_HEALTH = 4200;
 const PLAYER_ID = 'player';
@@ -348,6 +356,7 @@ export class GameEngine {
   private actionBar: Spell[];
   private castTimeout: number | null = null;
   private aiHealerCooldowns: Record<string, number> = {};
+  private aiHealerDispelCooldowns: Record<string, number> = {};
   private specialAlertCallback: ((message: string) => void) | null = null;
   private onHealApplied: HealAppliedCallback | null = null;
   private onDispelApplied: DispelAppliedCallback | null = null;
@@ -1373,6 +1382,7 @@ export class GameEngine {
     this.state.combatLog = [];
     this.damageTimers = {};
     this.aiHealerCooldowns = {};
+    this.aiHealerDispelCooldowns = {};
 
     // Reset action bar cooldowns
     this.actionBar.forEach(spell => {
@@ -2787,6 +2797,24 @@ export class GameEngine {
         );
 
         aiHealers.forEach(healer => {
+          // Initialize AI healer stats with mana if not exists
+          if (!this.state.aiHealerStats[healer.id]) {
+            const manaConfig = AI_HEALER_MANA[healer.class] || { maxMana: 5000, mp5: 40 };
+            this.state.aiHealerStats[healer.id] = {
+              healingDone: 0,
+              name: healer.name,
+              class: healer.class,
+              currentMana: manaConfig.maxMana,
+              maxMana: manaConfig.maxMana,
+              mp5: manaConfig.mp5,
+            };
+          }
+
+          const stats = this.state.aiHealerStats[healer.id];
+
+          // MP5 regeneration (mana per 5 seconds, scaled to delta)
+          stats.currentMana = Math.min(stats.maxMana, stats.currentMana + (stats.mp5 * delta / 5));
+
           // Each healer has a cast time cooldown (~2s average)
           const cooldown = this.aiHealerCooldowns[healer.id] || 0;
           if (cooldown > 0) {
@@ -2807,13 +2835,49 @@ export class GameEngine {
 
           if (injured.length > 0) {
             const target = injured[0];
+            const targetHealthPct = target.currentHealth / target.maxHealth;
             const baseHps = AI_HEALER_HPS[healer.class] || 300;
             // Gear scaling: each gear score point adds 0.5 HPS
             const gearBonus = healer.gearScore * 0.5;
             const hps = baseHps + gearBonus;
 
-            // Heal amount varies (simulating different spell choices)
-            const baseHeal = hps * (1.5 + Math.random() * 1.5); // 1.5-3s worth of HPS
+            // Spell choice based on target health and mana efficiency
+            // Mana costs aligned with player spell costs:
+            // - Player Flash of Light: ~140 mana for ~450 heal (0.31 mana per HP)
+            // - Player Holy Light R6: ~365 mana for ~900 heal (0.40 mana per HP)
+            // - Player Holy Light R9: ~660 mana for ~1800 heal (0.37 mana per HP)
+            let baseHeal: number;
+            let manaCost: number;
+            let castTime: number;
+
+            if (targetHealthPct < 0.35) {
+              // Emergency - use big heal (like Holy Light R9)
+              baseHeal = hps * 3.0; // ~1050 HP heal
+              manaCost = baseHeal * 0.55; // ~578 mana - expensive but powerful
+              castTime = 2.5;
+            } else if (targetHealthPct < 0.6) {
+              // Normal healing - medium heal (like Holy Light R6)
+              baseHeal = hps * 2.0; // ~700 HP heal
+              manaCost = baseHeal * 0.45; // ~315 mana
+              castTime = 2.0;
+            } else {
+              // Top-off - small efficient heal (like Flash of Light)
+              baseHeal = hps * 1.2; // ~420 HP heal
+              manaCost = baseHeal * 0.32; // ~134 mana - similar to FoL
+              castTime = 1.5;
+            }
+
+            // OOM behavior - skip healing if not enough mana (unless critical emergency)
+            const isCriticalEmergency = targetHealthPct < 0.25 && target.role === 'tank';
+            if (stats.currentMana < manaCost && !isCriticalEmergency) {
+              // Not enough mana - wait for regen (but still set a short cooldown)
+              this.aiHealerCooldowns[healer.id] = 0.5;
+              return;
+            }
+
+            // Spend mana (minimum 0)
+            stats.currentMana = Math.max(0, stats.currentMana - manaCost);
+
             const isCrit = Math.random() < 0.12; // ~12% crit chance
             const healAmount = Math.floor(isCrit ? baseHeal * 1.5 : baseHeal);
 
@@ -2821,18 +2885,84 @@ export class GameEngine {
             target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
             this.state.otherHealersHealing += actualHeal;
 
-            // Track individual AI healer stats for the healing meter
-            if (!this.state.aiHealerStats[healer.id]) {
-              this.state.aiHealerStats[healer.id] = {
-                healingDone: 0,
-                name: healer.name,
-                class: healer.class,
-              };
-            }
-            this.state.aiHealerStats[healer.id].healingDone += actualHeal;
+            // Track healing done
+            stats.healingDone += actualHeal;
 
-            // Set cooldown (1.5-2.5s cast time simulation)
-            this.aiHealerCooldowns[healer.id] = 1.5 + Math.random();
+            // Set cooldown based on spell cast time (with some variance)
+            this.aiHealerCooldowns[healer.id] = castTime + (Math.random() * 0.3 - 0.15);
+          }
+        });
+
+        // AI Healer Dispelling - separate from healing cooldown
+        aiHealers.forEach(healer => {
+          const stats = this.state.aiHealerStats[healer.id];
+          if (!stats) return;
+
+          // Check dispel cooldown (GCD-based, ~1.5s)
+          const dispelCooldown = this.aiHealerDispelCooldowns[healer.id] || 0;
+          if (dispelCooldown > 0) {
+            this.aiHealerDispelCooldowns[healer.id] = dispelCooldown - delta;
+            return;
+          }
+
+          // Determine what debuff types this healer can dispel based on class
+          // Paladin: magic, poison, disease
+          // Priest: magic, disease
+          // Shaman: poison, disease
+          // Druid: poison, curse
+          const canDispel: Record<string, string[]> = {
+            paladin: ['magic', 'poison', 'disease'],
+            priest: ['magic', 'disease'],
+            shaman: ['poison', 'disease'],
+            druid: ['poison', 'curse'],
+          };
+          const dispellableTypes = canDispel[healer.class] || [];
+          if (dispellableTypes.length === 0) return;
+
+          // Find raid members with dispellable debuffs (prioritize tanks/healers, then by debuff severity)
+          const membersWithDebuffs = this.state.raid
+            .filter(m => m.isAlive && m.debuffs.some(d => dispellableTypes.includes(d.type)))
+            .sort((a, b) => {
+              // Tanks get highest priority
+              if (a.role === 'tank' && b.role !== 'tank') return -1;
+              if (b.role === 'tank' && a.role !== 'tank') return 1;
+              // Healers get second priority
+              if (a.role === 'healer' && b.role !== 'healer') return -1;
+              if (b.role === 'healer' && a.role !== 'healer') return 1;
+              // Then by number of debuffs
+              return b.debuffs.length - a.debuffs.length;
+            });
+
+          if (membersWithDebuffs.length > 0) {
+            const target = membersWithDebuffs[0];
+            const debuffToDispel = target.debuffs.find(d => dispellableTypes.includes(d.type));
+
+            if (debuffToDispel) {
+              // Mana cost for dispel (~60-75 mana like player spells)
+              const dispelManaCost = 65;
+
+              // Check if healer has enough mana
+              if (stats.currentMana < dispelManaCost) {
+                // Not enough mana - set short cooldown and skip
+                this.aiHealerDispelCooldowns[healer.id] = 0.5;
+                return;
+              }
+
+              // Spend mana
+              stats.currentMana -= dispelManaCost;
+
+              // Remove the debuff
+              target.debuffs = target.debuffs.filter(d => d.id !== debuffToDispel.id);
+
+              // Add combat log entry
+              this.addCombatLogEntry({
+                message: `${healer.name} dispels ${debuffToDispel.name} from ${target.name}`,
+                type: 'system',
+              });
+
+              // Set GCD cooldown (1.5s with slight variance)
+              this.aiHealerDispelCooldowns[healer.id] = 1.5 + (Math.random() * 0.2 - 0.1);
+            }
           }
         });
       }

@@ -7,16 +7,18 @@ interface ActionBarProps {
   player: PlayerState;
   onCastSpell: (spell: Spell) => void;
   divineFavorActive: boolean;
+  keybinds?: string[];
 }
 
-// Keybinds for action bar slots
-const KEYBINDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+// Default keybinds for action bar slots
+const DEFAULT_KEYBINDS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 
 export const ActionBar: React.FC<ActionBarProps> = ({
   spells,
   player,
   onCastSpell,
   divineFavorActive,
+  keybinds = DEFAULT_KEYBINDS,
 }) => {
   const [pressedKey, setPressedKey] = useState<string | null>(null);
 
@@ -27,15 +29,17 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
-      const keyIndex = KEYBINDS.indexOf(e.key);
+      const key = e.key.toLowerCase();
+      const keyIndex = keybinds.findIndex(k => k.toLowerCase() === key);
       if (keyIndex !== -1 && keyIndex < spells.length) {
-        setPressedKey(e.key);
+        setPressedKey(key);
         onCastSpell(spells[keyIndex]);
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (KEYBINDS.includes(e.key)) {
+      const key = e.key.toLowerCase();
+      if (keybinds.map(k => k.toLowerCase()).includes(key)) {
         setPressedKey(null);
       }
     };
@@ -47,7 +51,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [spells, onCastSpell]);
+  }, [spells, onCastSpell, keybinds]);
 
   const isSpellUsable = (spell: Spell): boolean => {
     if (player.isCasting) return false;
@@ -60,10 +64,10 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   return (
     <div className="action-bar">
       {spells.map((spell, index) => {
-        const keybind = KEYBINDS[index];
+        const keybind = keybinds[index] || '';
         const usable = isSpellUsable(spell);
         const onCooldown = spell.currentCooldown > 0;
-        const isPressed = pressedKey === keybind;
+        const isPressed = pressedKey === keybind.toLowerCase();
 
         return (
           <div
@@ -97,7 +101,7 @@ export const ActionBar: React.FC<ActionBarProps> = ({
             )}
 
             {/* Keybind */}
-            <span className="keybind">{keybind}</span>
+            <span className="keybind">{keybind.toUpperCase()}</span>
 
             {/* Spell rank */}
             {spell.rank > 0 && spell.healAmount.max > 0 && (
