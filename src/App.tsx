@@ -17,7 +17,9 @@ import { MultiplayerLobby } from './components/MultiplayerLobby';
 import { RaidMeter } from './components/RaidMeter';
 import { RaidSetupModal } from './components/RaidSetupModal';
 import type { GameSession, SessionPlayer } from './lib/supabase';
-import { supabase } from './lib/supabase';
+import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, onAuthStateChange, saveToCloud, loadFromCloud, deleteCloudSave } from './lib/supabase';
+import type { User } from '@supabase/supabase-js';
+import posthog from 'posthog-js';
 import './App.css';
 
 
@@ -71,7 +73,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.15.0';
+  const CURRENT_PATCH_VERSION = '0.16.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -101,6 +103,12 @@ function App() {
   // Utility menu dropdown state
   const [showUtilityMenu, setShowUtilityMenu] = useState(false);
 
+  // Auth state for cloud saves
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'saved' | 'loaded' | 'syncing' | 'error' | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   // Default keybinds
   const DEFAULT_KEYBINDS = {
     actionBar: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
@@ -124,6 +132,69 @@ function App() {
   useEffect(() => {
     localStorage.setItem('keybinds', JSON.stringify(keybinds));
   }, [keybinds]);
+
+  // Initialize auth state and subscribe to changes
+  useEffect(() => {
+    // Check for existing session
+    getCurrentUser().then(user => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = onAuthStateChange((user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+      if (user) {
+        // Identify user in PostHog for cross-session tracking
+        posthog.identify(user.id, {
+          email: user.email,
+          provider: user.app_metadata?.provider
+        });
+        // User just logged in - try to load cloud save
+        handleCloudLoad();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Cloud save function - syncs current game state to cloud
+  const handleCloudSave = async () => {
+    if (!currentUser || !engineRef.current) return;
+
+    setCloudSyncStatus('syncing');
+    try {
+      const saveData = engineRef.current.exportSaveData();
+      const success = await saveToCloud('autosave', saveData);
+      setCloudSyncStatus(success ? 'saved' : 'error');
+
+      // Reset status after a few seconds
+      setTimeout(() => setCloudSyncStatus(null), 3000);
+    } catch {
+      setCloudSyncStatus('error');
+    }
+  };
+
+  // Cloud load function - loads save from cloud
+  const handleCloudLoad = async () => {
+    if (!currentUser || !engineRef.current) return;
+
+    setCloudSyncStatus('syncing');
+    try {
+      const cloudData = await loadFromCloud('autosave');
+      if (cloudData) {
+        engineRef.current.importSaveData(cloudData);
+        setCloudSyncStatus('loaded');
+        forceUpdate(n => n + 1);
+      } else {
+        setCloudSyncStatus(null);
+      }
+      setTimeout(() => setCloudSyncStatus(null), 3000);
+    } catch {
+      setCloudSyncStatus('error');
+    }
+  };
 
   // Close utility menu when clicking outside
   useEffect(() => {
@@ -1066,8 +1137,23 @@ function App() {
                     }}>
                       Admin
                     </button>
+                    <button onClick={() => {
+                      setShowAuthModal(true);
+                      setShowUtilityMenu(false);
+                    }} className={currentUser ? 'auth-logged-in' : ''}>
+                      {authLoading ? '...' : currentUser ? `${currentUser.email?.split('@')[0] || 'Account'}` : 'Sign In'}
+                    </button>
                   </div>
                 )}
+              </div>
+            )}
+            {/* Cloud sync indicator */}
+            {currentUser && cloudSyncStatus && (
+              <div className={`cloud-sync-indicator ${cloudSyncStatus === 'saved' || cloudSyncStatus === 'loaded' ? 'synced' : cloudSyncStatus}`}>
+                {cloudSyncStatus === 'syncing' && '☁️ Syncing...'}
+                {cloudSyncStatus === 'saved' && '☁️ Saved'}
+                {cloudSyncStatus === 'loaded' && '☁️ Loaded'}
+                {cloudSyncStatus === 'error' && '☁️ Sync failed'}
               </div>
             )}
           </div>
@@ -2708,17 +2794,28 @@ function App() {
                 <button
                   className="save-confirm-btn"
                   disabled={!saveSlotName.trim()}
-                  onClick={() => {
+                  onClick={async () => {
                     if (saveSlotName.trim()) {
+                      // Always save to localStorage
                       engine.saveGame(saveSlotName.trim());
                       // Save keybinds with this save slot
                       localStorage.setItem(`mc_healer_keybinds_${saveSlotName.trim()}`, JSON.stringify(keybinds));
+
+                      // If logged in, also save to cloud
+                      if (currentUser) {
+                        setCloudSyncStatus('syncing');
+                        const saveData = engine.exportSaveData();
+                        const success = await saveToCloud(saveSlotName.trim(), saveData);
+                        setCloudSyncStatus(success ? 'saved' : 'error');
+                        setTimeout(() => setCloudSyncStatus(null), 3000);
+                      }
+
                       setShowSaveModal(false);
                       setSaveSlotName('');
                     }
                   }}
                 >
-                  Save
+                  {currentUser ? 'Save to Cloud' : 'Save'}
                 </button>
                 <button className="save-cancel-btn" onClick={() => setShowSaveModal(false)}>
                   Cancel
@@ -2792,7 +2889,7 @@ function App() {
         <div className="modal-overlay" onClick={() => setShowLoadModal(false)}>
           <div className="load-modal" onClick={e => e.stopPropagation()}>
             <div className="load-modal-header">
-              <h2>Load Game</h2>
+              <h2>{currentUser ? 'Load Game (Cloud)' : 'Load Game'}</h2>
               <button className="close-inspection" onClick={() => setShowLoadModal(false)}>X</button>
             </div>
             <div className="load-modal-content">
@@ -2815,8 +2912,23 @@ function App() {
                         <div className="load-slot-actions">
                           <button
                             className="load-slot-btn"
-                            onClick={() => {
-                              engine.loadGame(saveName);
+                            onClick={async () => {
+                              // If logged in, try to load from cloud first
+                              if (currentUser) {
+                                setCloudSyncStatus('syncing');
+                                const cloudData = await loadFromCloud(saveName);
+                                if (cloudData) {
+                                  engine.importSaveData(cloudData);
+                                  setCloudSyncStatus('loaded');
+                                } else {
+                                  // Fall back to localStorage if no cloud save
+                                  engine.loadGame(saveName);
+                                  setCloudSyncStatus(null);
+                                }
+                                setTimeout(() => setCloudSyncStatus(null), 3000);
+                              } else {
+                                engine.loadGame(saveName);
+                              }
                               // Load keybinds from this save slot if they exist
                               const savedKeybinds = localStorage.getItem(`mc_healer_keybinds_${saveName}`);
                               if (savedKeybinds) {
@@ -2830,7 +2942,7 @@ function App() {
                               setShowLoadModal(false);
                             }}
                           >
-                            Load
+                            {currentUser ? 'Load from Cloud' : 'Load'}
                           </button>
                           <button
                             className="delete-slot-btn"
@@ -2839,6 +2951,10 @@ function App() {
                                 engine.deleteSave(saveName);
                                 // Also delete associated keybinds
                                 localStorage.removeItem(`mc_healer_keybinds_${saveName}`);
+                                // If logged in, also delete from cloud
+                                if (currentUser) {
+                                  deleteCloudSave(saveName);
+                                }
                               }
                             }}
                           >
@@ -3292,6 +3408,21 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.16.0 - Cloud Saves Update</h3>
+                <span className="patch-date">November 29, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Cloud Saves</h4>
+                <ul>
+                  <li><strong>Google & Apple Sign-In</strong>: Log in with your Google or Apple account to sync progress across devices</li>
+                  <li><strong>Automatic Cloud Sync</strong>: Save/Load buttons automatically use cloud storage when logged in</li>
+                  <li><strong>Local Fallback</strong>: Not logged in? Your saves still work locally as before</li>
+                  <li><strong>Secure Storage</strong>: Your game data is saved securely and only accessible by you</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.15.0 - AI Healer Intelligence Update</h3>
                 <span className="patch-date">November 29, 2025</span>
               </div>
@@ -3795,6 +3926,78 @@ function App() {
                       Desktop mode shows all panels side by side. Phone mode uses a tabbed interface.
                     </div>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="modal-overlay" onClick={() => setShowAuthModal(false)}>
+          <div className="auth-modal" onClick={e => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={() => setShowAuthModal(false)}>×</button>
+            <div className="auth-modal-header">
+              <h2>{currentUser ? 'Account' : 'Sign In'}</h2>
+            </div>
+            <div className="auth-modal-content">
+              {currentUser ? (
+                <div className="auth-logged-in-view">
+                  <div className="auth-user-info">
+                    <div className="auth-avatar">
+                      {currentUser.user_metadata?.avatar_url ? (
+                        <img src={currentUser.user_metadata.avatar_url} alt="Avatar" />
+                      ) : (
+                        <span>{(currentUser.email?.[0] || '?').toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="auth-user-details">
+                      <span className="auth-user-name">{currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0]}</span>
+                      <span className="auth-user-email">{currentUser.email}</span>
+                    </div>
+                  </div>
+                  <div className="auth-cloud-actions">
+                    <button className="auth-sync-btn" onClick={handleCloudSave} disabled={cloudSyncStatus === 'syncing'}>
+                      {cloudSyncStatus === 'syncing' ? 'Syncing...' : 'Save to Cloud'}
+                    </button>
+                    <button className="auth-sync-btn" onClick={handleCloudLoad} disabled={cloudSyncStatus === 'syncing'}>
+                      {cloudSyncStatus === 'syncing' ? 'Syncing...' : 'Load from Cloud'}
+                    </button>
+                  </div>
+                  <button className="auth-signout-btn" onClick={async () => {
+                    await signOut();
+                    posthog.reset(); // Clear user identity on sign out
+                    setShowAuthModal(false);
+                  }}>
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <div className="auth-signin-view">
+                  <p className="auth-description">
+                    Sign in to sync your progress across devices with cloud saves.
+                  </p>
+                  <div className="auth-providers">
+                    <button className="auth-provider-btn google" onClick={() => signInWithGoogle()}>
+                      <svg viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                      Continue with Google
+                    </button>
+                    <button className="auth-provider-btn apple" onClick={() => signInWithApple()}>
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                      </svg>
+                      Continue with Apple
+                    </button>
+                  </div>
+                  <p className="auth-privacy">
+                    Your game data is saved securely in the cloud and only accessible by you.
+                  </p>
                 </div>
               )}
             </div>

@@ -10,6 +10,7 @@ import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, Legen
 import { ALL_ITEMS, LEGENDARY_MATERIALS } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
+import posthog from 'posthog-js';
 
 const GCD_DURATION = 1.5;
 const MANA_POTION_COOLDOWN = 120;
@@ -924,6 +925,13 @@ export class GameEngine {
       type: 'system',
     });
 
+    // Track class selection in PostHog
+    posthog.capture('class_selected', {
+      class_name: this.state.playerClass,
+      faction: newFaction,
+      previous_class: oldFaction === 'alliance' ? 'paladin' : 'shaman'
+    });
+
     // Recalculate party auras for the new raid composition
     this.recalculateAuras();
 
@@ -1390,11 +1398,33 @@ export class GameEngine {
     });
 
     this.addCombatLogEntry({ message: `${encounter.name} engaged!`, type: 'system' });
+
+    // Track encounter start in PostHog
+    posthog.capture('encounter_started', {
+      boss_name: encounter.name,
+      boss_id: encounterId,
+      raid_name: this.getCurrentRaid()?.name,
+      raid_size: this.state.raid.length,
+      player_class: this.state.playerClass,
+      gear_score: this.getPlayerMember()?.gearScore || 0,
+      is_training: encounterId === 'training'
+    });
+
     this.startGameLoop();
     this.notify();
   }
 
   stopEncounter() {
+    // Track abandoned encounter if still running (manual stop)
+    if (this.state.isRunning && this.state.boss && !this.state.lastEncounterResult) {
+      posthog.capture('encounter_abandoned', {
+        boss_name: this.state.boss.name,
+        boss_id: this.state.boss.id,
+        time_elapsed: this.state.elapsedTime,
+        player_class: this.state.playerClass
+      });
+    }
+
     this.state.isRunning = false;
     this.state.boss = null;
     if (this.intervalId !== null) {
@@ -3024,6 +3054,23 @@ export class GameEngine {
       if (aliveCount === 0) {
         this.addCombatLogEntry({ message: 'WIPE! The raid has been defeated!', type: 'system' });
         this.state.lastEncounterResult = 'wipe';
+
+        // Track wipe in PostHog
+        const hps = this.state.elapsedTime > 0 ? this.state.healingDone / this.state.elapsedTime : 0;
+        const overhealPercent = this.state.healingDone > 0
+          ? (this.state.overhealing / (this.state.healingDone + this.state.overhealing)) * 100
+          : 0;
+        posthog.capture('encounter_completed', {
+          boss_name: this.state.boss?.name,
+          boss_id: this.state.boss?.id,
+          result: 'wipe',
+          duration_seconds: this.state.elapsedTime,
+          hps: Math.round(hps),
+          overhealing_percent: Math.round(overhealPercent),
+          player_class: this.state.playerClass,
+          gear_score: this.getPlayerMember()?.gearScore || 0
+        });
+
         this.stopEncounter();
         return;
       }
@@ -3041,6 +3088,23 @@ export class GameEngine {
     const fanfare = new Audio('/sounds/FF_Fanfare.mp3');
     fanfare.volume = 0.5;
     fanfare.play().catch(() => {}); // Ignore autoplay restrictions
+
+    // Track victory in PostHog
+    const hps = this.state.elapsedTime > 0 ? this.state.healingDone / this.state.elapsedTime : 0;
+    const overhealPercent = this.state.healingDone > 0
+      ? (this.state.overhealing / (this.state.healingDone + this.state.overhealing)) * 100
+      : 0;
+    posthog.capture('encounter_completed', {
+      boss_name: this.state.boss?.name,
+      boss_id: bossId,
+      result: 'kill',
+      duration_seconds: this.state.elapsedTime,
+      hps: Math.round(hps),
+      overhealing_percent: Math.round(overhealPercent),
+      player_class: this.state.playerClass,
+      gear_score: this.getPlayerMember()?.gearScore || 0,
+      is_first_kill: !this.state.firstKills.includes(bossId)
+    });
 
     // Mark encounter result for summary display
     this.state.lastEncounterResult = 'victory';
@@ -3254,6 +3318,17 @@ export class GameEngine {
     this.state.spellPower = stats.totalSpellPower;
     this.state.maxMana = stats.totalMaxMana;
     this.state.critChance = stats.totalCritChance;
+
+    // Track gear equipped in PostHog
+    const newGearScore = player?.gearScore || 0;
+    posthog.capture('gear_equipped', {
+      slot: item.slot,
+      item_name: item.name,
+      item_level: item.itemLevel,
+      rarity: item.rarity,
+      total_gear_score: newGearScore,
+      player_class: this.state.playerClass
+    });
 
     this.addCombatLogEntry({
       message: `Equipped ${item.name}${oldItem ? ` (${oldItem.name} moved to bag)` : ''}`,
@@ -3823,6 +3898,9 @@ export class GameEngine {
       this.state.activeConsumables = [];
       this.state.activeWorldBuffs = [];
 
+      // Reapply party auras from saved assignments
+      this.recalculateAuras();
+
       this.addCombatLogEntry({ message: `Game loaded: ${slotName}`, type: 'system' });
       this.notify();
       return true;
@@ -3848,6 +3926,151 @@ export class GameEngine {
     localStorage.removeItem(`mc_healer_save_${slotName}`);
     this.addCombatLogEntry({ message: `Save deleted: ${slotName}`, type: 'system' });
     this.notify();
+  }
+
+  // Export current game state as JSON (for cloud saves)
+  exportSaveData(): unknown {
+    return {
+      version: 7,
+      timestamp: Date.now(),
+      player: {
+        name: this.state.playerName,
+        equipment: this.state.playerEquipment,
+        dkp: this.state.playerDKP.points,
+        bag: this.state.playerBag,
+      },
+      raidMembers: this.state.raid.map(m => ({
+        id: m.id,
+        name: m.name,
+        class: m.class,
+        spec: m.spec,
+        role: m.role,
+        maxHealth: m.maxHealth,
+        dps: m.dps,
+        group: m.group,
+        equipment: m.equipment,
+        gearScore: m.gearScore,
+      })),
+      raidSize: this.state.raid.length as 20 | 40,
+      defeatedBosses: this.state.defeatedBosses,
+      defeatedBossesByRaid: this.state.defeatedBossesByRaid,
+      selectedRaidId: this.state.selectedRaidId,
+      firstKills: this.state.firstKills,
+      activePaladinBlessings: this.state.activePaladinBlessings,
+      paladinAuraAssignments: this.state.paladinAuraAssignments,
+      shamanTotemAssignments: this.state.shamanTotemAssignments,
+      unlockedWorldBuffs: this.state.unlockedWorldBuffs,
+      bossKillsWithoutPaladinLoot: this.state.bossKillsWithoutPaladinLoot,
+      legendaryMaterials: this.state.legendaryMaterials,
+    };
+  }
+
+  // Import game state from JSON (for cloud saves)
+  importSaveData(data: unknown): boolean {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const saveData = data as any;
+
+      // Load player data
+      if (saveData.player.name) {
+        this.state.playerName = saveData.player.name;
+      }
+      this.state.playerEquipment = saveData.player.equipment;
+      this.state.playerDKP.points = saveData.player.dkp;
+      this.state.playerBag = saveData.player.bag || [];
+
+      // Restore raid members
+      if (saveData.raidMembers) {
+        this.state.raid = saveData.raidMembers.map((saved: {
+          id: string;
+          name: string;
+          class: WoWClass;
+          spec?: WoWSpec;
+          role: 'tank' | 'healer' | 'dps';
+          maxHealth: number;
+          dps: number;
+          group: number;
+          equipment: Equipment;
+          gearScore: number;
+        }) => ({
+          id: saved.id,
+          name: saved.name,
+          class: saved.class,
+          spec: saved.spec || this.getDefaultSpecForClassRole(saved.class, saved.role),
+          role: saved.role,
+          currentHealth: saved.maxHealth,
+          maxHealth: saved.maxHealth,
+          buffs: [],
+          debuffs: [],
+          isAlive: true,
+          dps: saved.dps,
+          group: saved.group,
+          equipment: saved.equipment || createEmptyEquipment(),
+          gearScore: saved.gearScore || 0,
+          positionZone: 'melee' as PositionZone, // Default position
+        }));
+      }
+
+      // Restore progression and settings
+      if (saveData.defeatedBosses) {
+        this.state.defeatedBosses = saveData.defeatedBosses;
+        this.state.raidInProgress = saveData.defeatedBosses.length > 0;
+      }
+      if (saveData.activePaladinBlessings) {
+        this.state.activePaladinBlessings = saveData.activePaladinBlessings;
+      }
+      if (saveData.paladinAuraAssignments) {
+        this.state.paladinAuraAssignments = saveData.paladinAuraAssignments;
+      }
+      if (saveData.shamanTotemAssignments) {
+        this.state.shamanTotemAssignments = saveData.shamanTotemAssignments;
+      }
+      if (saveData.unlockedWorldBuffs) {
+        this.state.unlockedWorldBuffs = saveData.unlockedWorldBuffs;
+      }
+      if (saveData.bossKillsWithoutPaladinLoot !== undefined) {
+        this.state.bossKillsWithoutPaladinLoot = saveData.bossKillsWithoutPaladinLoot;
+      }
+      if (saveData.legendaryMaterials) {
+        this.state.legendaryMaterials = saveData.legendaryMaterials;
+      }
+      if (saveData.defeatedBossesByRaid) {
+        this.state.defeatedBossesByRaid = saveData.defeatedBossesByRaid;
+      }
+      if (saveData.selectedRaidId) {
+        this.state.selectedRaidId = saveData.selectedRaidId;
+      }
+      if (saveData.firstKills) {
+        this.state.firstKills = saveData.firstKills;
+      }
+
+      // Update max paladin blessings
+      const raidSize = saveData.raidSize || this.state.raid.length;
+      this.state.maxPaladinBlessings = raidSize >= 40 ? 4 : 2;
+
+      // Update player stats
+      const stats = this.computePlayerStats();
+      this.state.spellPower = stats.totalSpellPower;
+      this.state.maxMana = stats.totalMaxMana;
+      this.state.critChance = stats.totalCritChance;
+
+      // Clear buffs
+      this.state.playerBuffs = [];
+      this.state.activeConsumables = [];
+      this.state.activeWorldBuffs = [];
+
+      // Reapply party auras from saved assignments
+      this.recalculateAuras();
+
+      this.addCombatLogEntry({ message: 'Cloud save loaded', type: 'system' });
+      this.notify();
+      return true;
+    } catch (e) {
+      console.error('Failed to import save data:', e);
+      this.addCombatLogEntry({ message: 'Failed to load cloud save', type: 'system' });
+      this.notify();
+      return false;
+    }
   }
 
   // Export all saves to a JSON file for backup

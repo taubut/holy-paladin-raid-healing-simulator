@@ -1,9 +1,160 @@
 import { createClient } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
+import posthog from 'posthog-js';
 
 const supabaseUrl = 'https://zeasujgpconxxuwknyeg.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InplYXN1amdwY29ueHh1d2tueWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNjY5NDEsImV4cCI6MjA3OTk0Mjk0MX0.3JNe-YXR-mrXqBr8AeytR63tMB20i_zut_rYcpU94XI';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ============================================
+// AUTH FUNCTIONS
+// ============================================
+
+export interface PlayerSave {
+  id: string;
+  user_id: string;
+  slot_name: string;
+  save_data: unknown;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  return user;
+}
+
+export async function signInWithGoogle() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+  return { data, error };
+}
+
+export async function signInWithApple() {
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: {
+      redirectTo: window.location.origin
+    }
+  });
+  return { data, error };
+}
+
+export async function signOut() {
+  const { error } = await supabase.auth.signOut();
+  return { error };
+}
+
+// Subscribe to auth state changes
+export function onAuthStateChange(callback: (user: User | null) => void) {
+  return supabase.auth.onAuthStateChange((_event, session) => {
+    callback(session?.user ?? null);
+  });
+}
+
+// ============================================
+// CLOUD SAVE FUNCTIONS
+// ============================================
+
+export async function saveToCloud(slotName: string, saveData: unknown): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) {
+    console.log('No user logged in, skipping cloud save');
+    return false;
+  }
+
+  const { error } = await supabase
+    .from('player_saves')
+    .upsert({
+      user_id: user.id,
+      slot_name: slotName,
+      save_data: saveData,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'user_id,slot_name'
+    });
+
+  if (error) {
+    console.error('Failed to save to cloud:', error);
+    return false;
+  }
+
+  console.log('Saved to cloud:', slotName);
+  return true;
+}
+
+export async function loadFromCloud(slotName: string): Promise<unknown | null> {
+  const user = await getCurrentUser();
+  if (!user) {
+    console.log('No user logged in, skipping cloud load');
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('player_saves')
+    .select('save_data')
+    .eq('user_id', user.id)
+    .eq('slot_name', slotName)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No save found - not an error
+      console.log('No cloud save found for slot:', slotName);
+      return null;
+    }
+    console.error('Failed to load from cloud:', error);
+    return null;
+  }
+
+  console.log('Loaded from cloud:', slotName);
+  return data?.save_data ?? null;
+}
+
+export async function listCloudSaves(): Promise<PlayerSave[]> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from('player_saves')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    console.error('Failed to list cloud saves:', error);
+    return [];
+  }
+
+  return data || [];
+}
+
+export async function deleteCloudSave(slotName: string): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return false;
+  }
+
+  const { error } = await supabase
+    .from('player_saves')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('slot_name', slotName);
+
+  if (error) {
+    console.error('Failed to delete cloud save:', error);
+    return false;
+  }
+
+  return true;
+}
 
 // Types for our database tables
 export interface GameSession {
@@ -88,6 +239,12 @@ export async function createGameSession(hostName: string, hostClass: SessionPlay
     .update({ host_player_id: player.id })
     .eq('id', session.id);
 
+  // Track room creation in PostHog
+  posthog.capture('room_created', {
+    room_code: roomCode,
+    host_class: hostClass
+  });
+
   return { session, player };
 }
 
@@ -135,6 +292,13 @@ export async function joinGameSession(roomCode: string, playerName: string, play
     console.error('Failed to join session:', playerError);
     return { error: 'Failed to join room. Try again.' };
   }
+
+  // Track room join in PostHog
+  posthog.capture('room_joined', {
+    room_code: roomCode.toUpperCase(),
+    player_class: playerClass,
+    player_count: (count || 0) + 1 // Including the new player
+  });
 
   return { session, player };
 }
