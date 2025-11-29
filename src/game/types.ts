@@ -398,6 +398,33 @@ export interface CombatLogEntry {
   isCrit?: boolean;
 }
 
+// AI healer stats for the healing meter
+export interface AIHealerStats {
+  healingDone: number;
+  name: string;
+  class: WoWClass;
+}
+
+// Multiplayer loot bidding
+export interface LootBid {
+  playerId: string;
+  playerName: string;
+  playerClass: WoWClass;
+  dkp: number;
+  roll: number;        // Random roll for tie-breaking
+  timestamp: number;   // When bid was placed
+}
+
+export interface LootResult {
+  itemId: string;
+  itemName: string;
+  winnerId: string;
+  winnerName: string;
+  winnerClass: WoWClass;
+  dkpSpent: number;
+  roll?: number;       // Show roll if there was a tie
+}
+
 export interface GameState {
   raid: RaidMember[];
   boss: Boss | null;
@@ -415,6 +442,11 @@ export interface GameState {
   globalCooldown: number;
   healingDone: number;
   overhealing: number;
+  // Healing meter stats
+  dispelsDone: number;                         // Total successful dispels by player
+  spellHealing: Record<string, number>;        // Per-spell healing breakdown (spellId -> healing)
+  aiHealerStats: Record<string, AIHealerStats>; // Per AI healer stats (healerId -> stats)
+  lastEncounterResult: 'victory' | 'wipe' | null; // Result of the last encounter (for showing summary)
   combatLog: CombatLogEntry[];
   manaPotionCooldown: number;
   divineFavorActive: boolean;
@@ -426,6 +458,10 @@ export interface GameState {
   pendingLoot: GearItem[];
   showLootModal: boolean;
   inspectedMember: RaidMember | null;
+  // Multiplayer loot bidding
+  lootBids: Record<string, LootBid[]>;  // itemId -> array of bids
+  lootBidTimer: number;                  // Seconds remaining in bid window
+  lootResults: LootResult[];             // Results to display
   // Player identity
   playerName: string;
   playerId: string;

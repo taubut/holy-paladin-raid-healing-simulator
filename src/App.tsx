@@ -13,6 +13,10 @@ import type { Spell } from './game/types';
 import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
 import { TOTEMS_BY_ELEMENT, getTotemById } from './game/totems';
 import type { TotemElement } from './game/types';
+import { MultiplayerLobby } from './components/MultiplayerLobby';
+import { RaidMeter } from './components/RaidMeter';
+import type { GameSession, SessionPlayer } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import './App.css';
 
 
@@ -61,17 +65,73 @@ function App() {
   const [isMobileMode, setIsMobileMode] = useState(false);
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.12.0';
+  const CURRENT_PATCH_VERSION = '0.13.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
     return seenVersion === CURRENT_PATCH_VERSION;
   });
+  // Multiplayer state
+  const [showMultiplayerLobby, setShowMultiplayerLobby] = useState(false);
+  const [multiplayerSession, setMultiplayerSession] = useState<GameSession | null>(null);
+  const [multiplayerPlayers, setMultiplayerPlayers] = useState<SessionPlayer[]>([]);
+  const [localPlayer, setLocalPlayer] = useState<SessionPlayer | null>(null);
+  const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
+  // Track all players' healing stats for the meter (host aggregates, clients receive)
+  const [multiplayerHealingStats, setMultiplayerHealingStats] = useState<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
+  const multiplayerHealingStatsRef = useRef<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
+
+  // These will be used for state sync - log them to satisfy the linter for now
+  if (multiplayerSession && multiplayerPlayers.length > 0 && localPlayer) {
+    console.debug('Multiplayer active:', multiplayerSession.room_code);
+  }
 
   const handleOpenPatchNotes = () => {
     setShowPatchNotes(true);
     setHasSeenPatchNotes(true);
     localStorage.setItem('seenPatchNotesVersion', CURRENT_PATCH_VERSION);
+  };
+
+  // Handle multiplayer game start
+  const handleMultiplayerStart = (session: GameSession, players: SessionPlayer[], player: SessionPlayer) => {
+    setMultiplayerSession(session);
+    setMultiplayerPlayers(players);
+    setLocalPlayer(player);
+    setIsMultiplayerMode(true);
+    setShowMultiplayerLobby(false);
+
+    // Set up multiplayer healers in the raid
+    // Filter out the local player (they're already the main player) and add others as raid healers
+    const otherPlayers = players.filter(p => p.id !== player.id);
+    if (otherPlayers.length > 0) {
+      engine.setupMultiplayerHealers(
+        otherPlayers.map(p => ({
+          id: p.id,
+          name: p.player_name,
+          playerClass: p.player_class,
+        }))
+      );
+    }
+
+    // Set the local player's name
+    engine.setPlayerName(player.player_name);
+
+    console.log('Multiplayer game started!', { session, players, player });
+  };
+
+  // Handle leaving multiplayer mode / going back to solo
+  const handleLeaveMultiplayer = () => {
+    setShowMultiplayerLobby(false);
+    setIsMultiplayerMode(false);
+    setMultiplayerSession(null);
+    setMultiplayerPlayers([]);
+    setLocalPlayer(null);
+    setMultiplayerHealingStats({});
+    multiplayerHealingStatsRef.current = {};
+    // Stop any running encounter
+    if (state.isRunning) {
+      engine.stopEncounter();
+    }
   };
 
   // Initialize engine once
@@ -88,6 +148,389 @@ function App() {
     });
     return unsubscribe;
   }, [engine]);
+
+  // Multiplayer real-time game state sync
+  useEffect(() => {
+    if (!isMultiplayerMode || !multiplayerSession || !localPlayer) return;
+
+    const roomCode = multiplayerSession.room_code;
+    const isHost = localPlayer.is_host;
+
+    // Create realtime channel for game state
+    const channel = supabase.channel(`game:${roomCode}`, {
+      config: { broadcast: { self: false } },
+    });
+
+    if (isHost) {
+      // HOST: Broadcast game state to all clients
+      let broadcastInterval: number | null = null;
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          // Broadcast state 20 times per second
+          broadcastInterval = window.setInterval(() => {
+            const gameState = engine.getState();
+
+            // If encounter just started (healing is 0), reset all multiplayer stats
+            if (gameState.healingDone === 0 && gameState.isRunning) {
+              multiplayerHealingStatsRef.current = {};
+            }
+
+            // Update host's own healing stats in the ref
+            multiplayerHealingStatsRef.current[localPlayer?.id || 'host'] = {
+              name: gameState.playerName,
+              class: gameState.playerClass,
+              healingDone: gameState.healingDone,
+              dispelsDone: gameState.dispelsDone,
+            };
+
+            // Update state so RaidMeter re-renders with current stats
+            setMultiplayerHealingStats({ ...multiplayerHealingStatsRef.current });
+
+            channel.send({
+              type: 'broadcast',
+              event: 'game_state',
+              payload: {
+                // Send full raid state with names, debuffs, buffs for sync
+                raid: gameState.raid.map((m, index) => ({
+                  index,
+                  id: m.id,
+                  name: m.name,
+                  class: m.class,
+                  role: m.role,
+                  hp: m.currentHealth,
+                  maxHp: m.maxHealth,
+                  alive: m.isAlive,
+                  debuffs: m.debuffs, // Sync debuffs!
+                  buffs: m.buffs,     // Sync buffs too
+                })),
+                // Send full boss data so client can start any boss
+                boss: gameState.boss ? {
+                  id: gameState.boss.id,
+                  name: gameState.boss.name,
+                  hp: gameState.boss.currentHealth,
+                  maxHp: gameState.boss.maxHealth,
+                  phase: gameState.boss.currentPhase,
+                  enrageTimer: gameState.boss.enrageTimer,
+                } : null,
+                isRunning: gameState.isRunning,
+                elapsedTime: gameState.elapsedTime,
+                bossEnraged: gameState.bossEnraged,
+                // Include all players' healing stats for the meter
+                healingStats: multiplayerHealingStatsRef.current,
+                // Sync loot drops to all clients
+                showLootModal: gameState.showLootModal,
+                pendingLoot: gameState.pendingLoot,
+                // Sync multiplayer loot bidding
+                lootBids: gameState.lootBids,
+                lootBidTimer: gameState.lootBidTimer,
+                lootResults: gameState.lootResults,
+                // Sync boss kill progress
+                defeatedBossesByRaid: gameState.defeatedBossesByRaid,
+                // Sync encounter result for summary display
+                lastEncounterResult: gameState.lastEncounterResult,
+              },
+            });
+          }, 50);
+        }
+      });
+
+      // HOST also listens on the :actions channel for player actions from clients
+      const actionsChannel = supabase.channel(`game:${roomCode}:actions`, {
+        config: { broadcast: { self: false } },
+      });
+
+      actionsChannel.on('broadcast', { event: 'player_action' }, (payload) => {
+        const data = payload.payload as {
+          type: string;
+          targetIndex?: number;
+          healAmount?: number;
+          debuffId?: string;
+          playerName: string;
+          spellName?: string;
+          playerId?: string;
+          playerClass?: string;
+          // Loot bid fields
+          itemId?: string;
+          dkp?: number;
+        };
+        const gameState = engine.getState();
+
+        if (data.type === 'loot_bid' && data.itemId && data.playerId && data.playerClass && data.dkp !== undefined) {
+          // Handle loot bid from client
+          engine.addLootBid(
+            data.itemId,
+            data.playerId,
+            data.playerName,
+            data.playerClass as WoWClass,
+            data.dkp
+          );
+        } else if (data.type === 'loot_pass' && data.itemId && data.playerId) {
+          // Handle loot pass from client
+          engine.removeLootBid(data.itemId, data.playerId);
+        } else if (data.type === 'heal' && data.healAmount !== undefined && data.targetIndex !== undefined) {
+          // Apply the heal from remote player
+          const target = gameState.raid[data.targetIndex];
+          if (target && target.isAlive) {
+            const actualHeal = Math.min(data.healAmount, target.maxHealth - target.currentHealth);
+            target.currentHealth = Math.min(target.maxHealth, target.currentHealth + data.healAmount);
+            engine.addCombatLogEntry({
+              message: `${data.playerName}'s ${data.spellName} heals ${target.name} for ${actualHeal}`,
+              type: 'heal',
+            });
+
+            // Track this player's healing for the meter
+            if (data.playerId) {
+              const existing = multiplayerHealingStatsRef.current[data.playerId] || {
+                name: data.playerName,
+                class: data.playerClass || 'paladin',
+                healingDone: 0,
+                dispelsDone: 0,
+              };
+              existing.healingDone += actualHeal;
+              multiplayerHealingStatsRef.current[data.playerId] = existing;
+            }
+          }
+        } else if (data.type === 'dispel' && data.debuffId && data.targetIndex !== undefined) {
+          // Apply the dispel from remote player
+          const target = gameState.raid[data.targetIndex];
+          if (target && target.isAlive) {
+            const debuff = target.debuffs.find(d => d.id === data.debuffId);
+            if (debuff) {
+              target.debuffs = target.debuffs.filter(d => d.id !== data.debuffId);
+              engine.addCombatLogEntry({
+                message: `${data.playerName}'s ${data.spellName} dispels ${debuff.name} from ${target.name}`,
+                type: 'buff',
+              });
+
+              // Track this player's dispels for the meter
+              if (data.playerId) {
+                const existing = multiplayerHealingStatsRef.current[data.playerId] || {
+                  name: data.playerName,
+                  class: data.playerClass || 'paladin',
+                  healingDone: 0,
+                  dispelsDone: 0,
+                };
+                existing.dispelsDone += 1;
+                multiplayerHealingStatsRef.current[data.playerId] = existing;
+              }
+            }
+          }
+        }
+      });
+
+      actionsChannel.subscribe();
+
+      return () => {
+        if (broadcastInterval) clearInterval(broadcastInterval);
+        supabase.removeChannel(channel);
+        supabase.removeChannel(actionsChannel);
+      };
+    } else {
+      // CLIENT: Receive game state from host
+      channel.on('broadcast', { event: 'game_state' }, (payload) => {
+        const data = payload.payload;
+        if (!data) return;
+
+        const gameState = engine.getState();
+
+        // Sync raid members by INDEX (host's raid is authoritative)
+        if (data.raid && Array.isArray(data.raid)) {
+          data.raid.forEach((memberData: {
+            index: number;
+            id: string;
+            name: string;
+            class: string;
+            role: string;
+            hp: number;
+            maxHp: number;
+            alive: boolean;
+            debuffs?: Array<{ id: string; name: string; icon: string; duration: number; maxDuration: number; type?: string }>;
+            buffs?: Array<{ id: string; name: string; icon: string; duration: number; maxDuration: number }>;
+          }) => {
+            if (memberData.index < gameState.raid.length) {
+              const member = gameState.raid[memberData.index];
+              // Sync all the important state
+              member.id = memberData.id;
+              member.name = memberData.name;
+              member.currentHealth = memberData.hp;
+              member.maxHealth = memberData.maxHp;
+              member.isAlive = memberData.alive;
+              // Sync debuffs and buffs (cast to proper types)
+              if (memberData.debuffs) {
+                member.debuffs = memberData.debuffs as typeof member.debuffs;
+              }
+              if (memberData.buffs) {
+                member.buffs = memberData.buffs as typeof member.buffs;
+              }
+            }
+          });
+        }
+
+        // Update boss state
+        if (data.boss) {
+          // If host started an encounter and we haven't, start it
+          if (data.isRunning && !gameState.isRunning) {
+            const bossId = data.boss.id as string;
+            // Try to start the encounter - if boss doesn't exist locally, create a placeholder
+            engine.startEncounter(bossId);
+          }
+
+          // Sync boss state (even if we couldn't find the exact boss)
+          if (gameState.boss) {
+            gameState.boss.currentHealth = data.boss.hp;
+            gameState.boss.maxHealth = data.boss.maxHp;
+            gameState.boss.currentPhase = data.boss.phase;
+            // Also sync the boss name in case client has different raid
+            if (data.boss.name) {
+              gameState.boss.name = data.boss.name;
+            }
+          } else if (data.isRunning) {
+            // Boss doesn't exist locally but host is running - create a minimal boss object
+            gameState.boss = {
+              id: data.boss.id,
+              name: data.boss.name || 'Unknown Boss',
+              currentHealth: data.boss.hp,
+              maxHealth: data.boss.maxHp,
+              currentPhase: data.boss.phase || 1,
+              enrageTimer: data.boss.enrageTimer || 300,
+              damageEvents: [],
+            };
+            gameState.isRunning = true;
+          }
+        }
+
+        // If host stopped encounter, stop ours too
+        if (!data.isRunning && gameState.isRunning) {
+          engine.stopEncounter();
+        }
+
+        // Sync timing
+        gameState.elapsedTime = data.elapsedTime;
+        gameState.bossEnraged = data.bossEnraged;
+
+        // Sync healing stats from host for the meter
+        if (data.healingStats) {
+          setMultiplayerHealingStats(data.healingStats);
+        }
+
+        // Sync loot modal from host
+        if (data.showLootModal !== undefined) {
+          gameState.showLootModal = data.showLootModal;
+          if (data.pendingLoot) {
+            gameState.pendingLoot = data.pendingLoot;
+          }
+        }
+
+        // Sync multiplayer loot bidding from host
+        if (data.lootBids !== undefined) {
+          gameState.lootBids = data.lootBids;
+        }
+        if (data.lootBidTimer !== undefined) {
+          gameState.lootBidTimer = data.lootBidTimer;
+        }
+        if (data.lootResults !== undefined) {
+          gameState.lootResults = data.lootResults;
+        }
+
+        // Sync boss kill progress from host
+        if (data.defeatedBossesByRaid) {
+          gameState.defeatedBossesByRaid = data.defeatedBossesByRaid;
+        }
+
+        // Sync encounter result for summary display
+        if (data.lastEncounterResult !== undefined) {
+          gameState.lastEncounterResult = data.lastEncounterResult;
+        }
+
+        // Force UI update
+        forceUpdate(n => n + 1);
+      });
+
+      channel.subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isMultiplayerMode, multiplayerSession, localPlayer, engine]);
+
+  // Store channel ref for sending actions from client
+  const mpChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Set up multiplayer client mode - clients send heals to host instead of applying locally
+  useEffect(() => {
+    if (!isMultiplayerMode || !multiplayerSession || !localPlayer) return;
+
+    const isClient = !localPlayer.is_host;
+    const roomCode = multiplayerSession.room_code;
+
+    // Set the engine to client mode if not host
+    engine.setMultiplayerClientMode(isClient);
+
+    if (isClient) {
+      // Create a channel for sending player actions
+      const actionChannel = supabase.channel(`game:${roomCode}:actions`, {
+        config: { broadcast: { self: false } },
+      });
+
+      actionChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          mpChannelRef.current = actionChannel;
+        }
+      });
+
+      // Set up the heal callback - send heals to host
+      engine.setOnHealApplied((data) => {
+        if (mpChannelRef.current) {
+          mpChannelRef.current.send({
+            type: 'broadcast',
+            event: 'player_action',
+            payload: {
+              type: 'heal',
+              targetIndex: data.targetIndex,
+              healAmount: data.healAmount,
+              playerName: data.playerName,
+              spellName: data.spellName,
+              playerId: localPlayer.id,
+              playerClass: localPlayer.player_class,
+            },
+          });
+        }
+      });
+
+      // Set up dispel callback - send dispels to host
+      engine.setOnDispelApplied((data) => {
+        if (mpChannelRef.current) {
+          mpChannelRef.current.send({
+            type: 'broadcast',
+            event: 'player_action',
+            payload: {
+              type: 'dispel',
+              targetIndex: data.targetIndex,
+              debuffId: data.debuffId,
+              playerName: data.playerName,
+              spellName: data.spellName,
+              playerId: localPlayer.id,
+              playerClass: localPlayer.player_class,
+            },
+          });
+        }
+      });
+
+      return () => {
+        engine.setMultiplayerClientMode(false);
+        engine.setOnHealApplied(null);
+        engine.setOnDispelApplied(null);
+        supabase.removeChannel(actionChannel);
+        mpChannelRef.current = null;
+      };
+    }
+
+    return () => {
+      engine.setMultiplayerClientMode(false);
+    };
+  }, [isMultiplayerMode, multiplayerSession, localPlayer, engine]);
 
   // Set up special alert callback (for Thunderaan summon, etc.)
   useEffect(() => {
@@ -156,12 +599,62 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [engine, showInventory]);
 
+  // Track when loot modal opens to start bidding in multiplayer
+  const prevShowLootModalRef = useRef(false);
+  const isHost = localPlayer?.is_host ?? false;
+  useEffect(() => {
+    // If loot modal just opened and we're the multiplayer host
+    if (state.showLootModal && !prevShowLootModalRef.current && isMultiplayerMode && isHost) {
+      // Start the bidding window (15 seconds)
+      engine.startLootBidding(15);
+    }
+    prevShowLootModalRef.current = state.showLootModal;
+  }, [state.showLootModal, isMultiplayerMode, isHost, engine]);
+
+  // Tick the loot bid timer and resolve when it expires (host only)
+  useEffect(() => {
+    if (!isMultiplayerMode || !isHost || state.lootBidTimer <= 0) return;
+
+    const timer = setInterval(() => {
+      engine.tickLootBidTimer();
+      const currentTimer = engine.getState().lootBidTimer;
+
+      if (currentTimer <= 0) {
+        // Timer expired, resolve all bids
+        const results = engine.resolveLootBids();
+
+        // Apply loot to winners - need to equip items for each winner
+        for (const result of results) {
+          // The host needs to apply the loot result
+          // Find the item from the loot results
+          engine.applyLootResult(result);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isMultiplayerMode, isHost, state.lootBidTimer, engine]);
+
   const actionBar = engine.getActionBar();
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Helper: Check if a raid member is the local player (works in solo and multiplayer)
+  const isLocalPlayer = (memberId: string): boolean => {
+    if (isMultiplayerMode && localPlayer) {
+      // In multiplayer:
+      // - Host: their raid member has id 'player'
+      // - Client: their raid member has id 'mp_<localPlayer.id>'
+      return localPlayer.is_host
+        ? memberId === state.playerId
+        : memberId === `mp_${localPlayer.id}`;
+    }
+    // In solo mode: check against state.playerId
+    return memberId === state.playerId;
   };
 
   // Get boss abilities for the encounter journal
@@ -286,6 +779,13 @@ function App() {
           </button>
         )}
         <button
+          className={`multiplayer-toggle-btn ${isMultiplayerMode ? 'active' : ''}`}
+          onClick={() => setShowMultiplayerLobby(true)}
+          title="Play with friends!"
+        >
+          {isMultiplayerMode ? '🎮 In Multiplayer' : '🎮 Multiplayer'}
+        </button>
+        <button
           className={`mobile-toggle-btn ${isMobileMode ? 'active' : ''}`}
           onClick={() => setIsMobileMode(!isMobileMode)}
           title={isMobileMode ? 'Switch to Desktop UI' : 'Switch to Phone UI'}
@@ -293,6 +793,16 @@ function App() {
           {isMobileMode ? '🖥️ Desktop' : '📱 Phone'}
         </button>
       </header>
+
+      {/* Multiplayer Lobby Modal */}
+      {showMultiplayerLobby && (
+        <MultiplayerLobby
+          onStartGame={handleMultiplayerStart}
+          onCancel={handleLeaveMultiplayer}
+          initialPlayerName={state.playerName}
+          hostEquipment={state.playerEquipment}
+        />
+      )}
 
       {/* DESKTOP UI */}
       {!isMobileMode && (
@@ -450,7 +960,7 @@ function App() {
                           d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
                         );
                         const classColor = CLASS_COLORS[member.class];
-                        const isPlayer = member.id === state.playerId;
+                        const isPlayer = isLocalPlayer(member.id);
                         const recentCritHeal = member.lastCritHealTime && (Date.now() - member.lastCritHealTime) < 500;
 
                         // Chain Heal bounce preview - show glow on targets that will receive bounces
@@ -678,19 +1188,22 @@ function App() {
                   )}
                 </div>
               </div>
-              <div className="healer-toggle">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={state.otherHealersEnabled}
-                    onChange={() => engine.toggleOtherHealers()}
-                  />
-                  Other Healers Active
-                </label>
-                <span className="healer-count">
-                  ({state.raid.filter(m => m.role === 'healer').length} healers in raid)
-                </span>
-              </div>
+              {/* Hide AI healer toggle for multiplayer clients - host controls this */}
+              {(!isMultiplayerMode || localPlayer?.is_host) && (
+                <div className="healer-toggle">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={state.otherHealersEnabled}
+                      onChange={() => engine.toggleOtherHealers()}
+                    />
+                    Other Healers Active
+                  </label>
+                  <span className="healer-count">
+                    ({state.raid.filter(m => m.role === 'healer').length} healers in raid)
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -719,7 +1232,66 @@ function App() {
                   <span className="score-value">{state.raid.filter(m => m.isAlive).length} / {state.raid.length}</span>
                 </div>
               </div>
+
+              {/* Healing Meter */}
+              <RaidMeter
+                playerHealing={state.healingDone}
+                playerDispels={state.dispelsDone}
+                playerSpellBreakdown={state.spellHealing}
+                playerName={state.playerName}
+                playerClass={state.playerClass}
+                aiHealerStats={state.aiHealerStats}
+                showAiHealers={state.otherHealersEnabled}
+                isMultiplayer={isMultiplayerMode}
+                multiplayerHealers={Object.entries(multiplayerHealingStats)
+                  .filter(([id]) => id !== (localPlayer?.id || 'host')) // Exclude self - already shown as "You"
+                  .map(([id, stats]) => ({
+                    id,
+                    name: stats.name,
+                    healingDone: stats.healingDone,
+                    dispelsDone: stats.dispelsDone,
+                    class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                    isPlayer: false,
+                  }))}
+              />
             </>
+          )}
+
+          {/* Encounter Summary - Shows healing meter after boss kill or wipe */}
+          {!state.isRunning && state.lastEncounterResult && (
+            <div className="encounter-summary">
+              <div className="encounter-summary-header">
+                <span className={`encounter-result ${state.lastEncounterResult}`}>
+                  {state.lastEncounterResult === 'victory' ? 'VICTORY!' : 'WIPE'}
+                </span>
+                <button
+                  className="dismiss-summary-btn"
+                  onClick={() => engine.clearEncounterResult()}
+                >
+                  ×
+                </button>
+              </div>
+              <RaidMeter
+                playerHealing={state.healingDone}
+                playerDispels={state.dispelsDone}
+                playerSpellBreakdown={state.spellHealing}
+                playerName={state.playerName}
+                playerClass={state.playerClass}
+                aiHealerStats={state.aiHealerStats}
+                showAiHealers={state.otherHealersEnabled}
+                isMultiplayer={isMultiplayerMode}
+                multiplayerHealers={Object.entries(multiplayerHealingStats)
+                  .filter(([id]) => id !== (localPlayer?.id || 'host'))
+                  .map(([id, stats]) => ({
+                    id,
+                    name: stats.name,
+                    healingDone: stats.healingDone,
+                    dispelsDone: stats.dispelsDone,
+                    class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                    isPlayer: false,
+                  }))}
+              />
+            </div>
           )}
 
           {/* Cast Bar */}
@@ -1319,7 +1891,7 @@ function App() {
                             const hasDispellable = member.debuffs.some(
                               d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
                             );
-                            const isPlayer = member.id === state.playerId;
+                            const isPlayer = isLocalPlayer(member.id);
                             const isChainHealBounce = state.isCasting &&
                               state.castingSpell?.id.includes('chain_heal') &&
                               state.selectedTargetId &&
@@ -1452,6 +2024,71 @@ function App() {
                     })}
                   </div>
                 )}
+
+                {/* Mobile Healing Meter - Show during encounters */}
+                {state.isRunning && (
+                  <div className="mobile-raid-meter">
+                    <RaidMeter
+                      playerHealing={state.healingDone}
+                      playerDispels={state.dispelsDone}
+                      playerSpellBreakdown={state.spellHealing}
+                      playerName={state.playerName}
+                      playerClass={state.playerClass}
+                      aiHealerStats={state.aiHealerStats}
+                      showAiHealers={state.otherHealersEnabled}
+                      isMultiplayer={isMultiplayerMode}
+                      multiplayerHealers={Object.entries(multiplayerHealingStats)
+                        .filter(([id]) => id !== (localPlayer?.id || 'host'))
+                        .map(([id, stats]) => ({
+                          id,
+                          name: stats.name,
+                          healingDone: stats.healingDone,
+                          dispelsDone: stats.dispelsDone,
+                          class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                          isPlayer: false,
+                        }))}
+                    />
+                  </div>
+                )}
+
+                {/* Mobile Encounter Summary - Show after boss kill or wipe */}
+                {!state.isRunning && state.lastEncounterResult && (
+                  <div className="mobile-encounter-summary">
+                    <div className="encounter-summary-header">
+                      <span className={`encounter-result ${state.lastEncounterResult}`}>
+                        {state.lastEncounterResult === 'victory' ? 'VICTORY!' : 'WIPE'}
+                      </span>
+                      <button
+                        className="dismiss-summary-btn"
+                        onClick={() => engine.clearEncounterResult()}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="mobile-raid-meter">
+                      <RaidMeter
+                        playerHealing={state.healingDone}
+                        playerDispels={state.dispelsDone}
+                        playerSpellBreakdown={state.spellHealing}
+                        playerName={state.playerName}
+                        playerClass={state.playerClass}
+                        aiHealerStats={state.aiHealerStats}
+                        showAiHealers={state.otherHealersEnabled}
+                        isMultiplayer={isMultiplayerMode}
+                        multiplayerHealers={Object.entries(multiplayerHealingStats)
+                          .filter(([id]) => id !== (localPlayer?.id || 'host'))
+                          .map(([id, stats]) => ({
+                            id,
+                            name: stats.name,
+                            healingDone: stats.healingDone,
+                            dispelsDone: stats.dispelsDone,
+                            class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                            isPlayer: false,
+                          }))}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1577,6 +2214,12 @@ function App() {
             <div className="loot-modal-header">
               <h2>Loot Dropped!</h2>
               <span className="dkp-display">Your DKP: {state.playerDKP.points}</span>
+              {/* Show bidding timer in multiplayer */}
+              {isMultiplayerMode && state.lootBidTimer > 0 && (
+                <span className="loot-bid-timer">
+                  Bidding: {state.lootBidTimer}s
+                </span>
+              )}
             </div>
             <div className="loot-items">
               {state.pendingLoot.map(item => {
@@ -1584,6 +2227,9 @@ function App() {
                 const canAfford = state.playerDKP.points >= cost;
                 const playerClass = state.faction === 'alliance' ? 'paladin' : 'shaman';
                 const canEquip = item.classes.includes(playerClass) || item.classes.includes('all');
+                const itemBids = state.lootBids[item.id] || [];
+                const myPlayerId = localPlayer?.id || 'player';
+                const hasPlayerBid = itemBids.some(b => b.playerId === myPlayerId);
 
                 return (
                   <div key={item.id} className="loot-item">
@@ -1604,30 +2250,136 @@ function App() {
                         {item.stats.critChance && <span>+{item.stats.critChance}% Crit</span>}
                       </div>
                       {!canEquip && <div className="loot-item-warning">Cannot equip ({playerClass === 'paladin' ? 'Paladin' : 'Shaman'} cannot use)</div>}
+                      {/* Show current bids in multiplayer */}
+                      {isMultiplayerMode && itemBids.length > 0 && (
+                        <div className="loot-item-bids">
+                          <span className="bid-count">{itemBids.length} bid{itemBids.length > 1 ? 's' : ''}</span>
+                          {hasPlayerBid && <span className="your-bid">(You bid)</span>}
+                        </div>
+                      )}
                     </div>
                     <div className="loot-item-actions">
                       <div className="loot-item-cost">{cost} DKP</div>
-                      <button
-                        className="claim-btn"
-                        disabled={!canAfford || !canEquip}
-                        onClick={() => engine.claimLoot(item.id)}
-                      >
-                        Claim
-                      </button>
-                      <button
-                        className="pass-btn"
-                        onClick={() => engine.passLoot(item.id)}
-                      >
-                        Pass
-                      </button>
+                      {isMultiplayerMode ? (
+                        // Multiplayer: Need/Pass buttons that send to host
+                        <>
+                          <button
+                            className={`need-btn ${hasPlayerBid ? 'active' : ''}`}
+                            disabled={!canAfford || !canEquip || state.lootBidTimer <= 0}
+                            onClick={() => {
+                              if (!hasPlayerBid) {
+                                // Send bid to host
+                                if (mpChannelRef.current) {
+                                  mpChannelRef.current.send({
+                                    type: 'broadcast',
+                                    event: 'action',
+                                    payload: {
+                                      type: 'loot_bid',
+                                      itemId: item.id,
+                                      playerId: myPlayerId,
+                                      playerName: localPlayer?.player_name || state.playerName,
+                                      playerClass: playerClass,
+                                      dkp: state.playerDKP.points,
+                                    }
+                                  });
+                                }
+                                // If we're the host, also add locally
+                                if (localPlayer?.is_host) {
+                                  engine.addLootBid(item.id, myPlayerId, localPlayer?.player_name || state.playerName, playerClass, state.playerDKP.points);
+                                }
+                              }
+                            }}
+                          >
+                            {hasPlayerBid ? 'Bidding' : 'Need'}
+                          </button>
+                          <button
+                            className="pass-btn"
+                            disabled={state.lootBidTimer <= 0}
+                            onClick={() => {
+                              // Send pass to host
+                              if (mpChannelRef.current) {
+                                mpChannelRef.current.send({
+                                  type: 'broadcast',
+                                  event: 'action',
+                                  payload: {
+                                    type: 'loot_pass',
+                                    itemId: item.id,
+                                    playerId: myPlayerId,
+                                  }
+                                });
+                              }
+                              // If we're the host, also remove locally
+                              if (localPlayer?.is_host) {
+                                engine.removeLootBid(item.id, myPlayerId);
+                              }
+                            }}
+                          >
+                            Pass
+                          </button>
+                        </>
+                      ) : (
+                        // Solo mode: direct claim/pass
+                        <>
+                          <button
+                            className="claim-btn"
+                            disabled={!canAfford || !canEquip}
+                            onClick={() => engine.claimLoot(item.id)}
+                          >
+                            Claim
+                          </button>
+                          <button
+                            className="pass-btn"
+                            onClick={() => engine.passLoot(item.id)}
+                          >
+                            Pass
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
             <div className="loot-modal-footer">
-              <button className="close-btn" onClick={() => engine.closeLootModal()}>
-                Close (Pass All)
+              {isMultiplayerMode && state.lootBidTimer > 0 ? (
+                <span className="loot-bidding-info">Waiting for all players to bid...</span>
+              ) : (
+                <button className="close-btn" onClick={() => engine.closeLootModal()}>
+                  Close (Pass All)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loot Results Modal (shown after bidding resolves in multiplayer) */}
+      {state.lootResults.length > 0 && (
+        <div className="modal-overlay">
+          <div className="loot-results-modal">
+            <div className="loot-results-header">
+              <h2>Loot Awarded!</h2>
+            </div>
+            <div className="loot-results-list">
+              {state.lootResults.map(result => (
+                <div key={result.itemId} className="loot-result-item">
+                  <span className="item-name" style={{ color: '#a335ee' }}>{result.itemName}</span>
+                  <div className="winner-info">
+                    <span className="winner-name" style={{ color: CLASS_COLORS[result.winnerClass] }}>
+                      {result.winnerName}
+                      {result.winnerId === (localPlayer?.id || 'player') && ' (You)'}
+                    </span>
+                    <div className="win-info">
+                      {result.dkpSpent} DKP
+                      {result.roll && <span className="roll-info"> (Roll: {result.roll})</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="loot-results-footer">
+              <button className="close-btn" onClick={() => engine.clearLootResults()}>
+                Close
               </button>
             </div>
           </div>
@@ -1955,7 +2707,7 @@ function App() {
                       <div className="rgm-group-members">
                         {groupMembers.map(member => {
                           const classColor = CLASS_COLORS[member.class];
-                          const isPlayer = member.id === state.playerId;
+                          const isPlayer = isLocalPlayer(member.id);
                           // Paladins only exist in Alliance raids - Horde has Shamans instead
                           const isPaladin = member.class === 'paladin' && state.faction === 'alliance';
                           // NPC Shamans in Horde raids can have totems assigned (player shaman uses active totems)
@@ -2287,6 +3039,63 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.13.0 - Multiplayer Update</h3>
+                <span className="patch-date">November 28, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Multiplayer Co-op Healing</h4>
+                <ul>
+                  <li><strong>Real-Time Multiplayer</strong>: Host a game or join with a room code - heal raids together with friends!</li>
+                  <li><strong>Host-Authoritative Sync</strong>: Raid frames, boss health, damage events, and loot all sync in real-time at 20Hz</li>
+                  <li><strong>Multiplayer Lobby</strong>: Create/join sessions, see connected players, ready-up system</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Real-Time Healing Meter</h4>
+                <ul>
+                  <li><strong>Live HPS Tracking</strong>: See all healers' output in real-time during encounters</li>
+                  <li><strong>Spell Breakdown</strong>: Click your entry to see per-spell healing breakdown</li>
+                  <li><strong>Dispel Tracking</strong>: Tab to see dispel counts for all healers</li>
+                  <li><strong>Encounter Summary</strong>: Healing meter shows after each boss kill or wipe</li>
+                  <li><strong>Mobile Support</strong>: Healing meter available on mobile UI after action bar</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Multiplayer Loot System</h4>
+                <ul>
+                  <li><strong>DKP Bidding</strong>: All players can bid "Need" on loot they can equip</li>
+                  <li><strong>15-Second Timer</strong>: Bidding window with countdown timer</li>
+                  <li><strong>Fair Resolution</strong>: Highest DKP wins - random roll on ties!</li>
+                  <li><strong>Results Display</strong>: See who won each item and their winning roll</li>
+                  <li><strong>Auto-Loot</strong>: Won items go directly to your bag with DKP deducted</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Multiplayer Sync Features</h4>
+                <ul>
+                  <li><strong>Boss Progress Sync</strong>: Defeated bosses sync to all players</li>
+                  <li><strong>Loot Drop Sync</strong>: All players see loot when it drops</li>
+                  <li><strong>Healing Stats Sync</strong>: Everyone sees accurate healing meters</li>
+                  <li><strong>Encounter Results</strong>: Victory/wipe status synced with summary display</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Bug Fixes</h4>
+                <ul>
+                  <li><strong>Player Indicator Fix</strong>: "(You)" now correctly shows YOUR character in multiplayer, not the host's</li>
+                  <li><strong>Healing Meter Duplicates</strong>: Fixed duplicate player entries in healing meter</li>
+                  <li><strong>Decimal Display</strong>: Fixed floating point numbers showing in healing totals</li>
+                  <li><strong>Back to Solo</strong>: Fixed "Back to Solo" button to properly leave multiplayer session</li>
+                  <li><strong>Client Sync</strong>: Fixed "You are dead!" spam and flickering raid frames on client</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.12.0</h3>
                 <span className="patch-date">November 27, 2025</span>
               </div>
@@ -2982,6 +3791,19 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Gear All Players */}
+                  <div className="admin-section">
+                    <div className="admin-section-header">Quick Actions</div>
+                    <div className="raid-size-controls">
+                      <button
+                        onClick={() => engine.adminGearAllPlayers()}
+                        title="Equip best available gear on all raid members"
+                      >
+                        Gear All Players
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Member Table */}
                   <div className="admin-section">
                     <div className="admin-section-header">Raid Members</div>
@@ -2996,7 +3818,7 @@ function App() {
                       </div>
                       <div className="admin-member-list">
                         {state.raid.map((member, idx) => {
-                          const isPlayer = member.id === state.playerId;
+                          const isPlayer = isLocalPlayer(member.id);
                           const isEditing = editingMemberId === member.id;
 
                           return (

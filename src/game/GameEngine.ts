@@ -1,4 +1,4 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
 import { DEFAULT_SHAMAN_ACTION_BAR } from './shamanSpells';
@@ -321,6 +321,25 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
   },
 };
 
+// Callback for when a heal is applied - used for multiplayer sync
+export type HealAppliedCallback = (data: {
+  targetIndex: number;
+  targetId: string;
+  healAmount: number;
+  spellName: string;
+  spellId: string;
+  playerName: string;
+}) => void;
+
+// Callback for when a dispel is applied - used for multiplayer sync
+export type DispelAppliedCallback = (data: {
+  targetIndex: number;
+  targetId: string;
+  debuffId: string;
+  spellName: string;
+  playerName: string;
+}) => void;
+
 export class GameEngine {
   private state: GameState;
   private intervalId: number | null = null;
@@ -330,6 +349,9 @@ export class GameEngine {
   private castTimeout: number | null = null;
   private aiHealerCooldowns: Record<string, number> = {};
   private specialAlertCallback: ((message: string) => void) | null = null;
+  private onHealApplied: HealAppliedCallback | null = null;
+  private onDispelApplied: DispelAppliedCallback | null = null;
+  private isMultiplayerClient: boolean = false; // If true, don't apply heals locally - they'll come from host
 
   constructor() {
     this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
@@ -360,6 +382,11 @@ export class GameEngine {
       globalCooldown: 0,
       healingDone: 0,
       overhealing: 0,
+      // Healing meter stats
+      dispelsDone: 0,
+      spellHealing: {},
+      aiHealerStats: {},
+      lastEncounterResult: null,
       combatLog: [],
       manaPotionCooldown: 0,
       divineFavorActive: false,
@@ -371,6 +398,10 @@ export class GameEngine {
       pendingLoot: [],
       showLootModal: false,
       inspectedMember: null,
+      // Multiplayer loot bidding
+      lootBids: {},
+      lootBidTimer: 0,
+      lootResults: [],
       // Player identity
       playerName,
       playerId: PLAYER_ID,
@@ -676,6 +707,21 @@ export class GameEngine {
   // Set callback for special alerts (like Thunderaan summon)
   setSpecialAlertCallback(callback: (message: string) => void): void {
     this.specialAlertCallback = callback;
+  }
+
+  // Set callback for when heals are applied (for multiplayer sync)
+  setOnHealApplied(callback: HealAppliedCallback | null): void {
+    this.onHealApplied = callback;
+  }
+
+  // Set callback for when dispels are applied (for multiplayer sync)
+  setOnDispelApplied(callback: DispelAppliedCallback | null): void {
+    this.onDispelApplied = callback;
+  }
+
+  // Set multiplayer client mode - heals won't be applied locally, just sent to host
+  setMultiplayerClientMode(isClient: boolean): void {
+    this.isMultiplayerClient = isClient;
   }
 
   // Trigger a special alert (used for legendary/secret unlocks)
@@ -1074,6 +1120,8 @@ export class GameEngine {
             if (actualHeal > 0) {
               member.currentHealth += actualHeal;
               this.state.healingDone += actualHeal;
+              // Track per-spell healing for meter breakdown
+              this.state.spellHealing['healing_stream_totem'] = (this.state.spellHealing['healing_stream_totem'] || 0) + actualHeal;
             }
           });
         }
@@ -1180,8 +1228,11 @@ export class GameEngine {
           if (totem.effect.healingReceivedBonus) {
             partyMembers.forEach(member => {
               const healAmount = totem.effect.healingReceivedBonus || 0;
+              const actualHeal = Math.min(healAmount, member.maxHealth - member.currentHealth);
               member.currentHealth = Math.min(member.maxHealth, member.currentHealth + healAmount);
-              this.state.healingDone += healAmount;
+              this.state.healingDone += actualHeal;
+              // Track per-spell healing for meter breakdown
+              this.state.spellHealing['healing_stream_totem'] = (this.state.spellHealing['healing_stream_totem'] || 0) + actualHeal;
             });
           }
 
@@ -1216,7 +1267,7 @@ export class GameEngine {
     this.listeners.forEach(listener => listener());
   }
 
-  private addCombatLogEntry(entry: Omit<CombatLogEntry, 'timestamp'>) {
+  addCombatLogEntry(entry: Omit<CombatLogEntry, 'timestamp'>) {
     this.state.combatLog = [
       { ...entry, timestamp: Date.now() },
       ...this.state.combatLog.slice(0, 99),
@@ -1306,6 +1357,11 @@ export class GameEngine {
     this.state.playerMana = this.state.maxMana;
     this.state.healingDone = 0;
     this.state.overhealing = 0;
+    // Reset healing meter stats
+    this.state.dispelsDone = 0;
+    this.state.spellHealing = {};
+    this.state.aiHealerStats = {};
+    this.state.lastEncounterResult = null; // Clear previous encounter result
     this.state.globalCooldown = 0;
     this.state.isCasting = false;
     this.state.castingSpell = null;
@@ -1340,6 +1396,12 @@ export class GameEngine {
       this.castTimeout = null;
     }
     this.addCombatLogEntry({ message: 'Encounter ended.', type: 'system' });
+    this.notify();
+  }
+
+  // Clear the encounter result (dismiss the post-encounter summary)
+  clearEncounterResult() {
+    this.state.lastEncounterResult = null;
     this.notify();
   }
 
@@ -1440,6 +1502,54 @@ export class GameEngine {
     return this.state.raid.find(m => m.id === PLAYER_ID);
   }
 
+  /**
+   * Configure multiplayer healers - replaces NPC healers with player healers
+   * @param players Array of player info with id, name, and class
+   */
+  setupMultiplayerHealers(players: Array<{ id: string; name: string; playerClass: 'paladin' | 'shaman' | 'priest' | 'druid' }>) {
+    // Find all healer slots in the raid (excluding player)
+    const healerIndices: number[] = [];
+    this.state.raid.forEach((member, index) => {
+      if (member.role === 'healer' && member.id !== PLAYER_ID) {
+        healerIndices.push(index);
+      }
+    });
+
+    // Replace NPC healers with multiplayer players
+    players.forEach((player, i) => {
+      if (i >= healerIndices.length) return; // No more slots
+
+      const index = healerIndices[i];
+      const existingMember = this.state.raid[index];
+
+      // Determine spec based on class
+      const specMap: Record<string, WoWSpec> = {
+        paladin: 'holy_paladin',
+        shaman: 'restoration_shaman',
+        priest: 'holy_priest',
+        druid: 'restoration',
+      };
+
+      // Replace the NPC healer with the player
+      this.state.raid[index] = {
+        ...existingMember,
+        id: `mp_${player.id}`, // Prefix to distinguish multiplayer players
+        name: player.name,
+        class: player.playerClass as WoWClass,
+        spec: specMap[player.playerClass] || 'holy_paladin',
+      };
+    });
+
+    this.notify();
+  }
+
+  /**
+   * Get all multiplayer player members in the raid
+   */
+  getMultiplayerMembers(): RaidMember[] {
+    return this.state.raid.filter(m => m.id.startsWith('mp_'));
+  }
+
   toggleOtherHealers() {
     this.state.otherHealersEnabled = !this.state.otherHealersEnabled;
     this.addCombatLogEntry({
@@ -1478,7 +1588,10 @@ export class GameEngine {
 
   castSpell(spell: Spell) {
     // Check if player is dead - can't cast if dead!
-    const player = this.state.raid.find(m => m.name === this.state.playerName);
+    // In multiplayer client mode, use PLAYER_ID to find local player since names sync from host
+    const player = this.isMultiplayerClient
+      ? this.state.raid.find(m => m.id === PLAYER_ID)
+      : this.state.raid.find(m => m.name === this.state.playerName);
     if (!player?.isAlive) {
       this.addCombatLogEntry({ message: 'You are dead!', type: 'system' });
       this.notify();
@@ -1580,7 +1693,27 @@ export class GameEngine {
       this.state.playerMana -= spell.manaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
-      target.debuffs = target.debuffs.filter(d => d.id !== dispellable.id);
+
+      // Find target index for multiplayer sync
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: dispellable.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (!this.isMultiplayerClient) {
+        target.debuffs = target.debuffs.filter(d => d.id !== dispellable.id);
+        // Track dispels for healing meter
+        this.state.dispelsDone++;
+      }
       this.addCombatLogEntry({ message: `Cleansed ${dispellable.name} from ${target.name}`, type: 'buff' });
       this.notify();
       return;
@@ -1599,7 +1732,27 @@ export class GameEngine {
       this.state.playerMana -= spell.manaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
-      target.debuffs = target.debuffs.filter(d => d.id !== poison.id);
+
+      // Find target index for multiplayer sync
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: poison.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (!this.isMultiplayerClient) {
+        target.debuffs = target.debuffs.filter(d => d.id !== poison.id);
+        // Track dispels for healing meter
+        this.state.dispelsDone++;
+      }
       this.addCombatLogEntry({ message: `Cured ${poison.name} from ${target.name}`, type: 'buff' });
       this.notify();
       return;
@@ -1618,7 +1771,27 @@ export class GameEngine {
       this.state.playerMana -= spell.manaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
-      target.debuffs = target.debuffs.filter(d => d.id !== disease.id);
+
+      // Find target index for multiplayer sync
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: disease.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (!this.isMultiplayerClient) {
+        target.debuffs = target.debuffs.filter(d => d.id !== disease.id);
+        // Track dispels for healing meter
+        this.state.dispelsDone++;
+      }
       this.addCombatLogEntry({ message: `Cured ${disease.name} from ${target.name}`, type: 'buff' });
       this.notify();
       return;
@@ -1636,12 +1809,44 @@ export class GameEngine {
       const actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
       const overheal = healAmount - actualHeal;
 
+      // Find target index for multiplayer sync
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onHealApplied) {
+        this.onHealApplied({
+          targetIndex,
+          targetId: target.id,
+          healAmount: healAmount,
+          spellName: spell.name,
+          spellId: spell.id,
+          playerName: this.state.playerName,
+        });
+      }
+
+      // In multiplayer client mode, don't apply heal locally
+      if (this.isMultiplayerClient) {
+        this.state.playerMana = 0; // Still drain mana
+        this.state.lastSpellCastTime = this.state.elapsedTime;
+        this.state.globalCooldown = GCD_DURATION;
+        if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+        this.addCombatLogEntry({
+          message: `Lay on Hands heals ${target.name} for ${actualHeal}${overheal > 0 ? ` (${overheal} overheal)` : ''} (syncing...)`,
+          type: 'heal',
+          amount: actualHeal,
+        });
+        this.notify();
+        return;
+      }
+
       target.currentHealth = target.maxHealth;
       this.state.playerMana = 0; // Drains all mana
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
       this.state.healingDone += actualHeal;
       this.state.overhealing += overheal;
+      // Track per-spell healing for meter breakdown
+      this.state.spellHealing[spell.id] = (this.state.spellHealing[spell.id] || 0) + actualHeal;
 
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
 
@@ -1806,9 +2011,43 @@ export class GameEngine {
     const actualHeal = Math.min(totalHeal, target.maxHealth - target.currentHealth);
     const overheal = totalHeal - actualHeal;
 
+    // Find target index for multiplayer sync
+    const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+    // Call multiplayer callback if set
+    if (this.onHealApplied) {
+      this.onHealApplied({
+        targetIndex,
+        targetId: target.id,
+        healAmount: totalHeal,
+        spellName: spell.name,
+        spellId: spell.id,
+        playerName: this.state.playerName,
+      });
+    }
+
+    // In multiplayer client mode, don't apply heal to target locally - host will sync it back
+    // But DO track our own healing stats for the meter
+    if (this.isMultiplayerClient) {
+      // Track healing stats locally for the meter (even though host applies the actual heal)
+      this.state.healingDone += actualHeal;
+      this.state.overhealing += overheal;
+      this.state.spellHealing[spell.id] = (this.state.spellHealing[spell.id] || 0) + actualHeal;
+
+      this.addCombatLogEntry({
+        message: `${spell.name} ${isCrit ? 'CRITS ' : 'heals '}${target.name} for ${actualHeal}${overheal > 0 ? ` (${overheal} overheal)` : ''}`,
+        type: 'heal',
+        amount: actualHeal,
+        isCrit,
+      });
+      return;
+    }
+
     target.currentHealth = Math.min(target.maxHealth, target.currentHealth + totalHeal);
     this.state.healingDone += actualHeal;
     this.state.overhealing += overheal;
+    // Track per-spell healing for meter breakdown
+    this.state.spellHealing[spell.id] = (this.state.spellHealing[spell.id] || 0) + actualHeal;
 
     this.addCombatLogEntry({
       message: `${spell.name} ${isCrit ? 'CRITS ' : 'heals '}${target.name} for ${actualHeal}${overheal > 0 ? ` (${overheal} overheal)` : ''}`,
@@ -1899,6 +2138,8 @@ export class GameEngine {
     target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
     this.state.healingDone += actualHeal;
     this.state.overhealing += overheal;
+    // Track per-spell healing for meter breakdown
+    this.state.spellHealing[spell.id] = (this.state.spellHealing[spell.id] || 0) + actualHeal;
 
     const bounceText = bounceNumber > 1 ? ` (bounce ${bounceNumber - 1})` : '';
     this.addCombatLogEntry({
@@ -2394,6 +2635,13 @@ export class GameEngine {
         }
       }
 
+      // In multiplayer client mode, skip all boss/damage processing - host handles that
+      // Client only needs cooldown tracking and cast progress (handled above)
+      if (this.isMultiplayerClient) {
+        this.notify();
+        return;
+      }
+
       // Process phase transitions for multi-phase bosses (like Onyxia)
       if (this.state.boss.phaseTransitions && this.state.boss.phaseTransitions.length > 0) {
         const currentHealthPercent = (this.state.boss.currentHealth / this.state.boss.maxHealth) * 100;
@@ -2532,9 +2780,10 @@ export class GameEngine {
       });
 
       // AI Healers - other healers in the raid automatically heal
-      if (this.state.otherHealersEnabled) {
+      // Disable AI healers in multiplayer client mode (host handles all AI healing)
+      if (this.state.otherHealersEnabled && !this.isMultiplayerClient) {
         const aiHealers = this.state.raid.filter(
-          m => m.role === 'healer' && m.isAlive
+          m => m.role === 'healer' && m.isAlive && m.id !== PLAYER_ID
         );
 
         aiHealers.forEach(healer => {
@@ -2571,6 +2820,16 @@ export class GameEngine {
             const actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
             target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
             this.state.otherHealersHealing += actualHeal;
+
+            // Track individual AI healer stats for the healing meter
+            if (!this.state.aiHealerStats[healer.id]) {
+              this.state.aiHealerStats[healer.id] = {
+                healingDone: 0,
+                name: healer.name,
+                class: healer.class,
+              };
+            }
+            this.state.aiHealerStats[healer.id].healingDone += actualHeal;
 
             // Set cooldown (1.5-2.5s cast time simulation)
             this.aiHealerCooldowns[healer.id] = 1.5 + Math.random();
@@ -2634,6 +2893,7 @@ export class GameEngine {
       const aliveCount = this.state.raid.filter(m => m.isAlive).length;
       if (aliveCount === 0) {
         this.addCombatLogEntry({ message: 'WIPE! The raid has been defeated!', type: 'system' });
+        this.state.lastEncounterResult = 'wipe';
         this.stopEncounter();
         return;
       }
@@ -2651,6 +2911,9 @@ export class GameEngine {
     const fanfare = new Audio('/sounds/FF_Fanfare.mp3');
     fanfare.volume = 0.5;
     fanfare.play().catch(() => {}); // Ignore autoplay restrictions
+
+    // Mark encounter result for summary display
+    this.state.lastEncounterResult = 'victory';
 
     // Stop the encounter first
     this.state.isRunning = false;
@@ -2994,6 +3257,217 @@ export class GameEngine {
   // Get DKP cost for an item
   getItemDKPCost(item: GearItem): number {
     return calculateDKPCost(item);
+  }
+
+  // =========================================================================
+  // MULTIPLAYER LOOT BIDDING SYSTEM
+  // =========================================================================
+
+  // Start the loot bidding window (called by host when loot drops)
+  startLootBidding(bidDuration: number = 15) {
+    // Initialize bids for each pending loot item
+    this.state.lootBids = {};
+    this.state.lootResults = [];
+    for (const item of this.state.pendingLoot) {
+      this.state.lootBids[item.id] = [];
+    }
+    this.state.lootBidTimer = bidDuration;
+    this.notify();
+  }
+
+  // Add a bid for an item (called when player clicks "Need" on an item)
+  addLootBid(itemId: string, playerId: string, playerName: string, playerClass: WoWClass, dkp: number) {
+    const item = this.state.pendingLoot.find(i => i.id === itemId);
+    if (!item) return;
+
+    // Check if player can equip this item
+    if (!this.canEquip(playerClass, item)) {
+      return; // Can't bid on items you can't use
+    }
+
+    // Check DKP
+    const cost = calculateDKPCost(item);
+    if (dkp < cost) {
+      return; // Not enough DKP
+    }
+
+    // Check if already bid
+    if (!this.state.lootBids[itemId]) {
+      this.state.lootBids[itemId] = [];
+    }
+
+    const existingBid = this.state.lootBids[itemId].find(b => b.playerId === playerId);
+    if (existingBid) {
+      return; // Already bid
+    }
+
+    // Add bid with random roll for tie-breaking
+    const bid = {
+      playerId,
+      playerName,
+      playerClass,
+      dkp,
+      roll: Math.floor(Math.random() * 100) + 1,
+      timestamp: Date.now(),
+    };
+    this.state.lootBids[itemId].push(bid);
+
+    this.addCombatLogEntry({
+      message: `${playerName} rolls Need on ${item.name}`,
+      type: 'system'
+    });
+    this.notify();
+  }
+
+  // Remove a bid (player changed their mind)
+  removeLootBid(itemId: string, playerId: string) {
+    if (!this.state.lootBids[itemId]) return;
+
+    const bidIndex = this.state.lootBids[itemId].findIndex(b => b.playerId === playerId);
+    if (bidIndex !== -1) {
+      const bid = this.state.lootBids[itemId][bidIndex];
+      const item = this.state.pendingLoot.find(i => i.id === itemId);
+      this.state.lootBids[itemId].splice(bidIndex, 1);
+
+      if (item) {
+        this.addCombatLogEntry({
+          message: `${bid.playerName} passes on ${item.name}`,
+          type: 'system'
+        });
+      }
+      this.notify();
+    }
+  }
+
+  // Resolve all loot bids (called when timer expires or host clicks resolve)
+  resolveLootBids(): LootResult[] {
+    const results: LootResult[] = [];
+
+    for (const item of [...this.state.pendingLoot]) {
+      const bids = this.state.lootBids[item.id] || [];
+      const cost = calculateDKPCost(item);
+
+      if (bids.length === 0) {
+        // No bids - pass to AI
+        this.passLoot(item.id);
+        continue;
+      }
+
+      // Sort by DKP (highest first), then by roll (highest first) for ties
+      bids.sort((a, b) => {
+        if (b.dkp !== a.dkp) return b.dkp - a.dkp;
+        return b.roll - a.roll;
+      });
+
+      const winner = bids[0];
+      const hadTie = bids.length > 1 && bids[1].dkp === winner.dkp;
+
+      // Record the result
+      const result: LootResult = {
+        itemId: item.id,
+        itemName: item.name,
+        winnerId: winner.playerId,
+        winnerName: winner.playerName,
+        winnerClass: winner.playerClass,
+        dkpSpent: cost,
+        roll: hadTie ? winner.roll : undefined,
+      };
+      results.push(result);
+
+      // Log the result
+      if (hadTie) {
+        this.addCombatLogEntry({
+          message: `${winner.playerName} wins ${item.name} with roll ${winner.roll}! (${cost} DKP)`,
+          type: 'buff',
+        });
+      } else {
+        this.addCombatLogEntry({
+          message: `${winner.playerName} wins ${item.name}! (${cost} DKP)`,
+          type: 'buff',
+        });
+      }
+
+      // Remove item from pending loot
+      const itemIndex = this.state.pendingLoot.findIndex(i => i.id === item.id);
+      if (itemIndex !== -1) {
+        this.state.pendingLoot.splice(itemIndex, 1);
+      }
+    }
+
+    this.state.lootResults = results;
+    this.state.lootBids = {};
+    this.state.lootBidTimer = 0;
+    this.notify();
+
+    return results;
+  }
+
+  // Apply loot result to a specific player (called after resolution)
+  applyLootToPlayer(itemId: string, playerId: string, dkpCost: number) {
+    // This is called on each client to apply the loot to the winner
+    // If this player won, equip the item and deduct DKP
+    if (playerId === this.state.playerId) {
+      // Find the item in loot results
+      const result = this.state.lootResults.find(r => r.itemId === itemId);
+      if (!result) return;
+
+      // Find the item (might need to fetch from items database)
+      // For now, we'll need to pass the item through the result
+      this.state.playerDKP.points -= dkpCost;
+      this.notify();
+    }
+  }
+
+  // Check if current player has bid on an item
+  hasPlayerBidOnItem(itemId: string): boolean {
+    const bids = this.state.lootBids[itemId];
+    if (!bids) return false;
+    return bids.some(b => b.playerId === this.state.playerId);
+  }
+
+  // Get all bids for an item
+  getBidsForItem(itemId: string): LootBid[] {
+    return this.state.lootBids[itemId] || [];
+  }
+
+  // Update bid timer (called each second during bidding)
+  tickLootBidTimer() {
+    if (this.state.lootBidTimer > 0) {
+      this.state.lootBidTimer--;
+      this.notify();
+    }
+  }
+
+  // Clear loot results (dismiss the results display)
+  clearLootResults() {
+    this.state.lootResults = [];
+    this.notify();
+  }
+
+  // Apply a loot result - equip item to winner and deduct DKP
+  applyLootResult(result: LootResult) {
+    // Find the item from the all items list (it's been removed from pendingLoot at this point)
+    const item = ALL_ITEMS[result.itemId];
+    if (!item) return;
+
+    // Check if the local player is the winner
+    if (result.winnerId === this.state.playerId) {
+      // Deduct DKP
+      this.state.playerDKP.points -= result.dkpSpent;
+
+      // Add item to player's bag
+      this.state.playerBag.push({
+        ...item,
+        id: `${item.id}_${Date.now()}`, // Unique ID for the bag slot
+      });
+
+      this.addCombatLogEntry({
+        message: `You won ${item.name}! (-${result.dkpSpent} DKP)`,
+        type: 'buff',
+      });
+
+      this.notify();
+    }
   }
 
   // =========================================================================
@@ -3797,7 +4271,17 @@ export class GameEngine {
       return false;
     }
 
-    const slot = item.slot;
+    // Determine the target slot, handling dual-wield for warriors and rogues
+    let slot = item.slot;
+    const canDualWield = member.class === 'warrior' || member.class === 'rogue';
+
+    if (canDualWield && item.slot === 'weapon' && item.weaponType === 'one_hand') {
+      // If main hand is already equipped, try to put in offhand
+      if (member.equipment.weapon && !member.equipment.offhand) {
+        slot = 'offhand' as EquipmentSlot;
+      }
+    }
+
     const oldItem = member.equipment[slot];
     member.equipment[slot] = item;
     member.gearScore = this.calculateGearScore(member.equipment);
@@ -3853,6 +4337,76 @@ export class GameEngine {
     });
     this.notify();
     return removedItem;
+  }
+
+  // Admin: Gear all raid members with appropriate items for their class
+  adminGearAllPlayers(): void {
+    const slots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'];
+    let totalEquipped = 0;
+
+    for (const member of this.state.raid) {
+      // Get all equippable items for this class
+      const equippableItems = this.getEquippableItemsForClass(member.class);
+
+      for (const slot of slots) {
+        // Skip if already equipped
+        if (member.equipment[slot]) continue;
+
+        // Find best item for this slot (highest item level)
+        const itemsForSlot = equippableItems.filter(item => item.slot === slot);
+        if (itemsForSlot.length === 0) continue;
+
+        // Sort by item level descending and pick the best
+        const bestItem = itemsForSlot.sort((a, b) => b.itemLevel - a.itemLevel)[0];
+
+        // Equip it
+        member.equipment[slot] = bestItem;
+        totalEquipped++;
+
+        // If this is the player, also update playerEquipment
+        if (member.id === PLAYER_ID) {
+          this.state.playerEquipment[slot] = bestItem;
+        }
+      }
+
+      // Handle offhand for dual-wield classes (warrior, rogue)
+      if ((member.class === 'warrior' || member.class === 'rogue') && !member.equipment.offhand) {
+        const offhandItems = equippableItems.filter(item =>
+          item.slot === 'offhand' ||
+          (item.slot === 'weapon' && item.weaponType === 'one_hand')
+        );
+        if (offhandItems.length > 0) {
+          const bestOffhand = offhandItems.sort((a, b) => b.itemLevel - a.itemLevel)[0];
+          member.equipment.offhand = bestOffhand;
+          totalEquipped++;
+        }
+      }
+
+      // Handle ranged for hunters
+      if (member.class === 'hunter' && !member.equipment.ranged) {
+        const rangedItems = equippableItems.filter(item => item.slot === 'ranged');
+        if (rangedItems.length > 0) {
+          const bestRanged = rangedItems.sort((a, b) => b.itemLevel - a.itemLevel)[0];
+          member.equipment.ranged = bestRanged;
+          totalEquipped++;
+        }
+      }
+
+      // Update gear score
+      member.gearScore = this.calculateGearScore(member.equipment);
+    }
+
+    // Update player stats if they got new gear
+    const stats = this.computePlayerStats();
+    this.state.spellPower = stats.totalSpellPower;
+    this.state.maxMana = stats.totalMaxMana;
+    this.state.critChance = stats.totalCritChance;
+
+    this.addCombatLogEntry({
+      message: `[Admin] Geared all raid members (${totalEquipped} items equipped)`,
+      type: 'system',
+    });
+    this.notify();
   }
 
   // Admin: Set player DKP to specific value

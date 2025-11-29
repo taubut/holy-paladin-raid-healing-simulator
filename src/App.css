@@ -917,6 +917,231 @@ body {
   color: #69ccf0;
 }
 
+/* ============================================
+   RAID METER - WoW Recount/Details! Style
+   ============================================ */
+.raid-meter {
+  width: 100%;
+  max-width: 320px;
+  background: linear-gradient(180deg, rgba(20, 20, 25, 0.95) 0%, rgba(10, 10, 15, 0.95) 100%);
+  border: 1px solid #4a3a2a;
+  border-radius: 4px;
+  margin-top: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 215, 0, 0.1);
+}
+
+.raid-meter-tabs {
+  display: flex;
+  border-bottom: 1px solid #4a3a2a;
+  background: linear-gradient(180deg, rgba(40, 35, 30, 0.9) 0%, rgba(25, 22, 18, 0.9) 100%);
+}
+
+.raid-meter-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: #a89070;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.raid-meter-tab:hover {
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.raid-meter-tab.active {
+  color: #ffd700;
+  border-bottom-color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+}
+
+.raid-meter-list {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4a3a2a #1a1815;
+}
+
+.raid-meter-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.raid-meter-list::-webkit-scrollbar-track {
+  background: #1a1815;
+}
+
+.raid-meter-list::-webkit-scrollbar-thumb {
+  background: #4a3a2a;
+  border-radius: 3px;
+}
+
+.raid-meter-row {
+  position: relative;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(60, 50, 40, 0.4);
+  transition: background 0.15s ease;
+}
+
+.raid-meter-row:last-child {
+  border-bottom: none;
+}
+
+.raid-meter-row:hover {
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.raid-meter-row.is-player {
+  background: rgba(255, 215, 0, 0.08);
+}
+
+.raid-meter-row.clickable {
+  cursor: pointer;
+}
+
+.raid-meter-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  opacity: 0.35;
+  transition: width 0.3s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+.raid-meter-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  z-index: 1;
+}
+
+.raid-meter-rank {
+  width: 16px;
+  color: #888;
+  font-weight: bold;
+}
+
+.raid-meter-name {
+  flex: 1;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.raid-meter-you {
+  color: #ffd700;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.raid-meter-value {
+  font-weight: bold;
+  color: #fff;
+  min-width: 50px;
+  text-align: right;
+}
+
+.raid-meter-percent {
+  color: #888;
+  font-size: 10px;
+  min-width: 35px;
+  text-align: right;
+}
+
+.raid-meter-expand {
+  color: #ffd700;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.raid-meter-empty {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+/* Spell Breakdown (expanded view) */
+.raid-meter-breakdown {
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(60, 50, 40, 0.5);
+  padding: 4px 0;
+}
+
+.raid-meter-breakdown-row {
+  position: relative;
+  padding: 4px 10px 4px 24px;
+}
+
+.raid-meter-breakdown-bar {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  height: 100%;
+  background: rgba(255, 215, 0, 0.15);
+  border-radius: 0 2px 2px 0;
+}
+
+.raid-meter-breakdown-content {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  z-index: 1;
+}
+
+.raid-meter-breakdown-name {
+  color: #ccc;
+}
+
+.raid-meter-breakdown-value {
+  color: #aaa;
+  font-weight: 500;
+}
+
+.raid-meter-footer {
+  padding: 6px 10px;
+  background: linear-gradient(180deg, rgba(40, 35, 30, 0.8) 0%, rgba(25, 22, 18, 0.9) 100%);
+  border-top: 1px solid #4a3a2a;
+  font-size: 11px;
+  color: #ffd700;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Mobile responsive adjustments for raid meter */
+@media (max-width: 768px) {
+  .raid-meter {
+    max-width: 100%;
+    margin: 8px 0;
+  }
+
+  .raid-meter-list {
+    max-height: 150px;
+  }
+
+  .raid-meter-tab {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .raid-meter-content {
+    font-size: 11px;
+  }
+}
+
 /* Healer Toggle */
 .healer-toggle {
   display: flex;
@@ -1446,6 +1671,146 @@ body {
 .close-btn:hover {
   background: linear-gradient(180deg, #6a4a8a 0%, #4a2a6a 100%);
   border-color: #8a6aaa;
+}
+
+/* Multiplayer Loot Bidding */
+.loot-bid-timer {
+  font-size: 14px;
+  color: #ff6666;
+  font-weight: bold;
+  padding: 4px 10px;
+  background: rgba(255, 0, 0, 0.2);
+  border: 1px solid #ff4444;
+  border-radius: 4px;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.loot-item-bids {
+  font-size: 11px;
+  color: #88aaff;
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.loot-item-bids .bid-count {
+  background: rgba(0, 100, 200, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.loot-item-bids .your-bid {
+  color: #aaffaa;
+  font-style: italic;
+}
+
+.need-btn {
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 70px;
+  background: linear-gradient(180deg, #4a6a2a 0%, #2a4a1a 100%);
+  border: 1px solid #6a8a4a;
+  color: #aaffaa;
+}
+
+.need-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #5a8a3a 0%, #3a6a2a 100%);
+}
+
+.need-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.need-btn.active {
+  background: linear-gradient(180deg, #2a4a6a 0%, #1a2a4a 100%);
+  border-color: #4a6a8a;
+  color: #aaccff;
+}
+
+.loot-bidding-info {
+  font-size: 12px;
+  color: #88aaff;
+  font-style: italic;
+}
+
+/* Loot Results Display */
+.loot-results-modal {
+  background: linear-gradient(180deg, #1a2a1a 0%, #0f1a0f 100%);
+  border: 3px solid #4a8a4a;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 0 40px rgba(74, 138, 74, 0.5);
+}
+
+.loot-results-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #4a8a4a;
+}
+
+.loot-results-header h2 {
+  margin: 0;
+  color: #aaffaa;
+  text-shadow: 0 0 10px rgba(170, 255, 170, 0.3);
+}
+
+.loot-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loot-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #3a5a3a;
+  border-radius: 6px;
+}
+
+.loot-result-item .item-name {
+  flex: 1;
+  font-weight: bold;
+}
+
+.loot-result-item .winner-info {
+  text-align: right;
+}
+
+.loot-result-item .winner-name {
+  font-weight: bold;
+}
+
+.loot-result-item .win-info {
+  font-size: 11px;
+  color: #888;
+}
+
+.loot-result-item .roll-info {
+  font-size: 11px;
+  color: #ffd700;
+}
+
+.loot-results-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #4a8a4a;
+  text-align: center;
 }
 
 /* Inspection Panel */
@@ -4489,6 +4854,7 @@ body {
   border: 1px solid #333;
   border-radius: 6px;
   padding: 12px;
+  overflow: visible;
 }
 
 .bag-header {
@@ -4588,7 +4954,7 @@ body {
 .slot-tooltip {
   display: none;
   position: absolute;
-  bottom: 100%;
+  top: 100%;
   left: 50%;
   transform: translateX(-50%);
   background: linear-gradient(180deg, #1a1a2e 0%, #0a0a1a 100%);
@@ -4597,8 +4963,9 @@ body {
   padding: 10px;
   width: 200px;
   z-index: 100;
-  margin-bottom: 8px;
+  margin-top: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
 }
 
 .bag-slot.filled:hover .slot-tooltip {
@@ -7265,6 +7632,169 @@ body {
   padding: 1px;
 }
 
+/* Mobile Raid Meter - Compact version for phone */
+.mobile-raid-meter {
+  margin-top: 8px;
+  padding: 4px;
+  background: linear-gradient(180deg, #1a1a1a, #0d0d0d);
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+}
+
+.mobile-raid-meter .raid-meter {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.mobile-raid-meter .raid-meter-tabs {
+  padding: 2px;
+  gap: 4px;
+}
+
+.mobile-raid-meter .raid-meter-tab {
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+.mobile-raid-meter .raid-meter-list {
+  max-height: 120px;
+  padding: 4px;
+}
+
+.mobile-raid-meter .raid-meter-row {
+  min-height: 22px;
+  margin-bottom: 2px;
+}
+
+.mobile-raid-meter .raid-meter-content {
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.mobile-raid-meter .raid-meter-rank {
+  font-size: 9px;
+  min-width: 14px;
+}
+
+.mobile-raid-meter .raid-meter-name {
+  font-size: 10px;
+}
+
+.mobile-raid-meter .raid-meter-you {
+  font-size: 8px;
+}
+
+.mobile-raid-meter .raid-meter-value {
+  font-size: 10px;
+}
+
+.mobile-raid-meter .raid-meter-percent {
+  font-size: 9px;
+}
+
+.mobile-raid-meter .raid-meter-expand {
+  font-size: 8px;
+}
+
+.mobile-raid-meter .raid-meter-footer {
+  padding: 4px;
+  font-size: 10px;
+}
+
+.mobile-raid-meter .raid-meter-breakdown {
+  padding: 2px 4px;
+}
+
+.mobile-raid-meter .raid-meter-breakdown-row {
+  min-height: 16px;
+  margin-bottom: 1px;
+}
+
+.mobile-raid-meter .raid-meter-breakdown-content {
+  font-size: 9px;
+  padding: 1px 4px;
+}
+
+/* Encounter Summary - Post-fight healing meter display */
+.encounter-summary,
+.mobile-encounter-summary {
+  background: linear-gradient(180deg, #1a1a2e, #0d0d15);
+  border: 2px solid #c9aa71;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 10px 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+.encounter-summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #4a4a4a;
+}
+
+.encounter-result {
+  font-size: 18px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.encounter-result.victory {
+  color: #4aff4a;
+  text-shadow: 0 0 10px rgba(74, 255, 74, 0.5);
+}
+
+.encounter-result.wipe {
+  color: #ff4a4a;
+  text-shadow: 0 0 10px rgba(255, 74, 74, 0.5);
+}
+
+.dismiss-summary-btn {
+  background: #3a3a3a;
+  border: 1px solid #5a5a5a;
+  color: #ccc;
+  font-size: 18px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.dismiss-summary-btn:hover {
+  background: #4a4a4a;
+  color: #fff;
+  border-color: #c9aa71;
+}
+
+/* Mobile encounter summary adjustments */
+.mobile-encounter-summary {
+  margin: 8px 4px;
+  padding: 8px;
+}
+
+.mobile-encounter-summary .encounter-summary-header {
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+}
+
+.mobile-encounter-summary .encounter-result {
+  font-size: 14px;
+}
+
+.mobile-encounter-summary .dismiss-summary-btn {
+  width: 24px;
+  height: 24px;
+  font-size: 14px;
+}
+
 /* Mobile Modal Overrides */
 .mobile-ui ~ .modal-overlay .loot-modal,
 .mobile-ui ~ .modal-overlay .save-modal,
@@ -7282,4 +7812,604 @@ body {
 /* Adjust header for mobile toggle button */
 .app-header {
   position: relative;
+}
+
+/* ============================================= */
+/* MULTIPLAYER LOBBY STYLES                      */
+/* ============================================= */
+
+.multiplayer-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.multiplayer-content {
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 2px solid #4a3a6a;
+  border-radius: 12px;
+  padding: 30px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.multiplayer-lobby .multiplayer-content {
+  min-width: 500px;
+  max-width: 600px;
+}
+
+.multiplayer-title {
+  color: #ffd700;
+  font-size: 28px;
+  margin: 0 0 8px 0;
+  text-align: center;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.multiplayer-subtitle {
+  color: #888;
+  font-size: 14px;
+  margin: 0 0 24px 0;
+  text-align: center;
+}
+
+.multiplayer-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.mp-btn {
+  padding: 14px 24px;
+  border: 2px solid #4a3a6a;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.mp-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mp-btn-primary {
+  background: linear-gradient(180deg, #4a3a6a 0%, #2a1a4a 100%);
+  color: #ffd700;
+  border-color: #6a4a8a;
+}
+
+.mp-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #5a4a7a 0%, #3a2a5a 100%);
+  border-color: #8a6aaa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(106, 74, 138, 0.4);
+}
+
+.mp-btn-secondary {
+  background: linear-gradient(180deg, #2a2a3e 0%, #1a1a2e 100%);
+  color: #aaa;
+  border-color: #3a3a4e;
+}
+
+.mp-btn-secondary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #3a3a4e 0%, #2a2a3e 100%);
+  color: #fff;
+  border-color: #4a4a5e;
+}
+
+.mp-btn-cancel {
+  background: transparent;
+  color: #666;
+  border-color: #333;
+  margin-top: 10px;
+}
+
+.mp-btn-cancel:hover {
+  color: #999;
+  border-color: #444;
+}
+
+.mp-btn-ready {
+  background: linear-gradient(180deg, #2a5a2a 0%, #1a3a1a 100%);
+  color: #4f4;
+  border-color: #4a8a4a;
+}
+
+.mp-btn-start {
+  background: linear-gradient(180deg, #5a3a2a 0%, #3a2a1a 100%);
+  color: #ffa500;
+  border-color: #8a5a3a;
+}
+
+.mp-btn-start:hover:not(:disabled) {
+  background: linear-gradient(180deg, #6a4a3a 0%, #4a3a2a 100%);
+  border-color: #aa6a4a;
+}
+
+.mp-btn-leave {
+  background: linear-gradient(180deg, #3a1a1a 0%, #2a0a0a 100%);
+  color: #f66;
+  border-color: #5a2a2a;
+}
+
+.mp-btn-leave:hover {
+  background: linear-gradient(180deg, #4a2a2a 0%, #3a1a1a 100%);
+  border-color: #6a3a3a;
+}
+
+/* Form styles */
+.mp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mp-label {
+  color: #aaa;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: -8px;
+}
+
+.mp-input {
+  padding: 12px 16px;
+  background: #0a0a14;
+  border: 2px solid #333;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.mp-input:focus {
+  border-color: #6a4a8a;
+}
+
+.mp-input-code {
+  font-family: monospace;
+  font-size: 24px;
+  text-align: center;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+.mp-class-select {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.mp-class-btn {
+  padding: 10px;
+  background: #0a0a14;
+  border: 2px solid #333;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mp-class-btn:hover {
+  background: #1a1a24;
+}
+
+.mp-class-btn.selected {
+  background: #1a1a2e;
+  border-width: 2px;
+}
+
+.mp-error {
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid #f44;
+  border-radius: 6px;
+  padding: 10px;
+  color: #f88;
+  font-size: 14px;
+  text-align: center;
+}
+
+.mp-form-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Lobby styles */
+.lobby-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #333;
+}
+
+.room-code-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0a0a14;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 2px solid #4a3a6a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.room-code-display:hover {
+  border-color: #6a4a8a;
+  background: #1a1a24;
+}
+
+.room-code-label {
+  color: #888;
+  font-size: 12px;
+}
+
+.room-code-value {
+  color: #ffd700;
+  font-family: monospace;
+  font-size: 20px;
+  font-weight: bold;
+  letter-spacing: 2px;
+}
+
+.room-code-copy {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+.lobby-players {
+  margin-bottom: 20px;
+}
+
+.lobby-section-title {
+  color: #aaa;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0a0a14;
+  border: 2px solid #2a2a3a;
+  border-radius: 8px;
+  padding: 12px 16px;
+  transition: all 0.2s;
+}
+
+.player-card.ready {
+  border-color: #4a8a4a;
+  background: rgba(0, 100, 0, 0.1);
+}
+
+.player-card.is-you {
+  border-color: #6a4a8a;
+}
+
+.player-card.empty {
+  border-style: dashed;
+  border-color: #222;
+  justify-content: center;
+}
+
+.empty-slot {
+  color: #444;
+  font-style: italic;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.player-name {
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.host-badge {
+  background: #ffd700;
+  color: #000;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.you-badge {
+  background: #6a4a8a;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.player-class {
+  color: #666;
+  font-size: 12px;
+}
+
+.player-status {
+  font-size: 14px;
+}
+
+.status-ready {
+  color: #4f4;
+}
+
+.status-waiting {
+  color: #888;
+}
+
+.player-gear-score {
+  color: #888;
+  font-size: 12px;
+  margin-left: 12px;
+}
+
+.lobby-actions {
+  display: flex;
+  gap: 12px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.lobby-actions .mp-btn {
+  flex: 1;
+}
+
+/* Multiplayer button in main UI */
+.multiplayer-toggle-btn {
+  background: linear-gradient(180deg, #2a4a6a 0%, #1a3a5a 100%);
+  color: #8cf;
+  border: 2px solid #3a5a7a;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.multiplayer-toggle-btn:hover {
+  background: linear-gradient(180deg, #3a5a7a 0%, #2a4a6a 100%);
+  border-color: #4a6a8a;
+}
+
+.multiplayer-toggle-btn.active {
+  background: linear-gradient(180deg, #4a6a2a 0%, #3a5a1a 100%);
+  color: #cf8;
+  border-color: #5a7a3a;
+}
+
+/* ============================================
+   HEALING METER STYLES
+   ============================================ */
+
+.healing-meter-toggle {
+  position: fixed;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, #3a3a5a 0%, #2a2a4a 100%);
+  border: 1px solid #4a4a6a;
+  color: #aaf;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 100;
+}
+
+.healing-meter-toggle:hover {
+  background: linear-gradient(180deg, #4a4a6a 0%, #3a3a5a 100%);
+}
+
+.healing-meter {
+  position: fixed;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+  background: linear-gradient(180deg, #1a1a2a 0%, #0a0a1a 100%);
+  border: 2px solid #4a4a6a;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.healing-meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #2a2a4a 0%, #1a1a3a 100%);
+  border-bottom: 1px solid #4a4a6a;
+}
+
+.healing-meter-title {
+  color: #ddf;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.healing-meter-close {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.healing-meter-close:hover {
+  color: #fff;
+}
+
+.healing-meter-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.healing-meter-row {
+  position: relative;
+  padding: 6px 10px;
+  border-bottom: 1px solid #2a2a3a;
+}
+
+.healing-meter-row.is-local {
+  background: rgba(100, 100, 200, 0.1);
+}
+
+.healing-meter-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
+.healing-meter-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.healing-meter-rank {
+  color: #888;
+  min-width: 18px;
+}
+
+.healing-meter-name {
+  flex: 1;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.healing-meter-you {
+  font-weight: normal;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.healing-meter-value {
+  color: #8f8;
+  font-family: monospace;
+  min-width: 50px;
+  text-align: right;
+}
+
+.healing-meter-percent {
+  color: #888;
+  font-size: 10px;
+  min-width: 40px;
+  text-align: right;
+}
+
+.healing-meter-casting {
+  position: relative;
+  margin-top: 4px;
+  height: 14px;
+  background: #1a1a2a;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.healing-meter-cast-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, #4a8a4a 0%, #3a7a3a 100%);
+  transition: width 0.05s linear;
+}
+
+.healing-meter-spell-name {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  color: #fff;
+  padding: 0 4px;
+  line-height: 14px;
+}
+
+.healing-meter-empty {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.healing-meter-footer {
+  padding: 8px 12px;
+  background: linear-gradient(180deg, #2a2a4a 0%, #1a1a3a 100%);
+  border-top: 1px solid #4a4a6a;
+  color: #8f8;
+  font-size: 12px;
+  text-align: right;
+}
+
+/* Inline healing meter (for header HUD) */
+.healing-meter-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(40, 40, 60, 0.8);
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.hmi-rank {
+  color: #ff8;
+  font-weight: bold;
+}
+
+.hmi-healing {
+  color: #8f8;
+  font-family: monospace;
+}
+
+.hmi-label {
+  color: #888;
+  font-size: 10px;
 }
