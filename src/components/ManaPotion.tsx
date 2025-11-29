@@ -13,7 +13,9 @@ export const ManaPotion: React.FC<ManaPotionProps> = ({ cooldown, onUse }) => {
   // Keybind: M for mana potion
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return;
+      // Ignore if typing in an input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
       if (e.key.toLowerCase() === 'm') {
         setIsPressed(true);
         onUse();

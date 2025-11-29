@@ -15,6 +15,7 @@ import { TOTEMS_BY_ELEMENT, getTotemById } from './game/totems';
 import type { TotemElement } from './game/types';
 import { MultiplayerLobby } from './components/MultiplayerLobby';
 import { RaidMeter } from './components/RaidMeter';
+import { RaidSetupModal } from './components/RaidSetupModal';
 import type { GameSession, SessionPlayer } from './lib/supabase';
 import { supabase } from './lib/supabase';
 import './App.css';
@@ -61,15 +62,27 @@ function App() {
   const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
   const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
-  // Mobile UI mode
-  const [isMobileMode, setIsMobileMode] = useState(false);
+  // Mobile UI mode - auto-detect on load
+  const [isMobileMode, setIsMobileMode] = useState(() => {
+    // Check if device is mobile/tablet based on screen width and touch capability
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isSmallScreen = window.innerWidth <= 768;
+    return isTouchDevice && isSmallScreen;
+  });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.13.0';
+  const CURRENT_PATCH_VERSION = '0.14.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
     return seenVersion === CURRENT_PATCH_VERSION;
+  });
+  // Raid Setup Modal state
+  const [showRaidSetup, setShowRaidSetup] = useState(false);
+  // Collapsible buffs panel state (persisted to localStorage)
+  const [buffsExpanded, setBuffsExpanded] = useState(() => {
+    const saved = localStorage.getItem('ui_buffs_expanded');
+    return saved ? JSON.parse(saved) : false;
   });
   // Multiplayer state
   const [showMultiplayerLobby, setShowMultiplayerLobby] = useState(false);
@@ -148,6 +161,11 @@ function App() {
     });
     return unsubscribe;
   }, [engine]);
+
+  // Persist buffs panel expanded state
+  useEffect(() => {
+    localStorage.setItem('ui_buffs_expanded', JSON.stringify(buffsExpanded));
+  }, [buffsExpanded]);
 
   // Multiplayer real-time game state sync
   useEffect(() => {
@@ -569,6 +587,11 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input, textarea, or contenteditable (except Escape)
+      const target = e.target as HTMLElement;
+      const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      // Escape always works (to close modals/cancel)
       if (e.key === 'Escape') {
         if (showInventory) {
           setShowInventory(false);
@@ -579,7 +602,12 @@ function App() {
         } else if (engine.getState().isRunning) {
           engine.stopEncounter();
         }
+        return;
       }
+
+      // Skip other keybindings if user is typing
+      if (isTyping) return;
+
       if (e.key === 'm' || e.key === 'M') {
         engine.useManaPotion();
       }
@@ -778,20 +806,6 @@ function App() {
             NEW PATCH NOTES!
           </button>
         )}
-        <button
-          className={`multiplayer-toggle-btn ${isMultiplayerMode ? 'active' : ''}`}
-          onClick={() => setShowMultiplayerLobby(true)}
-          title="Play with friends!"
-        >
-          {isMultiplayerMode ? '🎮 In Multiplayer' : '🎮 Multiplayer'}
-        </button>
-        <button
-          className={`mobile-toggle-btn ${isMobileMode ? 'active' : ''}`}
-          onClick={() => setIsMobileMode(!isMobileMode)}
-          title={isMobileMode ? 'Switch to Desktop UI' : 'Switch to Phone UI'}
-        >
-          {isMobileMode ? '🖥️ Desktop' : '📱 Phone'}
-        </button>
       </header>
 
       {/* Multiplayer Lobby Modal */}
@@ -803,6 +817,23 @@ function App() {
           hostEquipment={state.playerEquipment}
         />
       )}
+
+      {/* Raid Setup Modal */}
+      <RaidSetupModal
+        isOpen={showRaidSetup}
+        onClose={() => setShowRaidSetup(false)}
+        faction={state.faction}
+        onFactionChange={(newFaction) => engine.switchFaction(newFaction)}
+        raidSize={state.raid.length}
+        onRaidSizeChange={(size) => engine.resetRaid(size as 20 | 40)}
+        canChangeRaidSize={state.defeatedBosses.length === 0}
+        aiHealersEnabled={state.otherHealersEnabled}
+        aiHealerCount={state.raid.filter(m => m.role === 'healer').length}
+        onAiHealersToggle={() => engine.toggleOtherHealers()}
+        onResetLockout={() => engine.resetRaidLockout()}
+        canResetLockout={state.defeatedBosses.length > 0}
+        isEncounterRunning={state.isRunning}
+      />
 
       {/* DESKTOP UI */}
       {!isMobileMode && (
@@ -1098,19 +1129,57 @@ function App() {
                   📖 Encounter Journal
                 </button>
               </div>
-              <div className="raid-progress">
-                <span className="progress-label">Progress: {engine.getDefeatedBossesForCurrentRaid().length}/{engine.getCurrentRaidEncounters().length} bosses</span>
-                {engine.getDefeatedBossesForCurrentRaid().length === engine.getCurrentRaidEncounters().length && engine.getCurrentRaidEncounters().length > 0 && (
-                  <span className="raid-cleared">RAID CLEARED!</span>
-                )}
-              </div>
-              <div className="encounter-buttons">
+              {/* Training Dummy - Separate Section */}
+              <div className="training-section">
+                <div className="training-section-label">Practice</div>
                 <button
                   className="encounter-button training"
                   onClick={() => engine.startEncounter('training')}
                 >
                   Training Dummy
                 </button>
+              </div>
+
+              {/* Visual Progress Bar */}
+              {(() => {
+                const defeatedCount = engine.getDefeatedBossesForCurrentRaid().length;
+                const totalBosses = engine.getCurrentRaidEncounters().length;
+                const defeatedBosses = engine.getDefeatedBossesForCurrentRaid();
+                const raidEncounters = engine.getCurrentRaidEncounters();
+                const isRaidCleared = defeatedCount === totalBosses && totalBosses > 0;
+
+                return (
+                  <div className="encounter-progress">
+                    <div className="encounter-progress-header">
+                      <span className="progress-label">Progress</span>
+                      <span className="progress-count">{defeatedCount}/{totalBosses} bosses</span>
+                    </div>
+                    <div className="encounter-progress-bar">
+                      <div className="encounter-progress-segments">
+                        {raidEncounters.map((enc, idx) => {
+                          const isDefeated = defeatedBosses.includes(enc.id);
+                          const isNext = engine.getNextBoss() === enc.id;
+                          return (
+                            <div
+                              key={enc.id}
+                              className={`progress-segment ${isDefeated ? 'defeated' : ''} ${isNext ? 'current' : ''}`}
+                              title={`${idx + 1}. ${enc.name}${isDefeated ? ' (Defeated)' : ''}`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {isRaidCleared && (
+                      <div className="raid-cleared-badge">
+                        <span className="raid-cleared">RAID CLEARED!</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Boss Buttons - 5 Column Grid */}
+              <div className="encounter-buttons">
                 {engine.getCurrentRaidEncounters().map((enc, idx) => {
                   const defeatedBosses = engine.getDefeatedBossesForCurrentRaid();
                   const raidEncounters = engine.getCurrentRaidEncounters();
@@ -1127,83 +1196,46 @@ function App() {
                       disabled={isDefeated || isLocked}
                       title={isDefeated ? 'Already defeated - reset raid to fight again' : isLocked ? `Must defeat ${raidEncounters[idx - 1].name} first` : ''}
                     >
-                      <span className="boss-number">{idx + 1}.</span> {enc.name}
+                      <span className="boss-number">{idx + 1}.</span>
+                      <span className="boss-name">{enc.name}</span>
                       {isDefeated && <span className="defeated-marker">✓</span>}
                       {isLocked && <span className="locked-marker">🔒</span>}
                     </button>
                   );
                 })}
               </div>
-              <div className="raid-controls">
-                {/* Faction Toggle */}
-                <div className="faction-toggle">
-                  <button
-                    className={`faction-btn ${state.faction === 'alliance' ? 'active alliance' : ''}`}
-                    onClick={() => engine.switchFaction('alliance')}
-                    disabled={state.isRunning}
-                    title="Play as Alliance Holy Paladin"
-                  >
-                    Alliance
-                  </button>
-                  <button
-                    className={`faction-btn ${state.faction === 'horde' ? 'active horde' : ''}`}
-                    onClick={() => engine.switchFaction('horde')}
-                    disabled={state.isRunning}
-                    title="Play as Horde Restoration Shaman"
-                  >
-                    Horde
-                  </button>
-                </div>
-                <div className="raid-size-buttons">
-                  <button
-                    onClick={() => engine.resetRaid(20)}
-                    disabled={state.defeatedBosses.length > 0}
-                    title={state.defeatedBosses.length > 0 ? 'Cannot change raid size mid-lockout' : ''}
-                  >
-                    20-Man Raid
-                  </button>
-                  <button
-                    onClick={() => engine.resetRaid(40)}
-                    disabled={state.defeatedBosses.length > 0}
-                    title={state.defeatedBosses.length > 0 ? 'Cannot change raid size mid-lockout' : ''}
-                  >
-                    40-Man Raid
-                  </button>
-                </div>
-                <div className="raid-utility-buttons">
-                  <button
-                    className="restore-raid-btn"
-                    onClick={() => engine.restoreRaid()}
-                    title="Restore all raid members to full health and mana"
-                  >
-                    Restore Raid (Drink/Eat)
-                  </button>
-                  {state.defeatedBosses.length > 0 && (
-                    <button
-                      className="reset-lockout-btn"
-                      onClick={() => engine.resetRaidLockout()}
-                    >
-                      Reset Raid (New Lockout)
-                    </button>
-                  )}
-                </div>
-              </div>
-              {/* Hide AI healer toggle for multiplayer clients - host controls this */}
-              {(!isMultiplayerMode || localPlayer?.is_host) && (
-                <div className="healer-toggle">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={state.otherHealersEnabled}
-                      onChange={() => engine.toggleOtherHealers()}
-                    />
-                    Other Healers Active
-                  </label>
-                  <span className="healer-count">
-                    ({state.raid.filter(m => m.role === 'healer').length} healers in raid)
+              {/* Raid Config Summary Strip */}
+              <div className="raid-config-strip">
+                <button className="raid-setup-btn" onClick={() => setShowRaidSetup(true)}>
+                  <span className="gear-icon">⚙</span> Raid Setup
+                </button>
+                <div className="config-summary">
+                  <span className={`faction-indicator ${state.faction}`}>
+                    {state.faction === 'alliance' ? 'Alliance' : 'Horde'}
                   </span>
+                  <span className="separator">·</span>
+                  <span>{state.raid.length}m</span>
+                  <span className="separator">·</span>
+                  <span>{state.otherHealersEnabled ? 'AI Healers' : 'Solo'}</span>
                 </div>
-              )}
+                <button
+                  className={`multiplayer-config-btn ${isMultiplayerMode ? 'active' : ''}`}
+                  onClick={() => setShowMultiplayerLobby(true)}
+                  title="Looking for Group - Play with friends!"
+                >
+                  {isMultiplayerMode ? 'In Group' : 'LFG'}
+                </button>
+              </div>
+              {/* Keep Restore Raid button easily accessible */}
+              <div className="raid-utility-buttons">
+                <button
+                  className="restore-raid-btn"
+                  onClick={() => engine.restoreRaid()}
+                  title="Restore all raid members to full health and mana"
+                >
+                  Restore Raid (Drink/Eat)
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -1469,172 +1501,190 @@ function App() {
             </div>
           )}
 
-          {/* Player Buffs Panel - Only show when not in encounter */}
+          {/* Collapsible Buffs Panel - Only show when not in encounter */}
           {!state.isRunning && (
             <div className="player-buffs-panel">
-              <div className="buffs-header">
-                <span>Raid Buffs</span>
-                <div className="buff-actions">
-                  <button className="buff-all-btn" onClick={() => engine.applyAllRaidBuffs()}>
+              {/* Collapsible Header */}
+              <div
+                className={`buffs-panel-header ${buffsExpanded ? 'expanded' : ''}`}
+                onClick={() => setBuffsExpanded(!buffsExpanded)}
+              >
+                <div className="buffs-panel-title">
+                  <span className="collapse-arrow">{buffsExpanded ? '▲' : '▼'}</span>
+                  <span>Raid Buffs</span>
+                </div>
+                <span className="buffs-panel-count">
+                  {state.playerBuffs.length + state.activeConsumables.length + state.activeWorldBuffs.length} active
+                </span>
+                <div className="buffs-panel-actions">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); engine.applyAllRaidBuffs(); }}
+                  >
                     Buff All
                   </button>
-                  <button className="clear-buffs-btn" onClick={() => engine.clearAllRaidBuffs()}>
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              {/* Paladin Blessings Section - Only show for Alliance (Horde has no Paladins) */}
-              {state.faction === 'alliance' && (
-                <div className="paladin-blessings-section">
-                  <div className="blessings-header">
-                    <span>Paladin Blessings</span>
-                    <span className="blessing-slots">
-                      ({state.activePaladinBlessings.length}/{state.maxPaladinBlessings} slots)
-                    </span>
-                  </div>
-                  <div className="blessings-grid">
-                    {engine.getPaladinBlessings().map(({ buff, isAssigned, isApplied }) => (
-                      <div
-                        key={buff.id}
-                        className={`blessing-slot ${isAssigned ? 'assigned' : ''} ${isApplied ? 'applied' : ''}`}
-                        onClick={() => engine.togglePaladinBlessing(buff.id)}
-                        title={`${buff.name}${isAssigned ? ' (Assigned)' : ' (Click to assign)'}`}
-                      >
-                        <img src={buff.icon} alt={buff.name} />
-                        <span className="blessing-name">{buff.name.replace('Greater Blessing of ', '')}</span>
-                        {isAssigned && <div className="blessing-assigned-check">✓</div>}
-                        {isApplied && <div className="blessing-applied-indicator" />}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Other Raid Buffs */}
-              <div className="other-buffs-section">
-                <span className="other-buffs-header">Other Raid Buffs</span>
-                <div className="buffs-grid">
-                  {engine.getAvailableBuffs().map(({ buff, available, hasBuff }) => (
-                    <div
-                      key={buff.id}
-                      className={`buff-slot ${hasBuff ? 'active' : ''} ${!available ? 'unavailable' : ''}`}
-                      onClick={() => {
-                        if (available) {
-                          if (hasBuff) {
-                            engine.removeRaidBuff(buff.id);
-                          } else {
-                            engine.applyRaidBuff(buff.id);
-                          }
-                        }
-                      }}
-                      title={`${buff.name}${!available ? ' (No caster in raid)' : ''}`}
-                    >
-                      <img src={buff.icon} alt={buff.name} />
-                      {hasBuff && <div className="buff-active-indicator" />}
-                      {!available && <div className="buff-unavailable-overlay" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {state.playerBuffs.length > 0 && (
-                <div className="active-buffs-display">
-                  <span className="active-buffs-label">Active ({state.playerBuffs.length}):</span>
-                  {state.playerBuffs.map(buff => (
-                    <div key={buff.id} className="active-buff-icon" title={buff.name}>
-                      <img src={buff.icon} alt={buff.name} />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Consumables Section */}
-              <div className="consumables-section">
-                <div className="consumables-header">
-                  <span>Consumables</span>
-                  <div className="consumables-actions">
-                    <button
-                      className={`consumables-btn ${engine.hasActiveConsumables() ? 'active' : ''}`}
-                      onClick={() => engine.applyConsumables()}
-                    >
-                      Use All
-                    </button>
-                    <button
-                      className="consumables-clear-btn"
-                      onClick={() => engine.clearConsumables()}
-                      disabled={!engine.hasActiveConsumables()}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <div className="consumables-grid">
-                  {Object.values(CONSUMABLES)
-                    .filter(c => c.role === 'healer')
-                    .map(consume => {
-                      const isActive = state.activeConsumables.includes(consume.id);
-                      return (
-                        <div
-                          key={consume.id}
-                          className={`consumable-slot ${isActive ? 'active' : ''}`}
-                          title={consume.name}
-                        >
-                          <img src={consume.icon} alt={consume.name} />
-                          {isActive && <div className="consumable-active-indicator" />}
-                        </div>
-                      );
-                    })}
-                </div>
-                <div className="consumables-note">
-                  Using consumables auto-buffs raid with role-appropriate consumes
-                </div>
-              </div>
-
-              {/* World Buffs Section */}
-              <div className="world-buffs-section">
-                <div className="world-buffs-header">
-                  <span>World Buffs</span>
                   <button
-                    className="world-buffs-clear-btn"
-                    onClick={() => engine.clearWorldBuffs()}
-                    disabled={state.activeWorldBuffs.length === 0}
+                    className="clear-btn"
+                    onClick={(e) => { e.stopPropagation(); engine.clearAllRaidBuffs(); }}
                   >
                     Clear
                   </button>
                 </div>
-                <div className="world-buffs-grid">
-                  {engine.getWorldBuffStatus().map(({ buff, isAvailable, isActive, isComingSoon }) => (
-                    <div
-                      key={buff.id}
-                      className={`world-buff-slot ${isComingSoon ? 'coming-soon' : ''} ${isActive ? 'active' : ''} ${!isAvailable && !isComingSoon ? 'locked' : ''}`}
-                      onClick={() => {
-                        if (!isComingSoon && isAvailable) {
-                          if (isActive) {
-                            engine.clearWorldBuffs();
-                          } else {
-                            engine.applyWorldBuff(buff.id);
-                          }
-                        }
-                      }}
-                      title={buff.name}
-                    >
-                      <img src={buff.icon} alt={buff.name} />
-                      <span className="world-buff-name">{buff.name.replace(' of the Dragonslayer', '').replace("Warchief's ", 'WC ')}</span>
-                      {isActive && <div className="world-buff-active-indicator" />}
-                      {isComingSoon && (
-                        <div className="coming-soon-overlay">
-                          <span className="coming-soon-text">Coming Soon</span>
-                          <span className="raid-name">{buff.unlockRaid}</span>
-                        </div>
-                      )}
-                      {!isComingSoon && !isAvailable && (
-                        <div className="locked-overlay">
-                          <span className="locked-icon">🔒</span>
-                        </div>
-                      )}
+              </div>
+
+              {/* Collapsible Content */}
+              <div className={`buffs-panel-content ${buffsExpanded ? 'expanded' : ''}`}>
+                {/* Paladin Blessings Section - Only show for Alliance (Horde has no Paladins) */}
+                {state.faction === 'alliance' && (
+                  <div className="paladin-blessings-section">
+                    <div className="blessings-header">
+                      <span>Paladin Blessings</span>
+                      <span className="blessing-slots">
+                        ({state.activePaladinBlessings.length}/{state.maxPaladinBlessings} slots)
+                      </span>
                     </div>
-                  ))}
+                    <div className="blessings-grid">
+                      {engine.getPaladinBlessings().map(({ buff, isAssigned, isApplied }) => (
+                        <div
+                          key={buff.id}
+                          className={`blessing-slot ${isAssigned ? 'assigned' : ''} ${isApplied ? 'applied' : ''}`}
+                          onClick={() => engine.togglePaladinBlessing(buff.id)}
+                          title={`${buff.name}${isAssigned ? ' (Assigned)' : ' (Click to assign)'}`}
+                        >
+                          <img src={buff.icon} alt={buff.name} />
+                          <span className="blessing-name">{buff.name.replace('Greater Blessing of ', '')}</span>
+                          {isAssigned && <div className="blessing-assigned-check">✓</div>}
+                          {isApplied && <div className="blessing-applied-indicator" />}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Other Raid Buffs */}
+                <div className="other-buffs-section">
+                  <span className="other-buffs-header">Other Raid Buffs</span>
+                  <div className="buffs-grid">
+                    {engine.getAvailableBuffs().map(({ buff, available, hasBuff }) => (
+                      <div
+                        key={buff.id}
+                        className={`buff-slot ${hasBuff ? 'active' : ''} ${!available ? 'unavailable' : ''}`}
+                        onClick={() => {
+                          if (available) {
+                            if (hasBuff) {
+                              engine.removeRaidBuff(buff.id);
+                            } else {
+                              engine.applyRaidBuff(buff.id);
+                            }
+                          }
+                        }}
+                        title={`${buff.name}${!available ? ' (No caster in raid)' : ''}`}
+                      >
+                        <img src={buff.icon} alt={buff.name} />
+                        {hasBuff && <div className="buff-active-indicator" />}
+                        {!available && <div className="buff-unavailable-overlay" />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {state.playerBuffs.length > 0 && (
+                  <div className="active-buffs-display">
+                    <span className="active-buffs-label">Active ({state.playerBuffs.length}):</span>
+                    {state.playerBuffs.map(buff => (
+                      <div key={buff.id} className="active-buff-icon" title={buff.name}>
+                        <img src={buff.icon} alt={buff.name} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Consumables Section */}
+                <div className="consumables-section">
+                  <div className="consumables-header">
+                    <span>Consumables</span>
+                    <div className="consumables-actions">
+                      <button
+                        className={`consumables-btn ${engine.hasActiveConsumables() ? 'active' : ''}`}
+                        onClick={() => engine.applyConsumables()}
+                      >
+                        Use All
+                      </button>
+                      <button
+                        className="consumables-clear-btn"
+                        onClick={() => engine.clearConsumables()}
+                        disabled={!engine.hasActiveConsumables()}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                  <div className="consumables-grid">
+                    {Object.values(CONSUMABLES)
+                      .filter(c => c.role === 'healer')
+                      .map(consume => {
+                        const isActive = state.activeConsumables.includes(consume.id);
+                        return (
+                          <div
+                            key={consume.id}
+                            className={`consumable-slot ${isActive ? 'active' : ''}`}
+                            title={consume.name}
+                          >
+                            <img src={consume.icon} alt={consume.name} />
+                            {isActive && <div className="consumable-active-indicator" />}
+                          </div>
+                        );
+                      })}
+                  </div>
+                  <div className="consumables-note">
+                    Using consumables auto-buffs raid with role-appropriate consumes
+                  </div>
+                </div>
+
+                {/* World Buffs Section */}
+                <div className="world-buffs-section">
+                  <div className="world-buffs-header">
+                    <span>World Buffs</span>
+                    <button
+                      className="world-buffs-clear-btn"
+                      onClick={() => engine.clearWorldBuffs()}
+                      disabled={state.activeWorldBuffs.length === 0}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="world-buffs-grid">
+                    {engine.getWorldBuffStatus().map(({ buff, isAvailable, isActive, isComingSoon }) => (
+                      <div
+                        key={buff.id}
+                        className={`world-buff-slot ${isComingSoon ? 'coming-soon' : ''} ${isActive ? 'active' : ''} ${!isAvailable && !isComingSoon ? 'locked' : ''}`}
+                        onClick={() => {
+                          if (!isComingSoon && isAvailable) {
+                            if (isActive) {
+                              engine.clearWorldBuffs();
+                            } else {
+                              engine.applyWorldBuff(buff.id);
+                            }
+                          }
+                        }}
+                        title={buff.name}
+                      >
+                        <img src={buff.icon} alt={buff.name} />
+                        <span className="world-buff-name">{buff.name.replace(' of the Dragonslayer', '').replace("Warchief's ", 'WC ')}</span>
+                        {isActive && <div className="world-buff-active-indicator" />}
+                        {isComingSoon && (
+                          <div className="coming-soon-overlay">
+                            <span className="coming-soon-text">Coming Soon</span>
+                            <span className="raid-name">{buff.unlockRaid}</span>
+                          </div>
+                        )}
+                        {!isComingSoon && !isAvailable && (
+                          <div className="locked-overlay">
+                            <span className="locked-icon">🔒</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3039,6 +3089,40 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.14.0 - UI Polish Update</h3>
+                <span className="patch-date">November 29, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Encounter Selection Redesign</h4>
+                <ul>
+                  <li><strong>Visual Progress Bar</strong>: New segmented progress bar shows boss completion at a glance</li>
+                  <li><strong>Training Dummy Section</strong>: Practice mode now separated into its own section</li>
+                  <li><strong>5-Column Boss Grid</strong>: Clean, uniform layout for all raid bosses</li>
+                  <li><strong>Enhanced Boss Buttons</strong>: Next boss pulses with golden glow animation</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>UI Improvements</h4>
+                <ul>
+                  <li><strong>Raid Setup Modal</strong>: Faction, raid size, and AI healers moved to a dedicated settings panel</li>
+                  <li><strong>Collapsible Buffs</strong>: World buffs panel can now be collapsed to save space</li>
+                  <li><strong>LFG Button</strong>: Multiplayer moved to encounter area as "LFG" (Looking for Group)</li>
+                  <li><strong>Modal Close Buttons</strong>: All modal X buttons now properly inside their panels</li>
+                  <li><strong>Auto Mobile Detection</strong>: Phone UI now auto-enables on mobile devices</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Bug Fixes</h4>
+                <ul>
+                  <li><strong>Keybind Fix</strong>: Hotkeys (M, B, 1-9) no longer trigger while typing in input fields</li>
+                  <li><strong>Layout Fix</strong>: Panels now properly fit on screen without overflow</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.13.0 - Multiplayer Update</h3>
                 <span className="patch-date">November 28, 2025</span>
               </div>
@@ -3199,7 +3283,7 @@ function App() {
           <div className="encounter-journal-modal" onClick={e => e.stopPropagation()}>
             <div className="journal-header">
               <h2>📖 Encounter Journal - {engine.getCurrentRaid()?.name || 'Raid'}</h2>
-              <button className="close-inspection" onClick={() => setShowEncounterJournal(false)}>X</button>
+              <button className="journal-close-btn" onClick={() => setShowEncounterJournal(false)}>×</button>
             </div>
             <div className="journal-content">
               {/* Boss List Sidebar */}
@@ -3367,7 +3451,7 @@ function App() {
           <div className="admin-panel-modal" onClick={e => e.stopPropagation()}>
             <div className="admin-header">
               <h2>Admin Panel</h2>
-              <button className="close-inspection" onClick={() => setShowAdminPanel(false)}>X</button>
+              <button className="admin-close-btn" onClick={() => setShowAdminPanel(false)}>×</button>
             </div>
 
             {/* Tab Navigation */}
@@ -3771,6 +3855,26 @@ function App() {
               {/* RAID MANAGEMENT TAB */}
               {adminTab === 'raid' && (
                 <div className="admin-raid-tab">
+                  {/* UI Settings */}
+                  <div className="admin-section">
+                    <div className="admin-section-header">UI Settings</div>
+                    <div className="raid-size-controls">
+                      <span>Layout Mode:</span>
+                      <button
+                        className={!isMobileMode ? 'active' : ''}
+                        onClick={() => setIsMobileMode(false)}
+                      >
+                        🖥️ Desktop
+                      </button>
+                      <button
+                        className={isMobileMode ? 'active' : ''}
+                        onClick={() => setIsMobileMode(true)}
+                      >
+                        📱 Phone
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Raid Size */}
                   <div className="admin-section">
                     <div className="admin-section-header">Raid Size</div>
@@ -3979,7 +4083,7 @@ function App() {
                 />
                 <h2>{state.playerName}'s Bags</h2>
               </div>
-              <button className="close-inspection" onClick={() => setShowInventory(false)}>X</button>
+              <button className="inventory-close-btn" onClick={() => setShowInventory(false)}>×</button>
             </div>
 
             <div className="inventory-content">

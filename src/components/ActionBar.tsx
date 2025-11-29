@@ -23,8 +23,9 @@ export const ActionBar: React.FC<ActionBarProps> = ({
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if typing in an input
-      if (e.target instanceof HTMLInputElement) return;
+      // Ignore if typing in an input, textarea, or contenteditable
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
       const keyIndex = KEYBINDS.indexOf(e.key);
       if (keyIndex !== -1 && keyIndex < spells.length) {
