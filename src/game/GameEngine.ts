@@ -2906,6 +2906,7 @@ export class GameEngine {
               currentMana: manaConfig.maxMana,
               maxMana: manaConfig.maxMana,
               mp5: manaConfig.mp5,
+              manaPotionCooldown: 0,
             };
           }
 
@@ -2913,6 +2914,24 @@ export class GameEngine {
 
           // MP5 regeneration (mana per 5 seconds, scaled to delta)
           stats.currentMana = Math.min(stats.maxMana, stats.currentMana + (stats.mp5 * delta / 5));
+
+          // Tick down mana potion cooldown
+          if (stats.manaPotionCooldown > 0) {
+            stats.manaPotionCooldown -= delta;
+          }
+
+          // Use mana potion if low on mana (30% threshold)
+          if (stats.currentMana < stats.maxMana * 0.3 && stats.manaPotionCooldown <= 0) {
+            // Major Mana Potion restores 1350-2250 mana
+            const restored = 1350 + Math.random() * 900;
+            stats.currentMana = Math.min(stats.maxMana, stats.currentMana + restored);
+            stats.manaPotionCooldown = 120; // 2 minute cooldown
+
+            this.addCombatLogEntry({
+              message: `${healer.name} uses Major Mana Potion`,
+              type: 'buff',
+            });
+          }
 
           // Each healer has a cast time cooldown (~2s average)
           const cooldown = this.aiHealerCooldowns[healer.id] || 0;

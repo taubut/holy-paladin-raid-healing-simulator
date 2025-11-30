@@ -16,6 +16,8 @@ import type { TotemElement } from './game/types';
 import { MultiplayerLobby } from './components/MultiplayerLobby';
 import { RaidMeter } from './components/RaidMeter';
 import { RaidSetupModal } from './components/RaidSetupModal';
+import { LandingPage } from './components/LandingPage';
+import type { CharacterConfig, SavedCharacter } from './components/LandingPage';
 import type { GameSession, SessionPlayer } from './lib/supabase';
 import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, onAuthStateChange, saveToCloud, loadFromCloud, deleteCloudSave } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -77,7 +79,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.16.0';
+  const CURRENT_PATCH_VERSION = '0.18.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -117,6 +119,11 @@ function App() {
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'saved' | 'loaded' | 'syncing' | 'error' | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Landing page state
+  const [showLandingPage, setShowLandingPage] = useState(true);
+  const [savedCharacter, setSavedCharacter] = useState<SavedCharacter | null>(null);
+  const [gameInitialized, setGameInitialized] = useState(false);
+
   // Default keybinds
   const DEFAULT_KEYBINDS = {
     actionBar: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
@@ -141,12 +148,54 @@ function App() {
     localStorage.setItem('keybinds', JSON.stringify(keybinds));
   }, [keybinds]);
 
+  // Check for saved character in localStorage or cloud
+  const checkForSavedCharacter = async (user: User | null) => {
+    // First check localStorage for character config
+    const localConfig = localStorage.getItem('characterConfig');
+    if (localConfig) {
+      try {
+        const config = JSON.parse(localConfig);
+        setSavedCharacter({
+          playerName: config.playerName,
+          faction: config.faction,
+          playerClass: config.playerClass,
+        });
+      } catch {
+        // Invalid local config, ignore
+      }
+    }
+
+    // If logged in, check cloud save for character info
+    if (user) {
+      try {
+        const cloudData = await loadFromCloud('autosave') as {
+          playerName?: string;
+          faction?: 'alliance' | 'horde';
+          playerClass?: WoWClass;
+          gearScore?: number;
+        } | null;
+        if (cloudData && Object.keys(cloudData).length > 0) {
+          // Extract character info from cloud save
+          setSavedCharacter({
+            playerName: cloudData.playerName || 'Healadin',
+            faction: cloudData.faction || 'alliance',
+            playerClass: cloudData.playerClass || 'paladin',
+            gearScore: cloudData.gearScore,
+          });
+        }
+      } catch {
+        // Cloud load failed, use local data if available
+      }
+    }
+  };
+
   // Initialize auth state and subscribe to changes
   useEffect(() => {
     // Check for existing session
     getCurrentUser().then(user => {
       setCurrentUser(user);
       setAuthLoading(false);
+      checkForSavedCharacter(user);
     });
 
     // Subscribe to auth state changes
@@ -159,8 +208,8 @@ function App() {
           email: user.email,
           provider: user.app_metadata?.provider
         });
-        // User just logged in - try to load cloud save
-        handleCloudLoad();
+        // Check for saved character
+        checkForSavedCharacter(user);
       }
     });
 
@@ -333,12 +382,48 @@ function App() {
     }
   };
 
-  // Initialize engine once
-  if (!engineRef.current) {
+  // Handle starting the game from landing page
+  const handleStartGame = async (config: CharacterConfig) => {
+    // Save character config to localStorage
+    localStorage.setItem('characterConfig', JSON.stringify(config));
+
+    // Initialize or reconfigure engine
+    if (!engineRef.current) {
+      engineRef.current = new GameEngine();
+    }
+
+    const engine = engineRef.current;
+
+    // Apply character config
+    engine.setPlayerName(config.playerName);
+    engine.switchFaction(config.faction);
+
+    // If logged in, try to load full cloud save
+    if (currentUser) {
+      try {
+        const cloudData = await loadFromCloud('autosave');
+        if (cloudData) {
+          engine.importSaveData(cloudData);
+          // Make sure name matches what user chose (in case cloud save had different name)
+          engine.setPlayerName(config.playerName);
+        }
+      } catch {
+        // Cloud load failed, start fresh
+      }
+    }
+
+    setGameInitialized(true);
+    setShowLandingPage(false);
+    forceUpdate(n => n + 1);
+  };
+
+  // Initialize engine once (only after landing page)
+  if (!engineRef.current && gameInitialized) {
     engineRef.current = new GameEngine();
   }
 
-  const engine = engineRef.current;
+  // Use a dummy engine for type safety when on landing page
+  const engine = engineRef.current || new GameEngine();
 
   // Subscribe to engine updates
   useEffect(() => {
@@ -1069,21 +1154,93 @@ function App() {
     return parts.join(', ') || 'Party buff';
   };
 
+  // Show landing page if not yet started game
+  if (showLandingPage) {
+    return (
+      <>
+        <LandingPage
+          onStartGame={handleStartGame}
+          existingSave={savedCharacter}
+          currentUser={currentUser}
+          authLoading={authLoading}
+          onShowPatchNotes={handleOpenPatchNotes}
+          hasNewPatchNotes={!hasSeenPatchNotes}
+        />
+        {/* Patch Notes Modal - also accessible from landing page */}
+        {showPatchNotes && (
+          <div className="modal-overlay" onClick={() => setShowPatchNotes(false)}>
+            <div className="patch-notes-modal" onClick={e => e.stopPropagation()}>
+              <button className="close-inspection" onClick={() => setShowPatchNotes(false)}>X</button>
+              <div className="patch-notes-header">
+                <h2>Patch Notes</h2>
+              </div>
+              <div className="patch-notes-content">
+                <div className="patch-version">
+                  <h3>Version 0.18.0 - Landing Page Update</h3>
+                  <span className="patch-date">November 30, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>New Landing Page</h4>
+                  <ul>
+                    <li><strong>Character Creation</strong>: Choose your faction, class, and name your character before entering the game</li>
+                    <li><strong>Continue Button</strong>: Returning players can jump right back in with one click</li>
+                    <li><strong>Faction Preference</strong>: Your last faction choice is remembered for new characters</li>
+                    <li><strong>Real Icons</strong>: Authentic Alliance/Horde logos and WoW class icons</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>UI Improvements</h4>
+                  <ul>
+                    <li><strong>LifeCraft Font</strong>: Classic WoW-style font for the game title</li>
+                    <li><strong>Loading Transition</strong>: "Entering Azeroth..." screen when starting the game</li>
+                    <li><strong>Keyboard Support</strong>: Press Enter to start the game when ready</li>
+                    <li><strong>Version Display</strong>: Current version now shown in footer</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
+                  <h3>Version 0.17.0 - Living Bomb Mechanic Update</h3>
+                  <span className="patch-date">November 29, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Living Bomb Safe Zone</h4>
+                  <ul>
+                    <li><strong>Drag to Safety</strong>: When a raid member gets Living Bomb, drag them to the Safe Zone to prevent splash damage</li>
+                    <li><strong>Raid Warning</strong>: Large on-screen warning with airhorn sound when Living Bomb is applied</li>
+                    <li><strong>Auto Return</strong>: Bombed players automatically return to their position after the bomb explodes</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
+                  <h3>Version 0.16.0 - Cloud Saves Update</h3>
+                  <span className="patch-date">November 29, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Cloud Saves</h4>
+                  <ul>
+                    <li><strong>Google & Apple Sign-In</strong>: Log in to sync progress across devices</li>
+                    <li><strong>Automatic Cloud Sync</strong>: Save/Load automatically uses cloud storage when logged in</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="app">
       <div className="background-overlay" />
 
       <header className="app-header">
         <div className="title-container">
-          <h1>Classic WoW Raid Healing Simulator</h1>
-          {!hasSeenPatchNotes && (
-            <button
-              className="patch-notes-overlay-btn"
-              onClick={handleOpenPatchNotes}
-            >
-              NEW PATCH NOTES!
-            </button>
-          )}
+          <h1>Classic WoW Raid Simulator</h1>
         </div>
         <span className="subtitle">Classic Era - Vanilla Only</span>
       </header>
@@ -3658,6 +3815,31 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.18.0 - Landing Page Update</h3>
+                <span className="patch-date">November 30, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>New Landing Page</h4>
+                <ul>
+                  <li><strong>Character Creation</strong>: Choose your faction, class, and name your character before entering the game</li>
+                  <li><strong>Continue Button</strong>: Returning players can jump right back in with one click</li>
+                  <li><strong>Faction Preference</strong>: Your last faction choice is remembered for new characters</li>
+                  <li><strong>Real Icons</strong>: Authentic Alliance/Horde logos and WoW class icons</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>UI Improvements</h4>
+                <ul>
+                  <li><strong>LifeCraft Font</strong>: Classic WoW-style font for the game title</li>
+                  <li><strong>Loading Transition</strong>: "Entering Azeroth..." screen when starting the game</li>
+                  <li><strong>Keyboard Support</strong>: Press Enter to start the game when ready</li>
+                  <li><strong>Version Display</strong>: Current version now shown in footer</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.17.0 - Living Bomb Mechanic Update</h3>
                 <span className="patch-date">November 29, 2025</span>
               </div>
@@ -3665,18 +3847,9 @@ function App() {
               <div className="patch-section">
                 <h4>Living Bomb Safe Zone</h4>
                 <ul>
-                  <li><strong>Drag to Safety</strong>: When a raid member gets Living Bomb, drag them to the Safe Zone to prevent splash damage to the raid</li>
+                  <li><strong>Drag to Safety</strong>: When a raid member gets Living Bomb, drag them to the Safe Zone to prevent splash damage</li>
                   <li><strong>Raid Warning</strong>: Large on-screen warning with airhorn sound when Living Bomb is applied</li>
-                  <li><strong>Auto Return</strong>: Bombed players automatically return to their raid position after the bomb explodes</li>
-                  <li><strong>Multiplayer Sync</strong>: Safe Zone evacuations now sync in co-op - when one player drags, all players see it</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Living Bomb Changes</h4>
-                <ul>
-                  <li><strong>Undispellable</strong>: Living Bomb can no longer be dispelled - you must use the Safe Zone!</li>
-                  <li><strong>Still Healable</strong>: Players in the Safe Zone can still be targeted and healed</li>
+                  <li><strong>Auto Return</strong>: Bombed players automatically return to their position after the bomb explodes</li>
                 </ul>
               </div>
 
@@ -3688,10 +3861,8 @@ function App() {
               <div className="patch-section">
                 <h4>Cloud Saves</h4>
                 <ul>
-                  <li><strong>Google & Apple Sign-In</strong>: Log in with your Google or Apple account to sync progress across devices</li>
-                  <li><strong>Automatic Cloud Sync</strong>: Save/Load buttons automatically use cloud storage when logged in</li>
-                  <li><strong>Local Fallback</strong>: Not logged in? Your saves still work locally as before</li>
-                  <li><strong>Secure Storage</strong>: Your game data is saved securely and only accessible by you</li>
+                  <li><strong>Google & Apple Sign-In</strong>: Log in to sync progress across devices</li>
+                  <li><strong>Automatic Cloud Sync</strong>: Save/Load automatically uses cloud storage when logged in</li>
                 </ul>
               </div>
 
@@ -3703,11 +3874,9 @@ function App() {
               <div className="patch-section">
                 <h4>AI Healer Mana System</h4>
                 <ul>
-                  <li><strong>Realistic Mana Pools</strong>: AI healers now have class-specific mana pools (Priest 5500, Druid 5000, Shaman 4800, Paladin 4500)</li>
+                  <li><strong>Realistic Mana Pools</strong>: AI healers now have class-specific mana pools</li>
                   <li><strong>MP5 Regeneration</strong>: Each class regenerates mana over time at different rates</li>
                   <li><strong>Smart Spell Selection</strong>: AI healers choose efficient small heals for top-offs, big expensive heals for emergencies</li>
-                  <li><strong>OOM Behavior</strong>: AI healers will pause healing when low on mana (except tank emergencies)</li>
-                  <li><strong>Balanced Mana Costs</strong>: AI healer spell costs now match player spell efficiency</li>
                 </ul>
               </div>
 

@@ -412,6 +412,7 @@ export interface AIHealerStats {
   currentMana: number;
   maxMana: number;
   mp5: number;  // Mana per 5 seconds
+  manaPotionCooldown: number;  // Cooldown remaining for mana potion
 }
 
 // Multiplayer loot bidding
