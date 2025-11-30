@@ -23,6 +23,18 @@
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
 }
 
+/* Mouseover healing target - subtle cyan glow */
+.raid-frame.mouseover-target {
+  border-color: #00bfff;
+  box-shadow: 0 0 10px rgba(0, 191, 255, 0.5);
+}
+
+/* When both selected and mouseover, mouseover takes visual precedence */
+.raid-frame.selected.mouseover-target {
+  border-color: #00bfff;
+  box-shadow: 0 0 10px rgba(0, 191, 255, 0.6), 0 0 4px rgba(255, 215, 0, 0.3);
+}
+
 .raid-frame.dead {
   opacity: 0.5;
   background: linear-gradient(180deg, #2a1a1a 0%, #1a0f0f 100%);

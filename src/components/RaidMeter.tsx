@@ -91,7 +91,7 @@ export function RaidMeter({
         id,
         name: stats.name,
         healingDone: stats.healingDone,
-        dispelsDone: 0, // AI healers don't dispel
+        dispelsDone: stats.dispelsDone || 0,
         class: stats.class,
         isPlayer: false,
       });

@@ -7,7 +7,10 @@ import './RaidFrame.css';
 interface RaidFrameProps {
   member: RaidMember;
   isSelected: boolean;
+  isMouseoverTarget: boolean;
   onClick: () => void;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
 }
 
 // Resource bar color mapping
@@ -17,7 +20,7 @@ const RESOURCE_COLORS = {
   energy: 'linear-gradient(180deg, #cccc00 0%, #666600 100%)',
 };
 
-export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, onClick }) => {
+export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, isMouseoverTarget, onClick, onMouseEnter, onMouseLeave }) => {
   const [showCritAnim, setShowCritAnim] = useState(false);
   const [lastCritTime, setLastCritTime] = useState<number | undefined>(undefined);
 
@@ -63,8 +66,10 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, onClic
 
   return (
     <div
-      className={`raid-frame ${isSelected ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellableDebuff ? 'has-dispellable' : ''} ${showCritAnim ? 'crit-heal' : ''}`}
+      className={`raid-frame ${isSelected ? 'selected' : ''} ${isMouseoverTarget ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellableDebuff ? 'has-dispellable' : ''} ${showCritAnim ? 'crit-heal' : ''}`}
       onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       role="button"
       tabIndex={0}
       data-hp={member.currentHealth}

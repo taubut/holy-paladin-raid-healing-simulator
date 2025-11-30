@@ -10,7 +10,7 @@ A browser-based Classic WoW (Vanilla) raid healing simulator. Experience the nos
 
 ## Play Now
 
-**https://classicwowraidsimulator.com**
+**https://classicwowraidsim.com**
 
 No download required - play directly in your browser!
 

@@ -443,6 +443,7 @@ export class GameEngine {
       shamanTotemAssignments: [],  // Will be initialized with default totems for each shaman
       // Mouseover healing - cast spells on whoever the mouse is hovering over
       mouseoverTargetId: null,
+      mouseoverHealingEnabled: false,
       // Faction and class system
       faction: 'alliance' as Faction,
       playerClass: 'paladin' as PlayerHealerClass,
@@ -1306,6 +1307,16 @@ export class GameEngine {
     }
   }
 
+  // Toggle mouseover healing mode
+  setMouseoverHealingEnabled(enabled: boolean) {
+    this.state.mouseoverHealingEnabled = enabled;
+    // Clear mouseover target when disabling
+    if (!enabled) {
+      this.state.mouseoverTargetId = null;
+    }
+    this.notify();
+  }
+
   startEncounter(encounterId: string) {
     if (this.state.isRunning) return;
 
@@ -1686,14 +1697,21 @@ export class GameEngine {
       return;
     }
 
+    // Determine target based on mouseover healing mode
+    // When mouseover healing is enabled, use mouseoverTargetId; otherwise use selectedTargetId
+    const targetId = this.state.mouseoverHealingEnabled
+      ? this.state.mouseoverTargetId
+      : this.state.selectedTargetId;
+
     // Need a target for most spells
-    if (!this.state.selectedTargetId && spell.id !== 'divine_favor') {
-      this.addCombatLogEntry({ message: 'No target selected!', type: 'system' });
+    if (!targetId && spell.id !== 'divine_favor') {
+      const message = this.state.mouseoverHealingEnabled
+        ? 'No mouseover target!'
+        : 'No target selected!';
+      this.addCombatLogEntry({ message, type: 'system' });
       this.notify();
       return;
     }
-
-    const targetId = this.state.selectedTargetId;
 
     const target = this.state.raid.find(m => m.id === targetId);
     if (!target) return;
@@ -1979,7 +1997,8 @@ export class GameEngine {
           this.state.playerMana -= spell.manaCost;
           this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
 
-          const currentTarget = this.state.raid.find(m => m.id === this.state.selectedTargetId);
+          // Use the original target from when cast started (stored in targetId closure)
+          const currentTarget = this.state.raid.find(m => m.id === targetId);
           if (currentTarget && currentTarget.isAlive) {
             // Check if this is a Chain Heal spell
             if (spell.maxBounces && spell.maxBounces > 0) {
@@ -2901,6 +2920,7 @@ export class GameEngine {
             const manaConfig = AI_HEALER_MANA[healer.class] || { maxMana: 5000, mp5: 40 };
             this.state.aiHealerStats[healer.id] = {
               healingDone: 0,
+              dispelsDone: 0,
               name: healer.name,
               class: healer.class,
               currentMana: manaConfig.maxMana,
@@ -3037,9 +3057,20 @@ export class GameEngine {
           const dispellableTypes = canDispel[healer.class] || [];
           if (dispellableTypes.length === 0) return;
 
-          // Find raid members with dispellable debuffs (prioritize tanks/healers, then by debuff severity)
+          // AI healers wait 2-3 seconds before dispelling to give player a chance
+          // A debuff is "new" if duration is within 2.5s of maxDuration
+          const AI_DISPEL_REACTION_DELAY = 2.5;
+
+          // Find raid members with dispellable debuffs that are old enough for AI to dispel
           const membersWithDebuffs = this.state.raid
-            .filter(m => m.isAlive && m.debuffs.some(d => dispellableTypes.includes(d.type) && d.dispellable !== false))
+            .filter(m => m.isAlive && m.debuffs.some(d => {
+              if (!dispellableTypes.includes(d.type)) return false;
+              if (d.dispellable === false) return false;
+              // Check if debuff has been active long enough for AI to react
+              const maxDur = d.maxDuration || d.duration;
+              const timeActive = maxDur - d.duration;
+              return timeActive >= AI_DISPEL_REACTION_DELAY;
+            }))
             .sort((a, b) => {
               // Tanks get highest priority
               if (a.role === 'tank' && b.role !== 'tank') return -1;
@@ -3053,7 +3084,14 @@ export class GameEngine {
 
           if (membersWithDebuffs.length > 0) {
             const target = membersWithDebuffs[0];
-            const debuffToDispel = target.debuffs.find(d => dispellableTypes.includes(d.type) && d.dispellable !== false);
+            // Find a debuff that's old enough to dispel
+            const debuffToDispel = target.debuffs.find(d => {
+              if (!dispellableTypes.includes(d.type)) return false;
+              if (d.dispellable === false) return false;
+              const maxDur = d.maxDuration || d.duration;
+              const timeActive = maxDur - d.duration;
+              return timeActive >= AI_DISPEL_REACTION_DELAY;
+            });
 
             if (debuffToDispel) {
               // Mana cost for dispel (~60-75 mana like player spells)
@@ -3071,6 +3109,9 @@ export class GameEngine {
 
               // Remove the debuff
               target.debuffs = target.debuffs.filter(d => d.id !== debuffToDispel.id);
+
+              // Track dispel for the meter
+              stats.dispelsDone++;
 
               // Add combat log entry
               this.addCombatLogEntry({

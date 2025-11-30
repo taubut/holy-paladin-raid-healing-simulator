@@ -6,14 +6,18 @@ import './RaidGrid.css';
 interface RaidGridProps {
   raid: RaidMember[];
   selectedTargetId: string | null;
+  mouseoverTargetId: string | null;
   onSelectTarget: (id: string) => void;
+  onMouseoverTarget: (id: string | null) => void;
   inCombat: boolean;
 }
 
 export const RaidGrid: React.FC<RaidGridProps> = ({
   raid,
   selectedTargetId,
+  mouseoverTargetId,
   onSelectTarget,
+  onMouseoverTarget,
   inCombat,
 }) => {
   // Group raid members by group number (1-8)
@@ -36,7 +40,10 @@ export const RaidGrid: React.FC<RaidGridProps> = ({
                 key={member.id}
                 member={member}
                 isSelected={member.id === selectedTargetId}
+                isMouseoverTarget={member.id === mouseoverTargetId}
                 onClick={() => onSelectTarget(member.id)}
+                onMouseEnter={() => onMouseoverTarget(member.id)}
+                onMouseLeave={() => onMouseoverTarget(null)}
               />
             ))}
           </div>

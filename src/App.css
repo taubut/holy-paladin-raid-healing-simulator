@@ -4248,6 +4248,49 @@ body {
   font-style: italic;
 }
 
+/* Targeting Mode Toggle */
+.targeting-mode-toggle {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.targeting-mode-btn {
+  flex: 1;
+  max-width: 140px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, #3a3a5a 0%, #2a2a4a 100%);
+  border: 1px solid #5a5a7a;
+  border-radius: 6px;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.targeting-mode-btn:hover {
+  background: linear-gradient(180deg, #4a4a6a 0%, #3a3a5a 100%);
+  border-color: #7a7a9a;
+  color: #aaa;
+}
+
+.targeting-mode-btn.active {
+  background: linear-gradient(180deg, #3a5a3a 0%, #2a4a2a 100%);
+  border-color: #5a9a5a;
+  color: #8f8;
+  box-shadow: 0 0 10px rgba(80, 200, 80, 0.3);
+}
+
+.targeting-mode-hint {
+  text-align: center;
+  color: #666;
+  font-size: 11px;
+  margin-top: 10px;
+  font-style: italic;
+}
+
 /* Interface Tab */
 .settings-interface-tab {
   display: flex;

@@ -406,6 +406,7 @@ export interface CombatLogEntry {
 // AI healer stats for the healing meter
 export interface AIHealerStats {
   healingDone: number;
+  dispelsDone: number;  // Track dispels for the meter
   name: string;
   class: WoWClass;
   // Mana system for realistic AI healer behavior
@@ -503,6 +504,7 @@ export interface GameState {
   shamanTotemAssignments: ShamanTotemAssignment[];  // Each shaman's chosen totems
   // Mouseover healing - cast spells on whoever the mouse is hovering over
   mouseoverTargetId: string | null;  // ID of raid member currently under the mouse cursor
+  mouseoverHealingEnabled: boolean;  // When true, use mouseoverTargetId instead of selectedTargetId
   // Faction and class system
   faction: Faction;
   playerClass: PlayerHealerClass;
