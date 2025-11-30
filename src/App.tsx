@@ -79,7 +79,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.18.0';
+  const CURRENT_PATCH_VERSION = '0.19.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -148,9 +148,47 @@ function App() {
     localStorage.setItem('keybinds', JSON.stringify(keybinds));
   }, [keybinds]);
 
+  // Mouseover healing mode (persisted to localStorage)
+  const [mouseoverHealingEnabled, setMouseoverHealingEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('mouseoverHealingEnabled');
+    return saved === 'true';
+  });
+
+  // Persist mouseover healing setting to localStorage
+  useEffect(() => {
+    localStorage.setItem('mouseoverHealingEnabled', mouseoverHealingEnabled.toString());
+  }, [mouseoverHealingEnabled]);
+
   // Check for saved character in localStorage or cloud
   const checkForSavedCharacter = async (user: User | null) => {
-    // First check localStorage for character config
+    // If logged in, use cloud save (skip localStorage to avoid flicker)
+    if (user) {
+      try {
+        // Cloud save structure has player data nested under 'player' key
+        const cloudData = await loadFromCloud('autosave') as {
+          player?: {
+            name?: string;
+          };
+          faction?: 'alliance' | 'horde';
+          playerClass?: WoWClass;
+          gearScore?: number;
+        } | null;
+        if (cloudData && Object.keys(cloudData).length > 0) {
+          // Extract character info from cloud save (name is in player.name)
+          setSavedCharacter({
+            playerName: cloudData.player?.name || 'Healadin',
+            faction: cloudData.faction || 'alliance',
+            playerClass: cloudData.playerClass || 'paladin',
+            gearScore: cloudData.gearScore,
+          });
+          return; // Don't check localStorage if cloud save exists
+        }
+      } catch {
+        // Cloud load failed, fall through to localStorage
+      }
+    }
+
+    // Fall back to localStorage for character config (not logged in or no cloud save)
     const localConfig = localStorage.getItem('characterConfig');
     if (localConfig) {
       try {
@@ -162,29 +200,6 @@ function App() {
         });
       } catch {
         // Invalid local config, ignore
-      }
-    }
-
-    // If logged in, check cloud save for character info
-    if (user) {
-      try {
-        const cloudData = await loadFromCloud('autosave') as {
-          playerName?: string;
-          faction?: 'alliance' | 'horde';
-          playerClass?: WoWClass;
-          gearScore?: number;
-        } | null;
-        if (cloudData && Object.keys(cloudData).length > 0) {
-          // Extract character info from cloud save
-          setSavedCharacter({
-            playerName: cloudData.playerName || 'Healadin',
-            faction: cloudData.faction || 'alliance',
-            playerClass: cloudData.playerClass || 'paladin',
-            gearScore: cloudData.gearScore,
-          });
-        }
-      } catch {
-        // Cloud load failed, use local data if available
       }
     }
   };
@@ -250,6 +265,25 @@ function App() {
       setTimeout(() => setCloudSyncStatus(null), 3000);
     } catch {
       setCloudSyncStatus('error');
+    }
+  };
+
+  // Auto-save to cloud after boss kill and loot completion
+  const handleLootComplete = (action: 'closeLoot' | 'clearResults') => {
+    if (!engineRef.current) return;
+
+    if (action === 'closeLoot') {
+      engineRef.current.closeLootModal();
+    } else {
+      engineRef.current.clearLootResults();
+    }
+
+    // Auto cloud save if user is logged in
+    if (currentUser) {
+      // Small delay to ensure game state is updated after loot changes
+      setTimeout(() => {
+        handleCloudSave();
+      }, 100);
     }
   };
 
@@ -432,6 +466,17 @@ function App() {
     });
     return unsubscribe;
   }, [engine]);
+
+  // Sync mouseover healing mode with engine (runs when setting changes or engine initializes)
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setMouseoverHealingEnabled(mouseoverHealingEnabled);
+      // Clear selected target when switching to mouseover mode
+      if (mouseoverHealingEnabled) {
+        engineRef.current.selectTarget('');
+      }
+    }
+  }, [mouseoverHealingEnabled, gameInitialized]);
 
   // Persist buffs panel expanded state
   useEffect(() => {
@@ -1176,6 +1221,36 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.19.0 - Mouseover Healing & Cloud Saves</h3>
+                  <span className="patch-date">November 30, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Mouseover Healing</h4>
+                  <ul>
+                    <li><strong>Mouseover Mode</strong>: Toggle between click-target and mouseover healing in Settings → Keybinds</li>
+                    <li><strong>Hover to Heal</strong>: In mouseover mode, spells target whoever your mouse is over - no clicking required</li>
+                    <li><strong>Visual Indicator</strong>: Cyan glow shows your current mouseover target</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>AI Healer Improvements</h4>
+                  <ul>
+                    <li><strong>Dispel Priority</strong>: AI healers now wait 2.5 seconds before dispelling, giving you time to react first</li>
+                    <li><strong>Dispel Tracking</strong>: AI healer dispels now show up in the Dispels meter</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Cloud Save Improvements</h4>
+                  <ul>
+                    <li><strong>Auto-Save</strong>: Game automatically saves to cloud after defeating a boss and closing loot</li>
+                    <li><strong>Character Name Fix</strong>: Your character name now loads correctly from cloud saves</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.18.0 - Landing Page Update</h3>
                   <span className="patch-date">November 30, 2025</span>
                 </div>
@@ -1185,18 +1260,6 @@ function App() {
                   <ul>
                     <li><strong>Character Creation</strong>: Choose your faction, class, and name your character before entering the game</li>
                     <li><strong>Continue Button</strong>: Returning players can jump right back in with one click</li>
-                    <li><strong>Faction Preference</strong>: Your last faction choice is remembered for new characters</li>
-                    <li><strong>Real Icons</strong>: Authentic Alliance/Horde logos and WoW class icons</li>
-                  </ul>
-                </div>
-
-                <div className="patch-section">
-                  <h4>UI Improvements</h4>
-                  <ul>
-                    <li><strong>LifeCraft Font</strong>: Classic WoW-style font for the game title</li>
-                    <li><strong>Loading Transition</strong>: "Entering Azeroth..." screen when starting the game</li>
-                    <li><strong>Keyboard Support</strong>: Press Enter to start the game when ready</li>
-                    <li><strong>Version Display</strong>: Current version now shown in footer</li>
                   </ul>
                 </div>
 
@@ -1511,7 +1574,7 @@ function App() {
                         return (
                           <div
                             key={member.id}
-                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
                             draggable={hasLivingBomb}
                             onDragStart={(e) => {
                               if (hasLivingBomb) {
@@ -1521,11 +1584,16 @@ function App() {
                             }}
                             onClick={() => {
                               if (state.isRunning) {
-                                engine.selectTarget(member.id);
+                                // In mouseover mode, don't select target on click
+                                if (!mouseoverHealingEnabled) {
+                                  engine.selectTarget(member.id);
+                                }
                               } else {
                                 engine.inspectMember(member.id);
                               }
                             }}
+                            onMouseEnter={() => mouseoverHealingEnabled && engine.setMouseoverTarget(member.id)}
+                            onMouseLeave={() => mouseoverHealingEnabled && engine.setMouseoverTarget(null)}
                           >
                             <div className="class-indicator" style={{ backgroundColor: classColor }} />
                             <div className="member-name" style={{ color: classColor }}>
@@ -1640,8 +1708,10 @@ function App() {
                     return (
                       <div
                         key={memberId}
-                        className={`evacuated-member ${state.selectedTargetId === member.id ? 'selected' : ''}`}
-                        onClick={() => engine.selectTarget(member.id)}
+                        className={`evacuated-member ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''}`}
+                        onClick={() => !mouseoverHealingEnabled && engine.selectTarget(member.id)}
+                        onMouseEnter={() => mouseoverHealingEnabled && engine.setMouseoverTarget(member.id)}
+                        onMouseLeave={() => mouseoverHealingEnabled && engine.setMouseoverTarget(null)}
                         style={{ cursor: 'pointer' }}
                       >
                         <div className="class-indicator" style={{ backgroundColor: classColor }} />
@@ -2579,14 +2649,19 @@ function App() {
                             return (
                               <div
                                 key={member.id}
-                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
+                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
                                 onClick={() => {
                                   if (state.isRunning) {
-                                    engine.selectTarget(member.id);
+                                    // In mouseover mode, don't select target on click
+                                    if (!mouseoverHealingEnabled) {
+                                      engine.selectTarget(member.id);
+                                    }
                                   } else {
                                     engine.inspectMember(member.id);
                                   }
                                 }}
+                                onMouseEnter={() => mouseoverHealingEnabled && engine.setMouseoverTarget(member.id)}
+                                onMouseLeave={() => mouseoverHealingEnabled && engine.setMouseoverTarget(null)}
                               >
                                 <div
                                   className="mobile-frame-health"
@@ -3076,7 +3151,7 @@ function App() {
               {isMultiplayerMode && state.lootBidTimer > 0 ? (
                 <span className="loot-bidding-info">Waiting for all players to bid...</span>
               ) : (
-                <button className="close-btn" onClick={() => engine.closeLootModal()}>
+                <button className="close-btn" onClick={() => handleLootComplete('closeLoot')}>
                   Close (Pass All)
                 </button>
               )}
@@ -3110,7 +3185,7 @@ function App() {
               ))}
             </div>
             <div className="loot-results-footer">
-              <button className="close-btn" onClick={() => engine.clearLootResults()}>
+              <button className="close-btn" onClick={() => handleLootComplete('clearResults')}>
                 Close
               </button>
             </div>
@@ -4324,6 +4399,29 @@ function App() {
                           {recordingKeybind === 'manaPotion' ? 'Press a key...' : keybinds.manaPotion.toUpperCase()}
                         </button>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="keybind-section">
+                    <div className="keybind-section-header">Targeting Mode</div>
+                    <div className="targeting-mode-toggle">
+                      <button
+                        className={`targeting-mode-btn ${!mouseoverHealingEnabled ? 'active' : ''}`}
+                        onClick={() => setMouseoverHealingEnabled(false)}
+                      >
+                        Click Target
+                      </button>
+                      <button
+                        className={`targeting-mode-btn ${mouseoverHealingEnabled ? 'active' : ''}`}
+                        onClick={() => setMouseoverHealingEnabled(true)}
+                      >
+                        Mouseover
+                      </button>
+                    </div>
+                    <div className="targeting-mode-hint">
+                      {mouseoverHealingEnabled
+                        ? 'Spells will heal the raid frame under your mouse cursor'
+                        : 'Click a raid frame to select it, then cast spells on that target'}
                     </div>
                   </div>
 
