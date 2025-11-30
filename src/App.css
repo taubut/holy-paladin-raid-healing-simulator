@@ -1773,6 +1773,50 @@ body {
   color: #fff;
 }
 
+/* WoW-style counter-clockwise sweep cooldown animation */
+.cooldown-sweep,
+.gcd-sweep {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  border-radius: 4px;
+  /* Conic gradient creates the pie/clock sweep effect */
+  /* Dark area shrinks counter-clockwise from 12 o'clock as cooldown expires */
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    transparent var(--sweep-progress, 0deg),
+    rgba(0, 0, 0, 0.75) var(--sweep-progress, 0deg),
+    rgba(0, 0, 0, 0.75) 360deg
+  );
+  pointer-events: none;
+}
+
+.gcd-sweep {
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg,
+    transparent var(--sweep-progress, 0deg),
+    rgba(0, 0, 0, 0.7) var(--sweep-progress, 0deg),
+    rgba(0, 0, 0, 0.7) 360deg
+  );
+}
+
+.cooldown-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ffd700;
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px #000, -1px -1px 2px #000;
+  z-index: 3;
+}
+
 .no-mana-overlay {
   position: absolute;
   top: 0;

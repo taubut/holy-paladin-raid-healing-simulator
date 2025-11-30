@@ -1981,6 +1981,12 @@ export class GameEngine {
       this.state.castingSpell = spell;
       this.state.castProgress = 0;
 
+      // GCD starts when cast BEGINS, not when it ends (like real WoW)
+      // This allows casting the next spell immediately after a long cast finishes
+      if (spell.isOnGlobalCooldown) {
+        this.state.globalCooldown = GCD_DURATION;
+      }
+
       this.castTimeout = window.setTimeout(() => {
         if (this.state.isCasting && this.state.castingSpell?.id === spell.id) {
           // Check if we still have enough mana when cast completes
@@ -2011,7 +2017,7 @@ export class GameEngine {
           this.state.isCasting = false;
           this.state.castingSpell = null;
           this.state.castProgress = 0;
-          this.state.globalCooldown = GCD_DURATION;
+          // GCD already started at cast BEGIN (line 1986-1988), not here at cast end
 
           if (actionBarSpell && spell.cooldown > 0) {
             actionBarSpell.currentCooldown = spell.cooldown;
@@ -4060,8 +4066,12 @@ export class GameEngine {
   // Export current game state as JSON (for cloud saves)
   exportSaveData(): unknown {
     return {
-      version: 7,
+      version: 8,
       timestamp: Date.now(),
+      // Top-level faction and class for character selection screen
+      faction: this.state.faction,
+      playerClass: this.state.playerClass,
+      gearScore: this.getPlayerMember()?.gearScore || 0,
       player: {
         name: this.state.playerName,
         equipment: this.state.playerEquipment,
