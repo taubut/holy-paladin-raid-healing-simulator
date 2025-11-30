@@ -79,7 +79,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.18.0';
+  const CURRENT_PATCH_VERSION = '0.19.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -1221,6 +1221,36 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.19.0 - Mouseover Healing & Cloud Saves</h3>
+                  <span className="patch-date">November 30, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Mouseover Healing</h4>
+                  <ul>
+                    <li><strong>Mouseover Mode</strong>: Toggle between click-target and mouseover healing in Settings → Keybinds</li>
+                    <li><strong>Hover to Heal</strong>: In mouseover mode, spells target whoever your mouse is over - no clicking required</li>
+                    <li><strong>Visual Indicator</strong>: Cyan glow shows your current mouseover target</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>AI Healer Improvements</h4>
+                  <ul>
+                    <li><strong>Dispel Priority</strong>: AI healers now wait 2.5 seconds before dispelling, giving you time to react first</li>
+                    <li><strong>Dispel Tracking</strong>: AI healer dispels now show up in the Dispels meter</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Cloud Save Improvements</h4>
+                  <ul>
+                    <li><strong>Auto-Save</strong>: Game automatically saves to cloud after defeating a boss and closing loot</li>
+                    <li><strong>Character Name Fix</strong>: Your character name now loads correctly from cloud saves</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.18.0 - Landing Page Update</h3>
                   <span className="patch-date">November 30, 2025</span>
                 </div>
@@ -1230,18 +1260,6 @@ function App() {
                   <ul>
                     <li><strong>Character Creation</strong>: Choose your faction, class, and name your character before entering the game</li>
                     <li><strong>Continue Button</strong>: Returning players can jump right back in with one click</li>
-                    <li><strong>Faction Preference</strong>: Your last faction choice is remembered for new characters</li>
-                    <li><strong>Real Icons</strong>: Authentic Alliance/Horde logos and WoW class icons</li>
-                  </ul>
-                </div>
-
-                <div className="patch-section">
-                  <h4>UI Improvements</h4>
-                  <ul>
-                    <li><strong>LifeCraft Font</strong>: Classic WoW-style font for the game title</li>
-                    <li><strong>Loading Transition</strong>: "Entering Azeroth..." screen when starting the game</li>
-                    <li><strong>Keyboard Support</strong>: Press Enter to start the game when ready</li>
-                    <li><strong>Version Display</strong>: Current version now shown in footer</li>
                   </ul>
                 </div>
 
