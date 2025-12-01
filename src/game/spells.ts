@@ -100,7 +100,7 @@ export const HOLY_LIGHT: Spell = {
   healAmount: { min: 1590, max: 1770 },
   range: 40,
   spellPowerCoefficient: 0.71,
-  isOnGlobalCooldown: false,
+  isOnGlobalCooldown: true,
 };
 
 // Holy Light - Rank 6 (downrank for efficiency)
@@ -116,7 +116,7 @@ export const HOLY_LIGHT_DOWNRANK: Spell = {
   healAmount: { min: 698, max: 780 },
   range: 40,
   spellPowerCoefficient: 0.71,
-  isOnGlobalCooldown: false,
+  isOnGlobalCooldown: true,
 };
 
 // Flash of Light - Rank 6 (max rank)
@@ -132,7 +132,7 @@ export const FLASH_OF_LIGHT: Spell = {
   healAmount: { min: 346, max: 386 },
   range: 40,
   spellPowerCoefficient: 0.43,
-  isOnGlobalCooldown: false,
+  isOnGlobalCooldown: true,
 };
 
 // Flash of Light - Rank 4 (downrank)
@@ -148,7 +148,7 @@ export const FLASH_OF_LIGHT_DOWNRANK: Spell = {
   healAmount: { min: 189, max: 211 },
   range: 40,
   spellPowerCoefficient: 0.43,
-  isOnGlobalCooldown: false,
+  isOnGlobalCooldown: true,
 };
 
 // Holy Shock - Talent (31-point Holy)

@@ -19,7 +19,7 @@ import { RaidSetupModal } from './components/RaidSetupModal';
 import { LandingPage } from './components/LandingPage';
 import type { CharacterConfig, SavedCharacter } from './components/LandingPage';
 import type { GameSession, SessionPlayer } from './lib/supabase';
-import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, onAuthStateChange, saveToCloud, loadFromCloud, deleteCloudSave } from './lib/supabase';
+import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, onAuthStateChange, saveToCloud, loadFromCloud, deleteCloudSave, listCloudSaves } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import posthog from 'posthog-js';
 import './App.css';
@@ -79,7 +79,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.19.0';
+  const CURRENT_PATCH_VERSION = '0.20.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -121,7 +121,8 @@ function App() {
 
   // Landing page state
   const [showLandingPage, setShowLandingPage] = useState(true);
-  const [savedCharacter, setSavedCharacter] = useState<SavedCharacter | null>(null);
+  const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
+  const [currentCharacterId, setCurrentCharacterId] = useState<string | null>(null);
   const [gameInitialized, setGameInitialized] = useState(false);
 
   // Default keybinds
@@ -159,29 +160,37 @@ function App() {
     localStorage.setItem('mouseoverHealingEnabled', mouseoverHealingEnabled.toString());
   }, [mouseoverHealingEnabled]);
 
-  // Check for saved character in localStorage or cloud
-  const checkForSavedCharacter = async (user: User | null) => {
-    // If logged in, use cloud save (skip localStorage to avoid flicker)
+  // Check for saved characters in localStorage or cloud
+  const checkForSavedCharacters = async (user: User | null) => {
+    const characters: SavedCharacter[] = [];
+
+    // If logged in, load all cloud saves
     if (user) {
       try {
-        // Cloud save structure has player data nested under 'player' key
-        const cloudData = await loadFromCloud('autosave') as {
-          player?: {
-            name?: string;
-          };
-          faction?: 'alliance' | 'horde';
-          playerClass?: WoWClass;
-          gearScore?: number;
-        } | null;
-        if (cloudData && Object.keys(cloudData).length > 0) {
-          // Extract character info from cloud save (name is in player.name)
-          setSavedCharacter({
-            playerName: cloudData.player?.name || 'Healadin',
-            faction: cloudData.faction || 'alliance',
-            playerClass: cloudData.playerClass || 'paladin',
-            gearScore: cloudData.gearScore,
-          });
-          return; // Don't check localStorage if cloud save exists
+        const cloudSaves = await listCloudSaves();
+        for (const save of cloudSaves) {
+          // Cloud save structure has player data nested under 'player' key
+          const cloudData = save.save_data as {
+            player?: { name?: string };
+            faction?: 'alliance' | 'horde';
+            playerClass?: WoWClass;
+            gearScore?: number;
+          } | null;
+
+          if (cloudData && Object.keys(cloudData).length > 0) {
+            characters.push({
+              id: save.slot_name,  // Use the slot name as the character ID
+              playerName: cloudData.player?.name || 'Unknown',
+              faction: cloudData.faction || 'alliance',
+              playerClass: cloudData.playerClass || 'paladin',
+              gearScore: cloudData.gearScore,
+            });
+          }
+        }
+
+        if (characters.length > 0) {
+          setSavedCharacters(characters);
+          return;
         }
       } catch {
         // Cloud load failed, fall through to localStorage
@@ -193,7 +202,8 @@ function App() {
     if (localConfig) {
       try {
         const config = JSON.parse(localConfig);
-        setSavedCharacter({
+        characters.push({
+          id: config.id || 'local_save',
           playerName: config.playerName,
           faction: config.faction,
           playerClass: config.playerClass,
@@ -201,6 +211,52 @@ function App() {
       } catch {
         // Invalid local config, ignore
       }
+    }
+
+    setSavedCharacters(characters);
+  };
+
+  // Delete a character (cloud save or local save)
+  const handleDeleteCharacter = async (characterId: string): Promise<boolean> => {
+    let deleted = false;
+
+    try {
+      // If logged in, try to delete from cloud
+      if (currentUser) {
+        const success = await deleteCloudSave(characterId);
+        if (success) {
+          deleted = true;
+        }
+      }
+
+      // ALWAYS also check if it's a local save and delete from localStorage
+      const localConfig = localStorage.getItem('characterConfig');
+      if (localConfig) {
+        try {
+          const config = JSON.parse(localConfig);
+          // Match by id, playerName, or if it's the generic local_save
+          if (config.id === characterId || config.playerName === characterId || characterId === 'local_save') {
+            localStorage.removeItem('characterConfig');
+            localStorage.removeItem('gameSave');
+            deleted = true;
+          }
+        } catch {
+          // Invalid config, ignore
+        }
+      }
+
+      // If nothing matched by ID, just clear localStorage anyway for the "last character" case
+      if (!deleted) {
+        localStorage.removeItem('characterConfig');
+        localStorage.removeItem('gameSave');
+        deleted = true;
+      }
+
+      // Refresh the character list
+      await checkForSavedCharacters(currentUser);
+      return deleted;
+    } catch {
+      return false;
     }
   };
 
@@ -210,7 +266,7 @@ function App() {
     getCurrentUser().then(user => {
       setCurrentUser(user);
       setAuthLoading(false);
-      checkForSavedCharacter(user);
+      checkForSavedCharacters(user);
     });
 
     // Subscribe to auth state changes
@@ -223,8 +279,8 @@ function App() {
           email: user.email,
           provider: user.app_metadata?.provider
         });
-        // Check for saved character
-        checkForSavedCharacter(user);
+        // Check for saved characters
+        checkForSavedCharacters(user);
       }
     });
 
@@ -233,12 +289,13 @@ function App() {
 
   // Cloud save function - syncs current game state to cloud
   const handleCloudSave = async () => {
-    if (!currentUser || !engineRef.current) return;
+    if (!currentUser || !engineRef.current || !currentCharacterId) return;
 
     setCloudSyncStatus('syncing');
     try {
       const saveData = engineRef.current.exportSaveData();
-      const success = await saveToCloud('autosave', saveData);
+      // Use character ID as slot name so each character has their own save
+      const success = await saveToCloud(currentCharacterId, saveData);
       setCloudSyncStatus(success ? 'saved' : 'error');
 
       // Reset status after a few seconds
@@ -421,6 +478,10 @@ function App() {
     // Save character config to localStorage
     localStorage.setItem('characterConfig', JSON.stringify(config));
 
+    // Track the current character ID for cloud saves
+    const characterId = config.id || `char_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setCurrentCharacterId(characterId);
+
     // Initialize or reconfigure engine
     if (!engineRef.current) {
       engineRef.current = new GameEngine();
@@ -432,10 +493,10 @@ function App() {
     engine.setPlayerName(config.playerName);
     engine.switchFaction(config.faction);
 
-    // If logged in, try to load full cloud save
-    if (currentUser) {
+    // Only load cloud save if continuing an existing character
+    if (config.isContinuing && currentUser && config.id) {
       try {
-        const cloudData = await loadFromCloud('autosave');
+        const cloudData = await loadFromCloud(config.id);
         if (cloudData) {
           engine.importSaveData(cloudData);
           // Make sure name matches what user chose (in case cloud save had different name)
@@ -443,6 +504,17 @@ function App() {
         }
       } catch {
         // Cloud load failed, start fresh
+      }
+    }
+
+    // Auto cloud save NEW characters immediately if logged in
+    if (!config.isContinuing && currentUser) {
+      try {
+        const saveData = engine.exportSaveData();
+        await saveToCloud(characterId, saveData);
+        console.log('New character saved to cloud:', characterId);
+      } catch (err) {
+        console.error('Failed to save new character to cloud:', err);
       }
     }
 
@@ -1205,11 +1277,12 @@ function App() {
       <>
         <LandingPage
           onStartGame={handleStartGame}
-          existingSave={savedCharacter}
+          savedCharacters={savedCharacters}
           currentUser={currentUser}
           authLoading={authLoading}
           onShowPatchNotes={handleOpenPatchNotes}
           hasNewPatchNotes={!hasSeenPatchNotes}
+          onDeleteCharacter={handleDeleteCharacter}
         />
         {/* Patch Notes Modal - also accessible from landing page */}
         {showPatchNotes && (
@@ -1221,6 +1294,35 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.20.0 - GCD Animation & Polish</h3>
+                  <span className="patch-date">November 30, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Action Bar Improvements</h4>
+                  <ul>
+                    <li><strong>Cooldown Sweep Animation</strong>: WoW-style clockwise sweep animation on spell icons during cooldowns</li>
+                    <li><strong>GCD Visual Feedback</strong>: Global Cooldown now shows a sweep animation on all affected spells</li>
+                    <li><strong>GCD Timing Fix</strong>: Global Cooldown now starts when you begin casting, not when the cast finishes (authentic WoW behavior)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Cloud Saves</h4>
+                  <ul>
+                    <li><strong>Save on Creation</strong>: New characters are now saved to the cloud immediately when logged in</li>
+                    <li><strong>Multiple Characters</strong>: Character selection now properly shows all your saved characters</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Code Cleanup</h4>
+                  <ul>
+                    <li>Removed unused duplicate code files for improved maintainability</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.19.0 - Mouseover Healing & Cloud Saves</h3>
                   <span className="patch-date">November 30, 2025</span>
                 </div>
@@ -1547,10 +1649,14 @@ function App() {
                         const recentCritHeal = member.lastCritHealTime && (Date.now() - member.lastCritHealTime) < 500;
 
                         // Chain Heal bounce preview - show glow on targets that will receive bounces
+                        // Use mouseover target when mouseover healing is enabled, otherwise use selected target
+                        const chainHealPrimaryTarget = mouseoverHealingEnabled && state.mouseoverTargetId
+                          ? state.mouseoverTargetId
+                          : state.selectedTargetId;
                         const isChainHealBounceTarget = state.isCasting &&
                           state.castingSpell?.id.includes('chain_heal') &&
-                          state.selectedTargetId &&
-                          engine.getChainHealBounceTargets(state.selectedTargetId, state.castingSpell?.maxBounces || 2).includes(member.id);
+                          chainHealPrimaryTarget &&
+                          engine.getChainHealBounceTargets(chainHealPrimaryTarget, state.castingSpell?.maxBounces || 2).includes(member.id);
 
                         // Healer mana - for player it's state.playerMana, for AI it's aiHealerStats
                         const isHealer = member.role === 'healer';
@@ -2024,12 +2130,28 @@ function App() {
                   >
                     <img src={spell.icon} alt={spell.name} />
                     <div className="spell-keybind">{keybinds.actionBar[idx]?.toUpperCase() || (idx + 1)}</div>
+                    {/* WoW-style clockwise sweep for spell cooldowns */}
                     {isOnCooldown && (
-                      <div className="cooldown-overlay">
-                        <span>{Math.ceil(spell.currentCooldown)}</span>
-                      </div>
+                      <>
+                        <div
+                          className="cooldown-sweep"
+                          style={{
+                            '--sweep-progress': `${(1 - spell.currentCooldown / spell.cooldown) * 360}deg`,
+                          } as React.CSSProperties}
+                        />
+                        <div className="cooldown-text">{Math.ceil(spell.currentCooldown)}</div>
+                      </>
                     )}
-                    {notEnoughMana && !isOnCooldown && (
+                    {/* WoW-style clockwise sweep for GCD */}
+                    {isOnGCD && !isOnCooldown && (
+                      <div
+                        className="gcd-sweep"
+                        style={{
+                          '--sweep-progress': `${(1 - state.globalCooldown / 1.5) * 360}deg`,
+                        } as React.CSSProperties}
+                      />
+                    )}
+                    {notEnoughMana && !isOnCooldown && !isOnGCD && (
                       <div className="no-mana-overlay" />
                     )}
                   </div>
@@ -2622,10 +2744,14 @@ function App() {
                               d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
                             );
                             const isPlayer = isLocalPlayer(member.id);
+                            // Chain Heal bounce preview - use mouseover target when enabled
+                            const mobileChainHealTarget = mouseoverHealingEnabled && state.mouseoverTargetId
+                              ? state.mouseoverTargetId
+                              : state.selectedTargetId;
                             const isChainHealBounce = state.isCasting &&
                               state.castingSpell?.id.includes('chain_heal') &&
-                              state.selectedTargetId &&
-                              engine.getChainHealBounceTargets(state.selectedTargetId, state.castingSpell?.maxBounces || 2).includes(member.id);
+                              mobileChainHealTarget &&
+                              engine.getChainHealBounceTargets(mobileChainHealTarget, state.castingSpell?.maxBounces || 2).includes(member.id);
 
                             // Mobile healer mana
                             const isHealer = member.role === 'healer';
