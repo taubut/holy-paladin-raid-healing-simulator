@@ -4216,49 +4216,38 @@ export class GameEngine {
     }
   }
 
-  // Export all saves to a JSON file for backup
-  exportSavesToFile(customFileName?: string) {
-    const saves: Record<string, unknown> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith('mc_healer_save_')) {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          try {
-            saves[key] = JSON.parse(raw);
-          } catch {
-            saves[key] = raw;
-          }
-        }
-      }
-    }
+  // Export current game state to a JSON file
+  exportCurrentGameToFile(customFileName?: string) {
+    const saveData = this.exportSaveData();
 
     const exportData = {
-      exportVersion: 1,
+      exportVersion: 2,
       exportDate: new Date().toISOString(),
-      saves,
+      playerName: this.state.playerName,
+      saveData,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    // Use custom filename if provided, otherwise use default with date
+    // Use custom filename if provided, otherwise use player name with date
+    const defaultName = `${this.state.playerName || 'healer'}-${new Date().toISOString().split('T')[0]}`;
     const fileName = customFileName?.trim()
       ? `${customFileName.trim().replace(/\.json$/i, '')}.json`
-      : `wow-healer-saves-${new Date().toISOString().split('T')[0]}.json`;
+      : `${defaultName}.json`;
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    this.addCombatLogEntry({ message: `Exported ${Object.keys(saves).length} save(s) to file`, type: 'system' });
+    this.addCombatLogEntry({ message: `Exported save to file: ${fileName}`, type: 'system' });
     this.notify();
   }
 
-  // Import saves from a JSON file
-  importSavesFromFile(file: File): Promise<number> {
+  // Import game state from a JSON file
+  importGameFromFile(file: File): Promise<boolean> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -4266,22 +4255,28 @@ export class GameEngine {
           const content = e.target?.result as string;
           const data = JSON.parse(content);
 
-          if (!data.saves || typeof data.saves !== 'object') {
-            reject(new Error('Invalid save file format'));
-            return;
-          }
-
-          let importedCount = 0;
-          for (const [key, value] of Object.entries(data.saves)) {
-            if (key.startsWith('mc_healer_save_')) {
-              localStorage.setItem(key, JSON.stringify(value));
-              importedCount++;
+          // Support both old format (v1 with saves object) and new format (v2 with saveData)
+          if (data.exportVersion === 2 && data.saveData) {
+            // New format - single save
+            this.importSaveData(data.saveData);
+            this.addCombatLogEntry({ message: `Imported save from file`, type: 'system' });
+            this.notify();
+            resolve(true);
+          } else if (data.saves && typeof data.saves === 'object') {
+            // Old format - import first save found
+            const saveKeys = Object.keys(data.saves);
+            if (saveKeys.length > 0) {
+              const firstSave = data.saves[saveKeys[0]];
+              this.importSaveData(firstSave);
+              this.addCombatLogEntry({ message: `Imported save from file`, type: 'system' });
+              this.notify();
+              resolve(true);
+            } else {
+              reject(new Error('No saves found in file'));
             }
+          } else {
+            reject(new Error('Invalid save file format'));
           }
-
-          this.addCombatLogEntry({ message: `Imported ${importedCount} save(s) from file`, type: 'system' });
-          this.notify();
-          resolve(importedCount);
         } catch (err) {
           reject(new Error('Failed to parse save file'));
         }

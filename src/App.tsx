@@ -30,11 +30,9 @@ function App() {
   const [, forceUpdate] = useState(0);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
-  const [saveSlotName, setSaveSlotName] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState('');
   const [importExportStatus, setImportExportStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [exportFileName, setExportFileName] = useState('');
   const [hoveredSpell, setHoveredSpell] = useState<Spell | null>(null);
   const [showEncounterJournal, setShowEncounterJournal] = useState(false);
   const [selectedJournalBoss, setSelectedJournalBoss] = useState<string | null>(null);
@@ -188,73 +186,30 @@ function App() {
           }
         }
 
-        if (characters.length > 0) {
-          setSavedCharacters(characters);
-          return;
-        }
+        setSavedCharacters(characters);
+        return;
       } catch {
-        // Cloud load failed, fall through to localStorage
+        // Cloud load failed
       }
     }
 
-    // Fall back to localStorage for character config (not logged in or no cloud save)
-    const localConfig = localStorage.getItem('characterConfig');
-    if (localConfig) {
-      try {
-        const config = JSON.parse(localConfig);
-        characters.push({
-          id: config.id || 'local_save',
-          playerName: config.playerName,
-          faction: config.faction,
-          playerClass: config.playerClass,
-        });
-      } catch {
-        // Invalid local config, ignore
-      }
-    }
-
-    setSavedCharacters(characters);
+    // No cloud saves or not logged in - no saved characters to show
+    setSavedCharacters([]);
   };
 
-  // Delete a character (cloud save or local save)
+  // Delete a character (cloud save only)
   const handleDeleteCharacter = async (characterId: string): Promise<boolean> => {
-    let deleted = false;
-
     try {
-      // If logged in, try to delete from cloud
+      // Only logged-in users can delete (cloud saves only)
       if (currentUser) {
         const success = await deleteCloudSave(characterId);
         if (success) {
-          deleted = true;
+          // Refresh the character list
+          await checkForSavedCharacters(currentUser);
+          return true;
         }
       }
-
-      // ALWAYS also check if it's a local save and delete from localStorage
-      const localConfig = localStorage.getItem('characterConfig');
-      if (localConfig) {
-        try {
-          const config = JSON.parse(localConfig);
-          // Match by id, playerName, or if it's the generic local_save
-          if (config.id === characterId || config.playerName === characterId || characterId === 'local_save') {
-            localStorage.removeItem('characterConfig');
-            localStorage.removeItem('gameSave');
-            deleted = true;
-          }
-        } catch {
-          // Invalid config, ignore
-        }
-      }
-
-      // If nothing matched by ID, just clear localStorage anyway for the "last character" case
-      if (!deleted) {
-        localStorage.removeItem('characterConfig');
-        localStorage.removeItem('gameSave');
-        deleted = true;
-      }
-
-      // Refresh the character list
-      await checkForSavedCharacters(currentUser);
-      return deleted;
+      return false;
     } catch {
       return false;
     }
@@ -281,6 +236,9 @@ function App() {
         });
         // Check for saved characters
         checkForSavedCharacters(user);
+      } else {
+        // User logged out - clear saved characters
+        setSavedCharacters([]);
       }
     });
 
@@ -1553,7 +1511,6 @@ function App() {
                 {showUtilityMenu && (
                   <div className="utility-menu">
                     <button onClick={() => {
-                      setSaveSlotName(state.playerName);
                       setShowSaveModal(true);
                       setShowUtilityMenu(false);
                     }}>
@@ -3406,107 +3363,51 @@ function App() {
               <button className="close-inspection" onClick={() => setShowSaveModal(false)}>X</button>
             </div>
             <div className="save-modal-content">
-              <label className="save-name-label">
-                Save Name:
-                <input
-                  type="text"
-                  className="save-name-input"
-                  value={saveSlotName}
-                  onChange={e => setSaveSlotName(e.target.value)}
-                  placeholder="Enter save name..."
-                  maxLength={20}
-                  autoFocus
-                />
-              </label>
+              {!currentUser ? (
+                <p className="save-login-hint">Login to save your progress to the cloud</p>
+              ) : (
+                <p className="save-description">Save your current progress to the cloud</p>
+              )}
               <div className="save-modal-actions">
                 <button
                   className="save-confirm-btn"
-                  disabled={!saveSlotName.trim()}
+                  disabled={!currentUser || !currentCharacterId}
                   onClick={async () => {
-                    if (saveSlotName.trim()) {
-                      // Always save to localStorage
-                      engine.saveGame(saveSlotName.trim());
-                      // Save keybinds with this save slot
-                      localStorage.setItem(`mc_healer_keybinds_${saveSlotName.trim()}`, JSON.stringify(keybinds));
-
-                      // If logged in, also save to cloud using character ID (not slot name)
-                      // This ensures we update the same cloud save, not create a new one
-                      if (currentUser && currentCharacterId) {
-                        setCloudSyncStatus('syncing');
-                        const saveData = engine.exportSaveData();
-                        const success = await saveToCloud(currentCharacterId, saveData);
-                        setCloudSyncStatus(success ? 'saved' : 'error');
-                        setTimeout(() => setCloudSyncStatus(null), 3000);
-                      }
-
+                    if (currentUser && currentCharacterId) {
+                      setCloudSyncStatus('syncing');
+                      const saveData = engine.exportSaveData();
+                      const success = await saveToCloud(currentCharacterId, saveData);
+                      setCloudSyncStatus(success ? 'saved' : 'error');
+                      setTimeout(() => setCloudSyncStatus(null), 3000);
                       setShowSaveModal(false);
-                      setSaveSlotName('');
                     }
                   }}
                 >
-                  {currentUser ? 'Save to Cloud' : 'Save'}
+                  {currentUser ? 'Save to Cloud' : 'Login Required'}
                 </button>
                 <button className="save-cancel-btn" onClick={() => setShowSaveModal(false)}>
                   Cancel
                 </button>
               </div>
             </div>
-            {engine.listSaves().length > 0 && (
-              <div className="existing-saves">
-                <h3>Existing Saves</h3>
-                <div className="saves-list">
-                  {engine.listSaves().map(saveName => {
-                    const info = engine.getSaveInfo(saveName);
-                    return (
-                      <div
-                        key={saveName}
-                        className="save-slot-item"
-                        onClick={() => setSaveSlotName(saveName)}
-                      >
-                        <span className="save-slot-name">{saveName}</span>
-                        {info && (
-                          <span className="save-slot-info">
-                            {info.playerName} - {new Date(info.timestamp).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
             {/* Export to File Section */}
             <div className="export-section">
               <h3>Export to File</h3>
-              <p className="export-description">Export all saves to a backup file you can share or import later.</p>
+              <p className="export-description">Download your current save as a file to backup or share.</p>
               {importExportStatus && (
                 <div className={`import-export-status ${importExportStatus.type}`}>
                   {importExportStatus.type === 'success' ? '✓' : '✗'} {importExportStatus.message}
                 </div>
               )}
-              <label className="export-name-label">
-                File Name (optional):
-                <input
-                  type="text"
-                  className="export-name-input"
-                  value={exportFileName}
-                  onChange={e => setExportFileName(e.target.value)}
-                  placeholder={`wow-healer-saves-${new Date().toISOString().split('T')[0]}`}
-                  maxLength={50}
-                />
-              </label>
               <button
                 className="export-btn"
                 onClick={() => {
-                  const count = engine.listSaves().length;
-                  engine.exportSavesToFile(exportFileName || undefined);
-                  setImportExportStatus({ message: `Exported ${count} save(s) to file!`, type: 'success' });
-                  setExportFileName('');
+                  engine.exportCurrentGameToFile();
+                  setImportExportStatus({ message: `Exported save to file!`, type: 'success' });
                   setTimeout(() => setImportExportStatus(null), 4000);
                 }}
-                disabled={engine.listSaves().length === 0}
               >
-                Export All Saves
+                Export Save to File
               </button>
             </div>
           </div>
@@ -3518,85 +3419,11 @@ function App() {
         <div className="modal-overlay" onClick={() => setShowLoadModal(false)}>
           <div className="load-modal" onClick={e => e.stopPropagation()}>
             <div className="load-modal-header">
-              <h2>{currentUser ? 'Load Game (Cloud)' : 'Load Game'}</h2>
+              <h2>Load Game</h2>
               <button className="close-inspection" onClick={() => setShowLoadModal(false)}>X</button>
             </div>
             <div className="load-modal-content">
-              {engine.listSaves().length === 0 ? (
-                <div className="no-saves-message">No saved games found.</div>
-              ) : (
-                <div className="saves-list">
-                  {engine.listSaves().map(saveName => {
-                    const info = engine.getSaveInfo(saveName);
-                    return (
-                      <div key={saveName} className="load-slot-item">
-                        <div className="load-slot-info">
-                          <span className="load-slot-name">{saveName}</span>
-                          {info && (
-                            <span className="load-slot-details">
-                              Character: {info.playerName} | Saved: {new Date(info.timestamp).toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                        <div className="load-slot-actions">
-                          <button
-                            className="load-slot-btn"
-                            onClick={async () => {
-                              // If logged in, try to load from cloud first
-                              if (currentUser) {
-                                setCloudSyncStatus('syncing');
-                                const cloudData = await loadFromCloud(saveName);
-                                if (cloudData) {
-                                  engine.importSaveData(cloudData);
-                                  setCloudSyncStatus('loaded');
-                                } else {
-                                  // Fall back to localStorage if no cloud save
-                                  engine.loadGame(saveName);
-                                  setCloudSyncStatus(null);
-                                }
-                                setTimeout(() => setCloudSyncStatus(null), 3000);
-                              } else {
-                                engine.loadGame(saveName);
-                              }
-                              // Load keybinds from this save slot if they exist
-                              const savedKeybinds = localStorage.getItem(`mc_healer_keybinds_${saveName}`);
-                              if (savedKeybinds) {
-                                try {
-                                  const parsed = JSON.parse(savedKeybinds);
-                                  setKeybinds(parsed);
-                                } catch {
-                                  // Keep current keybinds if parse fails
-                                }
-                              }
-                              setShowLoadModal(false);
-                            }}
-                          >
-                            {currentUser ? 'Load from Cloud' : 'Load'}
-                          </button>
-                          <button
-                            className="delete-slot-btn"
-                            onClick={() => {
-                              if (confirm(`Delete save "${saveName}"?`)) {
-                                engine.deleteSave(saveName);
-                                // Also delete associated keybinds
-                                localStorage.removeItem(`mc_healer_keybinds_${saveName}`);
-                                // If logged in, also delete from cloud
-                                if (currentUser) {
-                                  deleteCloudSave(saveName);
-                                }
-                              }
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <div className="load-modal-footer">
+              <p className="load-description">Import a save file to load your progress.</p>
               {importExportStatus && (
                 <div className={`import-export-status ${importExportStatus.type}`}>
                   {importExportStatus.type === 'success' ? '✓' : '✗'} {importExportStatus.message}
@@ -3604,7 +3431,7 @@ function App() {
               )}
               <div className="import-section">
                 <label className="import-btn">
-                  Import Saves from File
+                  Import Save from File
                   <input
                     type="file"
                     accept=".json"
@@ -3613,8 +3440,9 @@ function App() {
                       const file = e.target.files?.[0];
                       if (file) {
                         try {
-                          const count = await engine.importSavesFromFile(file);
-                          setImportExportStatus({ message: `Successfully imported ${count} save(s)!`, type: 'success' });
+                          await engine.importGameFromFile(file);
+                          setImportExportStatus({ message: `Save imported successfully!`, type: 'success' });
+                          setShowLoadModal(false);
                         } catch (err) {
                           setImportExportStatus({ message: err instanceof Error ? err.message : 'Import failed', type: 'error' });
                         }
@@ -3625,6 +3453,8 @@ function App() {
                   />
                 </label>
               </div>
+            </div>
+            <div className="load-modal-footer">
               <button className="load-cancel-btn" onClick={() => {
                 setShowLoadModal(false);
                 setImportExportStatus(null);
