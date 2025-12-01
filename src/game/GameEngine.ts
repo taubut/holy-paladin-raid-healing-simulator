@@ -2416,11 +2416,14 @@ export class GameEngine {
       }
     });
 
-    // Check paladin auras (raid-wide)
+    // Check paladin auras (party-scoped, not raid-wide)
     this.state.paladinAuraAssignments.forEach(assignment => {
       if (!assignment.auraId) return;
       const paladin = this.state.raid.find(m => m.id === assignment.paladinId);
       if (!paladin?.isAlive) return;
+
+      // Only affect members in the same party as the paladin
+      if (paladin.group !== member.group) return;
 
       const aura = PARTY_AURAS[assignment.auraId];
       if (aura) {
@@ -2467,7 +2470,7 @@ export class GameEngine {
       });
     });
 
-    // Apply paladin auras (manual selection, raid-wide)
+    // Apply paladin auras (manual selection, party-scoped like in Classic WoW)
     this.state.paladinAuraAssignments.forEach(assignment => {
       if (!assignment.auraId) return;
       const paladin = this.state.raid.find(m => m.id === assignment.paladinId);
@@ -2476,8 +2479,9 @@ export class GameEngine {
       const aura = PARTY_AURAS[assignment.auraId];
       if (!aura) return;
 
-      // Paladin auras are raid-wide
-      this.state.raid.forEach(target => {
+      // Paladin auras only affect the paladin's party (5 people), not the whole raid
+      const partyMembers = this.state.raid.filter(m => m.group === paladin.group);
+      partyMembers.forEach(target => {
         if (!target.buffs.find(b => b.id === `aura_${aura.id}`)) {
           target.buffs.push({
             id: `aura_${aura.id}`,
@@ -4373,6 +4377,25 @@ export class GameEngine {
         this.applyRaidBuff(buffDef.id);
       }
     });
+  }
+
+  // Apply ALL buffs: raid buffs + consumables + available world buffs
+  applyAllBuffs() {
+    // 1. Apply all raid buffs
+    this.applyAllRaidBuffs();
+
+    // 2. Apply all consumables
+    this.applyConsumables();
+
+    // 3. Apply all available world buffs
+    const worldBuffStatus = this.getWorldBuffStatus();
+    worldBuffStatus.forEach(({ buff, isAvailable, isComingSoon }) => {
+      if (isAvailable && !isComingSoon) {
+        this.applyWorldBuff(buff.id);
+      }
+    });
+
+    this.addCombatLogEntry({ message: 'All buffs, consumables, and world buffs applied!', type: 'system' });
   }
 
   // Clear all buffs from ALL raid members
