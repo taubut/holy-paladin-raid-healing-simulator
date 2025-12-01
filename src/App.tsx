@@ -7,7 +7,8 @@ import { RARITY_COLORS } from './game/items';
 import { ENCOUNTERS, DEBUFFS } from './game/encounters';
 import { RAIDS } from './game/raids';
 import { calculateDKPCost, BOSS_LOOT_TABLES } from './game/lootTables';
-import { ALL_ITEMS, LEGENDARY_MATERIALS } from './game/items';
+import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTING_MATERIALS } from './game/items';
+import type { QuestMaterialId, QuestRewardId } from './game/items';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
 import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
@@ -44,6 +45,12 @@ function App() {
   // Inventory state
   const [showInventory, setShowInventory] = useState(false);
   const [selectedLegendaryCraftTarget, setSelectedLegendaryCraftTarget] = useState<string | null>(null);
+  const [activeBagTab, setActiveBagTab] = useState<'equipment' | 'materials'>('equipment');
+  const [bagContextMenu, setBagContextMenu] = useState<{ x: number; y: number; index: number } | null>(null);
+  // Quest turn-in state (dragon heads)
+  const [selectedQuestMaterial, setSelectedQuestMaterial] = useState<QuestMaterialId | null>(null);
+  const [selectedQuestReward, setSelectedQuestReward] = useState<QuestRewardId | null>(null);
+  const [selectedQuestRecipient, setSelectedQuestRecipient] = useState<string | null>(null);
   const [adminItemSlotFilter, setAdminItemSlotFilter] = useState<string>('all');
   const [adminItemSearch, setAdminItemSearch] = useState('');
   const [adminDkpInput, setAdminDkpInput] = useState('');
@@ -77,7 +84,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.21.0';
+  const CURRENT_PATCH_VERSION = '0.22.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -943,6 +950,17 @@ function App() {
     }
   }, [state.isRunning]);
 
+  // Watch for pending cloud save flag (triggered by quest turn-ins, legendary crafting, etc.)
+  useEffect(() => {
+    if (!engineRef.current || !currentUser || !state.pendingCloudSave) return;
+
+    // Clear the flag immediately to prevent multiple saves
+    engineRef.current.clearPendingCloudSave();
+
+    // Trigger the cloud save
+    handleCloudSave();
+  }, [state.pendingCloudSave, currentUser]);
+
   // Living Bomb Safe Zone - auto-return members when their debuff expires
   // Use elapsedTime as dependency since state.raid reference doesn't change when debuffs update
   // Note: We don't call setMemberInSafeZone(false) here - the GameEngine handles cleanup
@@ -1252,6 +1270,46 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.22.0 - Disenchanting & Smart Loot</h3>
+                  <span className="patch-date">December 1, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Disenchanting System</h4>
+                  <ul>
+                    <li><strong>Disenchant All</strong>: New button in your Equipment Bag to disenchant all items at once</li>
+                    <li><strong>Right-Click Disenchant</strong>: Right-click individual items to disenchant them into Nexus Crystals</li>
+                    <li><strong>Materials Bag</strong>: New tab in your bags to view enchanting materials like Nexus Crystals</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Smart Loot Distribution</h4>
+                  <ul>
+                    <li><strong>Upgrade Checks</strong>: AI raid members only equip items that are actual upgrades (higher item level)</li>
+                    <li><strong>Pass to Player</strong>: Items no AI player needs now go to your bag instead of being lost</li>
+                    <li><strong>Quest Reward Limits</strong>: AI raid members can no longer claim the same quest reward multiple times</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Loot Table Overhaul</h4>
+                  <ul>
+                    <li><strong>Accurate Boss Loot</strong>: All Molten Core and Onyxia loot tables sanitized to match authentic Classic drops</li>
+                    <li><strong>Correct Item Levels</strong>: Fixed item levels across all raid gear to reflect proper tier progression</li>
+                    <li><strong>Class-Appropriate Stats</strong>: Removed incorrect stats from items (e.g., spell power on warrior gear)</li>
+                    <li><strong>Missing Items Added</strong>: Added missing tier pieces and boss-specific drops</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Cloud Save Improvements</h4>
+                  <ul>
+                    <li><strong>More Frequent Saves</strong>: Cloud saves now trigger on quest turn-ins, legendary crafting, loot distribution, and disenchanting</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.21.0 - Quality of Life & Fixes</h3>
                   <span className="patch-date">December 1, 2025</span>
                 </div>
@@ -2158,7 +2216,7 @@ function App() {
                 onClick={() => setShowInventory(true)}
                 title="Open Bags (B)"
               >
-                <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_07_green.jpg" alt="Bags" />
+                <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
                 <div className="spell-keybind">B</div>
                 {state.legendaryMaterials.length > 0 && (
                   <div className="bag-item-count">{state.legendaryMaterials.length}</div>
@@ -2878,7 +2936,7 @@ function App() {
                       className={`mobile-spell mobile-bag-btn ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
                       onClick={() => setShowInventory(true)}
                     >
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_07_green.jpg" alt="Bags" />
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
                       {state.legendaryMaterials.length > 0 && (
                         <div className="mobile-bag-count">{state.legendaryMaterials.length}</div>
                       )}
@@ -3131,6 +3189,22 @@ function App() {
                 </span>
               )}
             </div>
+            {/* Quest item notification - dragon heads sent to bag */}
+            {state.lastObtainedQuestMaterial && (
+              <div className="quest-item-obtained">
+                <img
+                  src={QUEST_MATERIALS[state.lastObtainedQuestMaterial].icon}
+                  alt={QUEST_MATERIALS[state.lastObtainedQuestMaterial].name}
+                  className="quest-item-icon"
+                />
+                <div className="quest-item-info">
+                  <span className="quest-item-name epic-text">
+                    {QUEST_MATERIALS[state.lastObtainedQuestMaterial].name}
+                  </span>
+                  <span className="quest-item-sent">Sent to your bag! Open inventory to turn in.</span>
+                </div>
+              </div>
+            )}
             <div className="loot-items">
               {state.pendingLoot.map(item => {
                 const cost = calculateDKPCost(item);
@@ -3313,22 +3387,38 @@ function App() {
             </div>
             <div className="inspection-equipment">
               {(() => {
-                // Build dynamic slot list based on class
-                const baseSlots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'];
+                // Build dynamic slot list based on class - now with all 17 WoW Classic slots
                 const memberClass = state.inspectedMember!.class;
-                // Warriors and Rogues can dual wield (offhand)
-                if (memberClass === 'warrior' || memberClass === 'rogue') {
-                  baseSlots.push('offhand');
+                // Armor slots
+                const armorSlots: EquipmentSlot[] = ['head', 'neck', 'shoulders', 'back', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet'];
+                // Accessory slots
+                const accessorySlots: EquipmentSlot[] = ['ring1', 'ring2', 'trinket1', 'trinket2'];
+                // Weapon slots (class-dependent)
+                const weaponSlots: EquipmentSlot[] = ['weapon'];
+                // Warriors and Rogues can dual wield (offhand), casters use offhand too
+                if (memberClass === 'warrior' || memberClass === 'rogue' || memberClass === 'paladin' || memberClass === 'shaman' ||
+                    memberClass === 'priest' || memberClass === 'mage' || memberClass === 'warlock' || memberClass === 'druid') {
+                  weaponSlots.push('offhand');
                 }
-                // Hunters get ranged slot
-                if (memberClass === 'hunter') {
-                  baseSlots.push('ranged');
-                }
-                return baseSlots.map(slot => {
+                // All classes get ranged slot (hunters=bows, healers=wands/relics)
+                weaponSlots.push('ranged');
+
+                const allSlots = [...armorSlots, ...accessorySlots, ...weaponSlots];
+
+                // Format slot name for display
+                const formatSlotName = (slot: string) => {
+                  if (slot === 'ring1') return 'Ring 1';
+                  if (slot === 'ring2') return 'Ring 2';
+                  if (slot === 'trinket1') return 'Trinket 1';
+                  if (slot === 'trinket2') return 'Trinket 2';
+                  return slot.charAt(0).toUpperCase() + slot.slice(1);
+                };
+
+                return allSlots.map(slot => {
                   const item = state.inspectedMember!.equipment[slot];
                   return (
                     <div key={slot} className="equipment-slot">
-                      <span className="slot-name">{slot.charAt(0).toUpperCase() + slot.slice(1)}:</span>
+                      <span className="slot-name">{formatSlotName(slot)}:</span>
                       {item ? (
                         <span className="slot-item" style={{ color: RARITY_COLORS[item.rarity] }}>
                           {item.name}
@@ -4610,21 +4700,38 @@ function App() {
                           </div>
                           <div className="admin-equipment-grid">
                             {(() => {
-                              // Build dynamic slot list based on class
-                              const baseSlots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'];
-                              // Warriors and Rogues can dual wield (offhand)
-                              if (selectedMember.class === 'warrior' || selectedMember.class === 'rogue') {
-                                baseSlots.push('offhand');
+                              // Build dynamic slot list based on class - now with all 17 WoW Classic slots
+                              const memberClass = selectedMember.class;
+                              // Armor slots
+                              const armorSlots: EquipmentSlot[] = ['head', 'neck', 'shoulders', 'back', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet'];
+                              // Accessory slots
+                              const accessorySlots: EquipmentSlot[] = ['ring1', 'ring2', 'trinket1', 'trinket2'];
+                              // Weapon slots (class-dependent)
+                              const weaponSlots: EquipmentSlot[] = ['weapon'];
+                              // Warriors and Rogues can dual wield (offhand), casters use offhand too
+                              if (memberClass === 'warrior' || memberClass === 'rogue' || memberClass === 'paladin' || memberClass === 'shaman' ||
+                                  memberClass === 'priest' || memberClass === 'mage' || memberClass === 'warlock' || memberClass === 'druid') {
+                                weaponSlots.push('offhand');
                               }
-                              // Hunters get ranged slot
-                              if (selectedMember.class === 'hunter') {
-                                baseSlots.push('ranged');
-                              }
-                              return baseSlots.map(slot => {
+                              // All classes get ranged slot (hunters=bows, healers=wands/relics)
+                              weaponSlots.push('ranged');
+
+                              const allSlots = [...armorSlots, ...accessorySlots, ...weaponSlots];
+
+                              // Format slot name for display
+                              const formatSlotName = (slot: string) => {
+                                if (slot === 'ring1') return 'Ring 1';
+                                if (slot === 'ring2') return 'Ring 2';
+                                if (slot === 'trinket1') return 'Trinket 1';
+                                if (slot === 'trinket2') return 'Trinket 2';
+                                return slot.charAt(0).toUpperCase() + slot.slice(1);
+                              };
+
+                              return allSlots.map(slot => {
                                 const item = selectedMember.equipment[slot];
                                 return (
                                   <div key={slot} className="admin-equipment-slot">
-                                    <span className="slot-label">{slot}:</span>
+                                    <span className="slot-label">{formatSlotName(slot)}:</span>
                                     {item ? (
                                       <div className="equipped-item">
                                         <span style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</span>
@@ -4659,13 +4766,19 @@ function App() {
                             >
                               <option value="all">All Slots</option>
                               <option value="head">Head</option>
+                              <option value="neck">Neck</option>
                               <option value="shoulders">Shoulders</option>
+                              <option value="back">Back</option>
                               <option value="chest">Chest</option>
                               <option value="wrist">Wrist</option>
                               <option value="hands">Hands</option>
                               <option value="waist">Waist</option>
                               <option value="legs">Legs</option>
                               <option value="feet">Feet</option>
+                              <option value="ring1">Ring 1</option>
+                              <option value="ring2">Ring 2</option>
+                              <option value="trinket1">Trinket 1</option>
+                              <option value="trinket2">Trinket 2</option>
                               <option value="weapon">Weapon</option>
                               <option value="offhand">Offhand</option>
                               <option value="ranged">Ranged</option>
@@ -5134,7 +5247,7 @@ function App() {
             <div className="inventory-header">
               <div className="inventory-title">
                 <img
-                  src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_07_green.jpg"
+                  src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg"
                   alt="Bag"
                   className="inventory-title-icon"
                 />
@@ -5144,50 +5257,312 @@ function App() {
             </div>
 
             <div className="inventory-content">
-              {/* Equipment Bag - Extra gear items */}
+              {/* Bag Section with Tab Dropdown */}
               <div className="bag-section">
                 <div className="bag-header">
-                  <span className="bag-name">Equipment Bag</span>
-                  <span className="bag-slots">{state.playerBag.length} / 16</span>
+                  <select
+                    className="bag-tab-dropdown"
+                    value={activeBagTab}
+                    onChange={e => setActiveBagTab(e.target.value as 'equipment' | 'materials')}
+                  >
+                    <option value="equipment">Equipment Bag</option>
+                    <option value="materials">Materials Bag</option>
+                  </select>
+                  {activeBagTab === 'equipment' ? (
+                    <>
+                      <span className="bag-slots">{state.playerBag.length} / 16</span>
+                      {state.playerBag.length > 0 && (
+                        <button
+                          className="disenchant-all-btn"
+                          onClick={() => engine.disenchantAll()}
+                          title="Disenchant all items into Nexus Crystals"
+                        >
+                          Disenchant All
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <span className="bag-slots">{state.materialsBag.nexus_crystal} crystals</span>
+                  )}
+                </div>
+
+                {/* Equipment Bag View */}
+                {activeBagTab === 'equipment' && (
+                  <>
+                    <div className="bag-grid">
+                      {/* Filled slots with gear items */}
+                      {state.playerBag.map((item, index) => (
+                        <div
+                          key={`gear-${item.id}-${index}`}
+                          className={`bag-slot filled gear rarity-${item.rarity}`}
+                          onClick={() => engine.equipFromBag(index)}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setBagContextMenu({ x: e.clientX, y: e.clientY, index });
+                          }}
+                          title={`Click to equip • Right-click to disenchant`}
+                        >
+                          <img src={item.icon} alt={item.name} />
+                          <div className="slot-tooltip">
+                            <div className="tooltip-name" style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</div>
+                            <div className="tooltip-slot">{item.slot.charAt(0).toUpperCase() + item.slot.slice(1)} - iLvl {item.itemLevel}</div>
+                            <div className="tooltip-stats">
+                              {item.stats.intellect && <div>+{item.stats.intellect} Intellect</div>}
+                              {item.stats.stamina && <div>+{item.stats.stamina} Stamina</div>}
+                              {item.stats.spellPower && <div>+{item.stats.spellPower} Spell Power</div>}
+                              {item.stats.healingPower && <div>+{item.stats.healingPower} Healing</div>}
+                              {item.stats.mp5 && <div>+{item.stats.mp5} MP5</div>}
+                              {item.stats.critChance && <div>+{item.stats.critChance}% Crit</div>}
+                            </div>
+                            <div className="tooltip-action">Left-click: Equip • Right-click: Disenchant</div>
+                          </div>
+                        </div>
+                      ))}
+                      {/* Empty slots to fill the grid */}
+                      {Array.from({ length: Math.max(0, 16 - state.playerBag.length) }).map((_, idx) => (
+                        <div key={`gear-empty-${idx}`} className="bag-slot empty" />
+                      ))}
+                    </div>
+                    {state.playerBag.length === 0 && (
+                      <div className="bag-empty-hint">
+                        <p>When you equip new gear, your old equipment will be stored here.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Materials Bag View */}
+                {activeBagTab === 'materials' && (
+                  <>
+                    <div className="bag-grid">
+                      {/* Nexus Crystals */}
+                      {state.materialsBag.nexus_crystal > 0 && (
+                        <div
+                          className="bag-slot filled epic"
+                          title={`${ENCHANTING_MATERIALS.nexus_crystal.name} x${state.materialsBag.nexus_crystal}`}
+                        >
+                          <img src={ENCHANTING_MATERIALS.nexus_crystal.icon} alt="Nexus Crystal" />
+                          <span className="item-count">{state.materialsBag.nexus_crystal}</span>
+                          <div className="slot-tooltip">
+                            <div className="tooltip-name epic-text">{ENCHANTING_MATERIALS.nexus_crystal.name}</div>
+                            <div className="tooltip-count">x{state.materialsBag.nexus_crystal}</div>
+                            <div className="tooltip-desc">{ENCHANTING_MATERIALS.nexus_crystal.description}</div>
+                          </div>
+                        </div>
+                      )}
+                      {/* Empty slots */}
+                      {Array.from({ length: Math.max(0, 16 - (state.materialsBag.nexus_crystal > 0 ? 1 : 0)) }).map((_, idx) => (
+                        <div key={`mat-empty-${idx}`} className="bag-slot empty" />
+                      ))}
+                    </div>
+                    {state.materialsBag.nexus_crystal === 0 && (
+                      <div className="bag-empty-hint">
+                        <p>Disenchant epic gear to obtain Nexus Crystals.</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Context Menu for Disenchanting */}
+              {bagContextMenu && (
+                <div
+                  className="bag-context-menu"
+                  style={{ left: bagContextMenu.x, top: bagContextMenu.y }}
+                  onClick={() => setBagContextMenu(null)}
+                >
+                  <button
+                    onClick={() => {
+                      engine.disenchantItem(bagContextMenu.index);
+                      setBagContextMenu(null);
+                    }}
+                  >
+                    Disenchant
+                  </button>
+                  <button onClick={() => setBagContextMenu(null)}>Cancel</button>
+                </div>
+              )}
+
+              {/* Quest Materials Section (Dragon Heads) */}
+              <div className="bag-section">
+                <div className="bag-header">
+                  <span className="bag-name">Quest Items</span>
+                  <span className="bag-slots">{state.questMaterials.length} items</span>
                 </div>
                 <div className="bag-grid">
-                  {/* Filled slots with gear items */}
-                  {state.playerBag.map((item, index) => (
-                    <div
-                      key={`gear-${item.id}-${index}`}
-                      className={`bag-slot filled gear rarity-${item.rarity}`}
-                      onClick={() => engine.equipFromBag(index)}
-                      title={`Click to equip ${item.name}`}
-                    >
-                      <img src={item.icon} alt={item.name} />
-                      <div className="slot-tooltip">
-                        <div className="tooltip-name" style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</div>
-                        <div className="tooltip-slot">{item.slot.charAt(0).toUpperCase() + item.slot.slice(1)} - iLvl {item.itemLevel}</div>
-                        <div className="tooltip-stats">
-                          {item.stats.intellect && <div>+{item.stats.intellect} Intellect</div>}
-                          {item.stats.stamina && <div>+{item.stats.stamina} Stamina</div>}
-                          {item.stats.spellPower && <div>+{item.stats.spellPower} Spell Power</div>}
-                          {item.stats.healingPower && <div>+{item.stats.healingPower} Healing</div>}
-                          {item.stats.mp5 && <div>+{item.stats.mp5} MP5</div>}
-                          {item.stats.critChance && <div>+{item.stats.critChance}% Crit</div>}
+                  {/* Quest materials in inventory */}
+                  {engine.getQuestMaterials().map(({ material, count }) => {
+                    const questMaterial = QUEST_MATERIALS[material];
+                    const canClaim = engine.canClaimQuestReward(material);
+                    return (
+                      <div
+                        key={material}
+                        className={`bag-slot filled epic ${selectedQuestMaterial === material ? 'selected' : ''}`}
+                        onClick={() => {
+                          setSelectedQuestMaterial(material);
+                          setSelectedQuestReward(null);
+                          setSelectedQuestRecipient(null);
+                        }}
+                        title={`${questMaterial.name}${count > 1 ? ` x${count}` : ''}\n${questMaterial.description}`}
+                      >
+                        <img src={questMaterial.icon} alt={questMaterial.name} />
+                        {count > 1 && <span className="item-count">{count}</span>}
+                        <div className="slot-tooltip">
+                          <div className="tooltip-name epic-text">{questMaterial.name}</div>
+                          {count > 1 && <div className="tooltip-count">x{count}</div>}
+                          <div className="tooltip-desc">{questMaterial.description}</div>
+                          {canClaim ? (
+                            <div className="tooltip-hint">Click to turn in for a reward!</div>
+                          ) : (
+                            <div className="tooltip-hint claimed">You already claimed your reward. Assign to a raid member.</div>
+                          )}
                         </div>
-                        <div className="tooltip-action">Click to equip</div>
                       </div>
-                    </div>
-                  ))}
-                  {/* Empty slots to fill the grid */}
-                  {Array.from({ length: Math.max(0, 16 - state.playerBag.length) }).map((_, idx) => (
-                    <div key={`gear-empty-${idx}`} className="bag-slot empty" />
+                    );
+                  })}
+                  {/* Empty slots */}
+                  {Array.from({ length: Math.max(0, 8 - engine.getQuestMaterials().length) }).map((_, idx) => (
+                    <div key={`quest-empty-${idx}`} className="bag-slot empty" />
                   ))}
                 </div>
-                {state.playerBag.length === 0 && (
-                  <div className="bag-empty-hint">
-                    <p>When you equip new gear, your old equipment will be stored here.</p>
+
+                {/* Empty state message */}
+                {state.questMaterials.length === 0 && (
+                  <div className="bag-empty-message">
+                    <p>No quest items!</p>
+                    <p className="hint">Defeat Onyxia or Nefarian to obtain their heads.</p>
                   </div>
                 )}
               </div>
 
-              {/* Bag Grid - WoW style slots */}
+              {/* Quest Turn-In Section */}
+              {selectedQuestMaterial && (
+                <div className="crafting-section quest-turnin-section">
+                  <div className="crafting-header">
+                    <span>Quest Turn-In: {QUEST_MATERIALS[selectedQuestMaterial].name}</span>
+                    <button className="close-btn" onClick={() => setSelectedQuestMaterial(null)}>×</button>
+                  </div>
+
+                  {/* Show available rewards */}
+                  <div className="quest-rewards">
+                    <div className="quest-rewards-label">Choose your reward:</div>
+                    <div className="quest-rewards-grid">
+                      {QUEST_MATERIALS[selectedQuestMaterial].rewards.map((rewardId) => {
+                        const reward = ALL_QUEST_REWARDS[rewardId as QuestRewardId];
+                        if (!reward) return null;
+                        return (
+                          <div
+                            key={rewardId}
+                            className={`quest-reward-card ${selectedQuestReward === rewardId ? 'selected' : ''}`}
+                            onClick={() => setSelectedQuestReward(rewardId as QuestRewardId)}
+                          >
+                            <img src={reward.icon} alt={reward.name} className="quest-reward-icon" />
+                            <div className="quest-reward-info">
+                              <span className="quest-reward-name epic-text">{reward.name}</span>
+                              <span className="quest-reward-slot">{reward.slot}</span>
+                              <div className="quest-reward-stats">
+                                {Object.entries(reward.stats).map(([stat, value]) => (
+                                  <span key={stat} className="stat">+{value} {stat}</span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Recipient selection */}
+                  {selectedQuestReward && (
+                    <div className="quest-recipient">
+                      {engine.canClaimQuestReward(selectedQuestMaterial) ? (
+                        <>
+                          <div className="quest-recipient-label">Turn in for yourself or assign to raid member:</div>
+                          <div className="quest-recipient-options">
+                            <button
+                              className="quest-claim-btn self"
+                              onClick={() => {
+                                engine.claimQuestRewardForSelf(selectedQuestMaterial, selectedQuestReward);
+                                setSelectedQuestMaterial(null);
+                                setSelectedQuestReward(null);
+                              }}
+                            >
+                              Claim for Myself
+                            </button>
+                            <div className="quest-recipient-divider">or</div>
+                            <select
+                              className="quest-recipient-select"
+                              value={selectedQuestRecipient || ''}
+                              onChange={e => setSelectedQuestRecipient(e.target.value)}
+                            >
+                              <option value="">Assign to raid member...</option>
+                              {state.raid.filter(m => m.id !== 'player').map(m => {
+                                const hasClaimed = !engine.canRaidMemberClaimQuestReward(m.id, selectedQuestMaterial);
+                                return (
+                                  <option key={m.id} value={m.id} disabled={hasClaimed}>
+                                    {m.name} ({m.class}){hasClaimed ? ' - Already claimed' : ''}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            {selectedQuestRecipient && (
+                              <button
+                                className="quest-claim-btn assign"
+                                onClick={() => {
+                                  engine.assignQuestRewardToRaidMember(selectedQuestMaterial, selectedQuestReward, selectedQuestRecipient);
+                                  setSelectedQuestMaterial(null);
+                                  setSelectedQuestReward(null);
+                                  setSelectedQuestRecipient(null);
+                                }}
+                              >
+                                Assign
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="quest-recipient-label claimed-warning">
+                            You already claimed your reward from this quest. Assign to a raid member:
+                          </div>
+                          <div className="quest-recipient-options">
+                            <select
+                              className="quest-recipient-select"
+                              value={selectedQuestRecipient || ''}
+                              onChange={e => setSelectedQuestRecipient(e.target.value)}
+                            >
+                              <option value="">Select raid member...</option>
+                              {state.raid.filter(m => m.id !== 'player').map(m => {
+                                const hasClaimed = !engine.canRaidMemberClaimQuestReward(m.id, selectedQuestMaterial);
+                                return (
+                                  <option key={m.id} value={m.id} disabled={hasClaimed}>
+                                    {m.name} ({m.class}){hasClaimed ? ' - Already claimed' : ''}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                            {selectedQuestRecipient && (
+                              <button
+                                className="quest-claim-btn assign"
+                                onClick={() => {
+                                  engine.assignQuestRewardToRaidMember(selectedQuestMaterial, selectedQuestReward, selectedQuestRecipient);
+                                  setSelectedQuestMaterial(null);
+                                  setSelectedQuestReward(null);
+                                  setSelectedQuestRecipient(null);
+                                }}
+                              >
+                                Assign to {state.raid.find(m => m.id === selectedQuestRecipient)?.name}
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Legendary Materials Section */}
               <div className="bag-section">
                 <div className="bag-header">
                   <span className="bag-name">Legendary Materials</span>

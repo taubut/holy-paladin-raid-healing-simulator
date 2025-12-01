@@ -6,8 +6,8 @@ import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
-import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial } from './items';
-import { ALL_ITEMS, LEGENDARY_MATERIALS } from './items';
+import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial, QuestMaterialId, QuestRewardId } from './items';
+import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
 import posthog from 'posthog-js';
@@ -433,8 +433,18 @@ export class GameEngine {
       bossKillsWithoutPaladinLoot: 0,
       // Legendary materials inventory
       legendaryMaterials: [],
+      // Quest materials inventory (dragon heads for turn-in rewards)
+      questMaterials: [],
+      // Track which quest rewards have been claimed (can only claim once per character)
+      claimedQuestRewards: [],
+      // Track which quest rewards have been assigned to raid members (each member can only receive once)
+      raidMemberQuestRewards: {},
+      // Track the most recently obtained quest material (for loot screen notification)
+      lastObtainedQuestMaterial: null,
       // Player bag for storing extra gear
       playerBag: [],
+      // Materials bag for enchanting materials
+      materialsBag: { nexus_crystal: 0 },
       // Five-Second Rule tracking
       lastSpellCastTime: -10, // Start with full regen (as if no spell cast in last 10 seconds)
       // Raid management and party auras
@@ -464,7 +474,20 @@ export class GameEngine {
       thunderaanDefeated: false,
       // Living Bomb Safe Zone
       membersInSafeZone: new Set<string>(),
+      // Cloud save trigger
+      pendingCloudSave: false,
     };
+  }
+
+  // Request a cloud save - App.tsx watches this flag
+  requestCloudSave(): void {
+    this.state.pendingCloudSave = true;
+    this.notify();
+  }
+
+  // Clear the pending cloud save flag (called by App.tsx after saving)
+  clearPendingCloudSave(): void {
+    this.state.pendingCloudSave = false;
   }
 
   private getPaladinCountForRaidSize(size: 20 | 40): number {
@@ -3328,6 +3351,20 @@ export class GameEngine {
       }
     }
 
+    // Handle quest material drops (dragon heads) - always drop, go directly to inventory
+    const questMaterial = Object.values(QUEST_MATERIALS).find(qm => qm.dropsFrom === bossId);
+    if (questMaterial) {
+      this.state.questMaterials.push(questMaterial.id);
+      this.state.lastObtainedQuestMaterial = questMaterial.id;
+      this.addCombatLogEntry({
+        message: `QUEST ITEM: ${questMaterial.name} obtained!`,
+        type: 'system',
+      });
+    } else {
+      // Clear last obtained if no quest material dropped
+      this.state.lastObtainedQuestMaterial = null;
+    }
+
     if (loot.length > 0) {
       this.state.pendingLoot = loot;
       this.state.showLootModal = true;
@@ -3519,11 +3556,83 @@ export class GameEngine {
     this.notify();
   }
 
-  // Equip an item on a raid member
-  private equipItemOnMember(member: RaidMember, item: GearItem) {
+  // Get materials bag contents
+  getMaterialsBag(): { nexus_crystal: number } {
+    return this.state.materialsBag;
+  }
+
+  // Disenchant a single item from the bag (by index)
+  disenchantItem(bagIndex: number): boolean {
+    if (bagIndex < 0 || bagIndex >= this.state.playerBag.length) {
+      return false;
+    }
+
+    const item = this.state.playerBag[bagIndex];
+
+    // Remove item from bag
+    this.state.playerBag.splice(bagIndex, 1);
+
+    // Add nexus crystal
+    this.state.materialsBag.nexus_crystal += 1;
+
+    this.addCombatLogEntry({
+      message: `Disenchanted ${item.name} into a Nexus Crystal`,
+      type: 'system',
+    });
+
+    this.requestCloudSave();
+    this.notify();
+    return true;
+  }
+
+  // Disenchant all items in the player's bag
+  disenchantAll(): number {
+    const itemCount = this.state.playerBag.length;
+    if (itemCount === 0) {
+      this.addCombatLogEntry({ message: 'No items to disenchant!', type: 'system' });
+      this.notify();
+      return 0;
+    }
+
+    // Get item names for the log
+    const itemNames = this.state.playerBag.map(i => i.name);
+
+    // Clear the bag and add nexus crystals
+    this.state.playerBag = [];
+    this.state.materialsBag.nexus_crystal += itemCount;
+
+    this.addCombatLogEntry({
+      message: `Disenchanted ${itemCount} items into ${itemCount} Nexus Crystal${itemCount > 1 ? 's' : ''}: ${itemNames.join(', ')}`,
+      type: 'system',
+    });
+
+    this.requestCloudSave();
+    this.notify();
+    return itemCount;
+  }
+
+  // Equip an item on a raid member (only if it's an upgrade)
+  // Returns true if item was equipped, false if current item is better
+  private equipItemOnMember(member: RaidMember, item: GearItem, forceEquip: boolean = false): boolean {
     const slot = item.slot;
+    const currentItem = member.equipment[slot];
+
+    // Check if this is an upgrade (or if we're forcing equip, e.g. for player)
+    const isUpgrade = !currentItem || item.itemLevel > currentItem.itemLevel;
+
+    if (!isUpgrade && !forceEquip) {
+      return false; // Current item is better, don't equip
+    }
+
     member.equipment[slot] = item;
+
+    // Clear offhand when equipping 2H weapon
+    if (slot === 'weapon' && item.weaponType === 'two_hand') {
+      member.equipment.offhand = null;
+    }
+
     member.gearScore = this.calculateGearScore(member.equipment);
+    return true;
   }
 
   // Player claims loot with DKP
@@ -3533,10 +3642,18 @@ export class GameEngine {
 
     const item = this.state.pendingLoot[itemIndex];
     const cost = calculateDKPCost(item);
+    const player = this.getPlayerMember();
 
     // Check if player can equip
     if (!this.canEquip(this.state.playerClass, item)) {
       this.addCombatLogEntry({ message: `Cannot equip ${item.name} (wrong class)`, type: 'system' });
+      this.notify();
+      return;
+    }
+
+    // Check if item benefits player's spec (prevent warriors taking caster gear, etc.)
+    if (player && !this.canBenefitFrom(player, item)) {
+      this.addCombatLogEntry({ message: `${item.name} doesn't benefit your spec`, type: 'system' });
       this.notify();
       return;
     }
@@ -3557,20 +3674,21 @@ export class GameEngine {
     this.notify();
   }
 
-  // Player passes on loot - AI claims it
+  // Player passes on loot - AI claims it if upgrade, otherwise goes to player bag
   passLoot(itemId: string) {
     const itemIndex = this.state.pendingLoot.findIndex(i => i.id === itemId);
     if (itemIndex === -1) return;
 
     const item = this.state.pendingLoot[itemIndex];
 
-    // Find eligible raid members who can use AND benefit from this item
+    // Find eligible raid members (excluding player) who can use AND benefit from this item
     // Spec-aware: caster weapons won't go to warriors, melee weapons won't go to mages, etc.
     const eligibleMembers = this.state.raid.filter(m =>
+      m.id !== 'player' && // Don't include player in pass distribution
       m.isAlive &&
       this.canEquip(m.class, item) &&
-      this.canBenefitFrom(m, item) && // NEW: Check if spec can benefit from item category
-      // Prefer members who don't have this slot filled yet, or have lower ilvl item
+      this.canBenefitFrom(m, item) && // Check if spec can benefit from item category
+      // Only members who don't have this slot filled yet, or have lower ilvl item
       (!m.equipment[item.slot] || m.equipment[item.slot]!.itemLevel < item.itemLevel)
     );
 
@@ -3580,7 +3698,9 @@ export class GameEngine {
       this.equipItemOnMember(winner, item);
       this.addCombatLogEntry({ message: `${winner.name} receives ${item.name}`, type: 'system' });
     } else {
-      this.addCombatLogEntry({ message: `${item.name} - no eligible raiders, item is disenchanted`, type: 'system' });
+      // No AI players need this - send to player's bag for offspec/disenchant/later use
+      this.state.playerBag.push(item);
+      this.addCombatLogEntry({ message: `${item.name} sent to your bag (no upgrades needed)`, type: 'system' });
     }
 
     this.state.pendingLoot.splice(itemIndex, 1);
@@ -3595,6 +3715,8 @@ export class GameEngine {
     }
     this.state.showLootModal = false;
     this.state.boss = null;
+    // Request cloud save after loot distribution (items were won/passed)
+    this.requestCloudSave();
     this.notify();
   }
 
@@ -3847,6 +3969,7 @@ export class GameEngine {
         equipment: this.state.playerEquipment,
         dkp: this.state.playerDKP.points,
         bag: this.state.playerBag, // v5: Player bag inventory
+        materialsBag: this.state.materialsBag, // v10: Materials bag (nexus crystals)
       },
       // Save full raid member data to preserve names across loads
       raidMembers: this.state.raid.map(m => ({
@@ -3872,6 +3995,9 @@ export class GameEngine {
       unlockedWorldBuffs: this.state.unlockedWorldBuffs, // Persist world buff unlocks
       bossKillsWithoutPaladinLoot: this.state.bossKillsWithoutPaladinLoot, // Bad luck protection
       legendaryMaterials: this.state.legendaryMaterials, // v7: Legendary materials (Bindings, Eye of Sulfuras)
+      questMaterials: this.state.questMaterials, // v8: Quest materials (Dragon heads)
+      claimedQuestRewards: this.state.claimedQuestRewards, // v8: Claimed quest rewards (one per head type)
+      raidMemberQuestRewards: this.state.raidMemberQuestRewards, // v9: Track raid member quest claims
     };
 
     localStorage.setItem(`mc_healer_save_${slotName}`, JSON.stringify(saveData));
@@ -3920,6 +4046,13 @@ export class GameEngine {
         this.state.playerBag = [];
       }
 
+      // Load materials bag (v10+)
+      if (data.player.materialsBag) {
+        this.state.materialsBag = data.player.materialsBag;
+      } else {
+        this.state.materialsBag = { nexus_crystal: 0 };
+      }
+
       // Version 2+ saves include full raid member data - restore exact names and stats
       if (data.version >= 2 && data.raidMembers) {
         // Rebuild raid from saved data to preserve exact names
@@ -3947,7 +4080,7 @@ export class GameEngine {
           isAlive: true,
           dps: saved.dps,
           group: saved.group,
-          equipment: saved.equipment || createEmptyEquipment(),
+          equipment: this.migrateEquipment(saved.equipment),
           gearScore: saved.gearScore || 0,
         }));
 
@@ -3987,6 +4120,22 @@ export class GameEngine {
         // Restore legendary materials (v7+)
         if (data.legendaryMaterials) {
           this.state.legendaryMaterials = data.legendaryMaterials;
+        }
+
+        // Restore quest materials (v8+)
+        if (data.questMaterials) {
+          this.state.questMaterials = data.questMaterials;
+        }
+        if (data.claimedQuestRewards) {
+          this.state.claimedQuestRewards = data.claimedQuestRewards;
+        }
+        // Migrate from old boolean format
+        if (data.claimedOnyxiaReward === true) {
+          this.state.claimedQuestRewards = ['head_of_onyxia'];
+        }
+        // Restore raid member quest rewards (v9+)
+        if (data.raidMemberQuestRewards) {
+          this.state.raidMemberQuestRewards = data.raidMemberQuestRewards;
         }
 
         // Restore multi-raid progression (v4+)
@@ -4081,6 +4230,7 @@ export class GameEngine {
         equipment: this.state.playerEquipment,
         dkp: this.state.playerDKP.points,
         bag: this.state.playerBag,
+        materialsBag: this.state.materialsBag,
       },
       raidMembers: this.state.raid.map(m => ({
         id: m.id,
@@ -4105,6 +4255,21 @@ export class GameEngine {
       unlockedWorldBuffs: this.state.unlockedWorldBuffs,
       bossKillsWithoutPaladinLoot: this.state.bossKillsWithoutPaladinLoot,
       legendaryMaterials: this.state.legendaryMaterials,
+      questMaterials: this.state.questMaterials,
+      claimedQuestRewards: this.state.claimedQuestRewards,
+      raidMemberQuestRewards: this.state.raidMemberQuestRewards,
+    };
+  }
+
+  // Migrate equipment from old save format to new format with all 17 slots
+  private migrateEquipment(equipment: Partial<Equipment> | undefined): Equipment {
+    const emptyEquipment = createEmptyEquipment();
+    if (!equipment) return emptyEquipment;
+
+    // Merge old equipment with empty equipment template (ensures all 17 slots exist)
+    return {
+      ...emptyEquipment,
+      ...equipment,
     };
   }
 
@@ -4118,9 +4283,11 @@ export class GameEngine {
       if (saveData.player.name) {
         this.state.playerName = saveData.player.name;
       }
-      this.state.playerEquipment = saveData.player.equipment;
+      // Migrate player equipment to ensure all 17 slots exist
+      this.state.playerEquipment = this.migrateEquipment(saveData.player.equipment);
       this.state.playerDKP.points = saveData.player.dkp;
       this.state.playerBag = saveData.player.bag || [];
+      this.state.materialsBag = saveData.player.materialsBag || { nexus_crystal: 0 };
 
       // Restore raid members
       if (saveData.raidMembers) {
@@ -4148,7 +4315,7 @@ export class GameEngine {
           isAlive: true,
           dps: saved.dps,
           group: saved.group,
-          equipment: saved.equipment || createEmptyEquipment(),
+          equipment: this.migrateEquipment(saved.equipment),
           gearScore: saved.gearScore || 0,
           positionZone: 'melee' as PositionZone, // Default position
         }));
@@ -4176,6 +4343,19 @@ export class GameEngine {
       }
       if (saveData.legendaryMaterials) {
         this.state.legendaryMaterials = saveData.legendaryMaterials;
+      }
+      if (saveData.questMaterials) {
+        this.state.questMaterials = saveData.questMaterials;
+      }
+      if (saveData.claimedQuestRewards) {
+        this.state.claimedQuestRewards = saveData.claimedQuestRewards;
+      }
+      // Migrate from old boolean format
+      if (saveData.claimedOnyxiaReward === true && !this.state.claimedQuestRewards.includes('head_of_onyxia')) {
+        this.state.claimedQuestRewards = [...this.state.claimedQuestRewards, 'head_of_onyxia'];
+      }
+      if (saveData.raidMemberQuestRewards) {
+        this.state.raidMemberQuestRewards = saveData.raidMemberQuestRewards;
       }
       if (saveData.defeatedBossesByRaid) {
         this.state.defeatedBossesByRaid = saveData.defeatedBossesByRaid;
@@ -4781,6 +4961,16 @@ export class GameEngine {
       return false;
     }
 
+    // Prevent equipping offhand when 2H weapon is equipped
+    if (item.slot === 'offhand' && member.equipment.weapon?.weaponType === 'two_hand') {
+      this.addCombatLogEntry({
+        message: `[Admin] Cannot equip ${item.name} - ${member.name} has a 2H weapon equipped`,
+        type: 'system'
+      });
+      this.notify();
+      return false;
+    }
+
     // Determine the target slot, handling dual-wield for warriors and rogues
     let slot = item.slot;
     const canDualWield = member.class === 'warrior' || member.class === 'rogue';
@@ -4794,6 +4984,17 @@ export class GameEngine {
 
     const oldItem = member.equipment[slot];
     member.equipment[slot] = item;
+
+    // Clear offhand when equipping 2H weapon
+    let clearedOffhand: GearItem | null = null;
+    if (slot === 'weapon' && item.weaponType === 'two_hand') {
+      clearedOffhand = member.equipment.offhand;
+      member.equipment.offhand = null;
+      if (memberId === PLAYER_ID) {
+        this.state.playerEquipment.offhand = null;
+      }
+    }
+
     member.gearScore = this.calculateGearScore(member.equipment);
 
     // If this is the player, also update playerEquipment and stats
@@ -4805,10 +5006,10 @@ export class GameEngine {
       this.state.critChance = stats.totalCritChance;
     }
 
-    this.addCombatLogEntry({
-      message: `[Admin] Equipped ${item.name} on ${member.name}${oldItem ? ` (replaced ${oldItem.name})` : ''}`,
-      type: 'system',
-    });
+    let logMessage = `[Admin] Equipped ${item.name} on ${member.name}`;
+    if (oldItem) logMessage += ` (replaced ${oldItem.name})`;
+    if (clearedOffhand) logMessage += ` (removed ${clearedOffhand.name} from offhand)`;
+    this.addCombatLogEntry({ message: logMessage, type: 'system' });
     this.notify();
     return true;
   }
@@ -4851,19 +5052,37 @@ export class GameEngine {
 
   // Admin: Gear all raid members with appropriate items for their class
   adminGearAllPlayers(): void {
-    const slots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon'];
+    // All equipment slots including the new accessory slots
+    const slots: EquipmentSlot[] = [
+      'head', 'neck', 'shoulders', 'back', 'chest', 'wrist',
+      'hands', 'waist', 'legs', 'feet',
+      'ring1', 'ring2', 'trinket1', 'trinket2',
+      'weapon'
+    ];
     let totalEquipped = 0;
 
     for (const member of this.state.raid) {
-      // Get all equippable items for this class
-      const equippableItems = this.getEquippableItemsForClass(member.class);
+      // Get all equippable items for this class that also benefit their spec
+      const equippableItems = this.getEquippableItemsForClass(member.class)
+        .filter(item => this.canBenefitFrom(member, item));
 
       for (const slot of slots) {
         // Skip if already equipped
         if (member.equipment[slot]) continue;
 
         // Find best item for this slot (highest item level)
-        const itemsForSlot = equippableItems.filter(item => item.slot === slot);
+        // For ring2/trinket2, use ring1/trinket1 slot items
+        const targetSlot = slot === 'ring2' ? 'ring1' : slot === 'trinket2' ? 'trinket1' : slot;
+        let itemsForSlot = equippableItems.filter(item => item.slot === targetSlot);
+
+        // For ring2/trinket2, exclude already equipped items
+        if (slot === 'ring2' && member.equipment.ring1) {
+          itemsForSlot = itemsForSlot.filter(item => item.id !== member.equipment.ring1?.id);
+        }
+        if (slot === 'trinket2' && member.equipment.trinket1) {
+          itemsForSlot = itemsForSlot.filter(item => item.id !== member.equipment.trinket1?.id);
+        }
+
         if (itemsForSlot.length === 0) continue;
 
         // Sort by item level descending and pick the best
@@ -4879,26 +5098,34 @@ export class GameEngine {
         }
       }
 
-      // Handle offhand for dual-wield classes (warrior, rogue)
-      if ((member.class === 'warrior' || member.class === 'rogue') && !member.equipment.offhand) {
+      // Handle offhand for dual-wield classes (warrior, rogue) or casters with 1H
+      // Only if not using a 2H weapon
+      if (!member.equipment.offhand && member.equipment.weapon?.weaponType !== 'two_hand') {
         const offhandItems = equippableItems.filter(item =>
           item.slot === 'offhand' ||
-          (item.slot === 'weapon' && item.weaponType === 'one_hand')
+          ((member.class === 'warrior' || member.class === 'rogue') &&
+           item.slot === 'weapon' && item.weaponType === 'one_hand')
         );
         if (offhandItems.length > 0) {
           const bestOffhand = offhandItems.sort((a, b) => b.itemLevel - a.itemLevel)[0];
           member.equipment.offhand = bestOffhand;
           totalEquipped++;
+          if (member.id === PLAYER_ID) {
+            this.state.playerEquipment.offhand = bestOffhand;
+          }
         }
       }
 
-      // Handle ranged for hunters
-      if (member.class === 'hunter' && !member.equipment.ranged) {
+      // Handle ranged slot (includes class relics: librams, totems, idols, wands)
+      if (!member.equipment.ranged) {
         const rangedItems = equippableItems.filter(item => item.slot === 'ranged');
         if (rangedItems.length > 0) {
           const bestRanged = rangedItems.sort((a, b) => b.itemLevel - a.itemLevel)[0];
           member.equipment.ranged = bestRanged;
           totalEquipped++;
+          if (member.id === PLAYER_ID) {
+            this.state.playerEquipment.ranged = bestRanged;
+          }
         }
       }
 
@@ -5416,6 +5643,10 @@ export class GameEngine {
       message: `LEGENDARY CRAFTED! ${member.name} now wields Sulfuras, Hand of Ragnaros!`,
       type: 'system',
     });
+
+    // Request cloud save after legendary crafting
+    this.requestCloudSave();
+
     this.notify();
     return true;
   }
@@ -5484,6 +5715,10 @@ export class GameEngine {
       message: `LEGENDARY CRAFTED! ${member.name} now wields Thunderfury, Blessed Blade of the Windseeker!`,
       type: 'system',
     });
+
+    // Request cloud save after legendary crafting
+    this.requestCloudSave();
+
     this.notify();
     return true;
   }
@@ -5517,5 +5752,210 @@ export class GameEngine {
       });
     }
     this.notify();
+  }
+
+  // =========================================================================
+  // QUEST REWARD METHODS (Dragon Heads)
+  // =========================================================================
+
+  // Get all quest materials the player has in inventory
+  getQuestMaterials(): { material: QuestMaterialId; count: number }[] {
+    // Count how many of each quest material the player has
+    const counts = new Map<QuestMaterialId, number>();
+    for (const materialId of this.state.questMaterials) {
+      counts.set(materialId, (counts.get(materialId) || 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([material, count]) => ({ material, count }));
+  }
+
+  // Check if player can claim a reward for this quest material (hasn't claimed before)
+  canClaimQuestReward(questMaterialId: QuestMaterialId): boolean {
+    // Check if player has claimed this specific quest type before
+    return !this.state.claimedQuestRewards.includes(questMaterialId);
+  }
+
+  // Check if player has at least one of this quest material
+  hasQuestMaterial(questMaterialId: QuestMaterialId): boolean {
+    return this.state.questMaterials.includes(questMaterialId);
+  }
+
+  // Claim a quest reward for yourself
+  claimQuestRewardForSelf(questMaterialId: QuestMaterialId, rewardId: QuestRewardId): boolean {
+    // Validate player has the quest material
+    if (!this.hasQuestMaterial(questMaterialId)) {
+      this.addCombatLogEntry({ message: 'You do not have this quest item!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Validate player hasn't already claimed this quest reward
+    if (!this.canClaimQuestReward(questMaterialId)) {
+      this.addCombatLogEntry({ message: 'You have already claimed a reward from this quest!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Get the reward item
+    const rewardItem = ALL_QUEST_REWARDS[rewardId];
+    if (!rewardItem) {
+      this.addCombatLogEntry({ message: 'Invalid reward selection!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Remove one instance of the quest material
+    const materialIndex = this.state.questMaterials.indexOf(questMaterialId);
+    if (materialIndex !== -1) {
+      this.state.questMaterials.splice(materialIndex, 1);
+    }
+
+    // Mark as claimed (can only claim once per character per quest type)
+    this.state.claimedQuestRewards.push(questMaterialId);
+
+    // Add the reward to player's bag
+    this.state.playerBag.push(rewardItem);
+
+    const questMaterial = QUEST_MATERIALS[questMaterialId];
+    this.addCombatLogEntry({
+      message: `QUEST COMPLETE! You turned in ${questMaterial.name} and received ${rewardItem.name}!`,
+      type: 'system',
+    });
+
+    // Request cloud save after quest turn-in
+    this.requestCloudSave();
+
+    this.notify();
+    return true;
+  }
+
+  // Assign a quest reward to a raid member (when you've already claimed for yourself)
+  assignQuestRewardToRaidMember(questMaterialId: QuestMaterialId, rewardId: QuestRewardId, memberId: string): boolean {
+    // Validate player has the quest material
+    if (!this.hasQuestMaterial(questMaterialId)) {
+      this.addCombatLogEntry({ message: 'You do not have this quest item!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Cannot assign to self - they should use claimQuestRewardForSelf
+    if (memberId === 'player') {
+      if (this.canClaimQuestReward(questMaterialId)) {
+        // Redirect to self-claim method
+        return this.claimQuestRewardForSelf(questMaterialId, rewardId);
+      } else {
+        this.addCombatLogEntry({ message: 'You have already claimed your reward - assign to a raid member instead!', type: 'system' });
+        this.notify();
+        return false;
+      }
+    }
+
+    // Check if this raid member has already received a reward from this quest type
+    const memberRewards = this.state.raidMemberQuestRewards[memberId] || [];
+    if (memberRewards.includes(questMaterialId)) {
+      const member = this.state.raid.find(m => m.id === memberId);
+      const memberName = member ? member.name : 'This raid member';
+      this.addCombatLogEntry({
+        message: `${memberName} has already received a reward from this quest!`,
+        type: 'system',
+      });
+      this.notify();
+      return false;
+    }
+
+    // Get the reward item
+    const rewardItem = ALL_QUEST_REWARDS[rewardId];
+    if (!rewardItem) {
+      this.addCombatLogEntry({ message: 'Invalid reward selection!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Find the raid member
+    const member = this.state.raid.find(m => m.id === memberId);
+    if (!member) {
+      this.addCombatLogEntry({ message: 'Raid member not found!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Check if class can equip
+    if (!this.canEquip(member.class, rewardItem)) {
+      this.addCombatLogEntry({
+        message: `${member.name} cannot equip ${rewardItem.name}!`,
+        type: 'system',
+      });
+      this.notify();
+      return false;
+    }
+
+    // Remove one instance of the quest material
+    const materialIndex = this.state.questMaterials.indexOf(questMaterialId);
+    if (materialIndex !== -1) {
+      this.state.questMaterials.splice(materialIndex, 1);
+    }
+
+    // Track that this raid member has received a reward from this quest type
+    if (!this.state.raidMemberQuestRewards[memberId]) {
+      this.state.raidMemberQuestRewards[memberId] = [];
+    }
+    this.state.raidMemberQuestRewards[memberId].push(questMaterialId);
+
+    // Equip the item (only if it's an upgrade)
+    const wasEquipped = this.equipItemOnMember(member, rewardItem);
+
+    const questMaterial = QUEST_MATERIALS[questMaterialId];
+    const upgradeNote = wasEquipped ? '' : ' (not equipped - current item is better)';
+    this.addCombatLogEntry({
+      message: `QUEST COMPLETE! ${member.name} received ${rewardItem.name} from ${questMaterial.name}!${upgradeNote}`,
+      type: 'system',
+    });
+
+    // Request cloud save after quest turn-in
+    this.requestCloudSave();
+
+    this.notify();
+    return true;
+  }
+
+  // Admin: Add quest material to inventory
+  adminAddQuestMaterial(materialId: QuestMaterialId): void {
+    this.state.questMaterials.push(materialId);
+    const material = QUEST_MATERIALS[materialId];
+    this.addCombatLogEntry({
+      message: `[Admin] Added ${material.name} to inventory`,
+      type: 'system',
+    });
+    this.notify();
+  }
+
+  // Admin: Remove quest material from inventory
+  adminRemoveQuestMaterial(materialId: QuestMaterialId): void {
+    const index = this.state.questMaterials.indexOf(materialId);
+    if (index !== -1) {
+      this.state.questMaterials.splice(index, 1);
+      const material = QUEST_MATERIALS[materialId];
+      this.addCombatLogEntry({
+        message: `[Admin] Removed ${material.name} from inventory`,
+        type: 'system',
+      });
+    }
+    this.notify();
+  }
+
+  // Admin: Reset claimed quest rewards (for testing)
+  adminResetClaimedQuestRewards(): void {
+    this.state.claimedQuestRewards = [];
+    this.state.raidMemberQuestRewards = {};
+    this.addCombatLogEntry({
+      message: `[Admin] Reset all claimed quest rewards (player and raid members)`,
+      type: 'system',
+    });
+    this.notify();
+  }
+
+  // Check if a raid member can receive a quest reward (hasn't claimed one yet)
+  canRaidMemberClaimQuestReward(memberId: string, questMaterialId: QuestMaterialId): boolean {
+    const memberRewards = this.state.raidMemberQuestRewards[memberId] || [];
+    return !memberRewards.includes(questMaterialId);
   }
 }

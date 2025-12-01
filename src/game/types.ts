@@ -1,6 +1,6 @@
 // Classic WoW Holy Paladin Raid Healing Simulator Types
 
-import type { GearItem, LegendaryMaterialId } from './items';
+import type { GearItem, LegendaryMaterialId, QuestMaterialId, EnchantingMaterialId } from './items';
 
 export type WoWClass =
   | 'warrior'
@@ -274,32 +274,44 @@ export interface Debuff {
   dispellable?: boolean;
 }
 
-// Equipment slots for gear
+// Equipment slots for gear (17 slots total - authentic WoW Classic)
 export interface Equipment {
   head: GearItem | null;
+  neck: GearItem | null;
   shoulders: GearItem | null;
+  back: GearItem | null;
   chest: GearItem | null;
+  wrist: GearItem | null;
+  hands: GearItem | null;
   waist: GearItem | null;
   legs: GearItem | null;
-  hands: GearItem | null;
-  wrist: GearItem | null;
   feet: GearItem | null;
+  ring1: GearItem | null;
+  ring2: GearItem | null;
+  trinket1: GearItem | null;
+  trinket2: GearItem | null;
   weapon: GearItem | null;
   offhand: GearItem | null;
-  ranged: GearItem | null;
+  ranged: GearItem | null;  // Includes librams, totems, idols, wands for casters
 }
 
 // Create empty equipment set
 export function createEmptyEquipment(): Equipment {
   return {
     head: null,
+    neck: null,
     shoulders: null,
+    back: null,
     chest: null,
+    wrist: null,
+    hands: null,
     waist: null,
     legs: null,
-    hands: null,
-    wrist: null,
     feet: null,
+    ring1: null,
+    ring2: null,
+    trinket1: null,
+    trinket2: null,
     weapon: null,
     offhand: null,
     ranged: null,
@@ -494,8 +506,18 @@ export interface GameState {
   bossKillsWithoutPaladinLoot: number; // Tracks kills since last paladin-usable drop
   // Legendary materials inventory
   legendaryMaterials: LegendaryMaterialId[]; // Materials the player has collected
+  // Quest materials inventory (turn-in items like Head of Onyxia, Head of Nefarian)
+  questMaterials: QuestMaterialId[]; // Quest items the player has collected
+  // Track which quest rewards have been claimed by the player (can only claim once per character)
+  claimedQuestRewards: QuestMaterialId[]; // Which head turn-ins has this character already claimed?
+  // Track which quest rewards have been assigned to raid members (each member can only receive once)
+  raidMemberQuestRewards: Record<string, QuestMaterialId[]>; // memberId -> claimed quest types
+  // Track the most recently obtained quest material (for loot screen notification)
+  lastObtainedQuestMaterial: QuestMaterialId | null;
   // Player bag for storing extra gear
   playerBag: GearItem[]; // Items in the player's inventory bag
+  // Materials bag for enchanting materials (nexus crystals from disenchanting)
+  materialsBag: Record<EnchantingMaterialId, number>; // Material ID -> count
   // Five-Second Rule tracking
   lastSpellCastTime: number; // Elapsed time when last spell was cast (for FSR)
   // Raid management and party auras
@@ -525,6 +547,8 @@ export interface GameState {
   thunderaanDefeated: boolean;    // True when Thunderaan has been killed (allows Thunderfury crafting)
   // Living Bomb Safe Zone mechanic
   membersInSafeZone: Set<string>; // Member IDs currently in the safe zone
+  // Cloud save trigger - set to true when important events happen that should trigger a cloud save
+  pendingCloudSave: boolean;
 }
 
 // Class colors matching Classic WoW

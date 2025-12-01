@@ -105,6 +105,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'earthfury_boots',        // Shaman
       // T1 Hands
       'felheart_gloves',        // Warlock
+      'gauntlets_of_might',     // Warrior
       // T1 Belts (normally trash drops)
       'lawbringer_belt',        // Paladin
       'arcanist_belt',          // Mage
@@ -118,6 +119,13 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Shared Flamewaker loot
       'sorcerous_dagger',       // Caster weapon
       'salamander_scale_pants', // Leather legs
+      // Shared non-set cloth
+      'robe_of_volatile_power', // Caster chest
+      'manastorm_leggings',     // Caster legs
+      // Accessories
+      'choker_of_enlightenment', // Caster neck
+      'ring_of_spell_power',    // Caster ring
+      'heavy_dark_iron_ring',   // Tank ring
     ],
     dropCount: 2,
     dkpReward: 10,
@@ -133,10 +141,13 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // T1 Legs
       'arcanist_leggings',      // Mage
       'felheart_pants',         // Warlock
+      'pants_of_prophecy',      // Priest
       'cenarion_leggings',      // Druid
       'nightslayer_pants',      // Rogue
       'earthfury_legguards',    // Shaman
       'giantstalker_leggings',  // Hunter
+      'lawbringer_legplates',   // Paladin
+      'legplates_of_might',     // Warrior
       // T1 Bracers (normally trash drops)
       'lawbringer_bracers',     // Paladin
       'arcanist_bindings',      // Mage
@@ -147,10 +158,23 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'giantstalker_bracers',   // Hunter
       'bracers_of_might',       // Warrior
       'nightslayer_bracelets',  // Rogue
-      // Non-set
+      // Non-set weapons
       'strikers_mark',          // Hunter ranged
+      'earthshaker',            // Warrior 2H mace
+      'eskhandars_right_claw',  // Fist weapon
+      // Non-set armor
       'fire_runed_grimoire',    // Caster offhand
       'salamander_scale_pants', // Leather legs
+      // Shared non-set armor
+      'mana_igniting_cord',     // Caster belt
+      'aged_core_leather_gloves', // Leather hands
+      'magma_tempered_boots',   // Plate boots
+      'flameguard_gauntlets',   // Plate hands
+      'flamewaker_legplates',   // Plate legs
+      // Accessories
+      'medallion_of_steadfast_might', // Tank neck
+      'quick_strike_ring',      // Melee ring
+      'talisman_of_ephemeral_power', // Caster trinket
     ],
     dropCount: 2,
     dkpReward: 10,
@@ -168,9 +192,20 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'nightslayer_gloves',     // Rogue
       // T1 Feet
       'giantstalker_boots',     // Hunter
+      'sabatons_of_might',      // Warrior
       // Shared Flamewaker loot
       'sorcerous_dagger',       // Caster weapon
       'salamander_scale_pants', // Leather legs
+      // Shared non-set cloth
+      'robe_of_volatile_power', // Caster chest
+      'manastorm_leggings',     // Caster legs
+      // Shared non-set leather
+      'wristguards_of_stability', // Leather wrist
+      // Shared non-set plate
+      'flamewaker_legplates',   // Plate legs
+      // Accessories
+      'ring_of_spell_power',    // Caster ring
+      'heavy_dark_iron_ring',   // Tank ring
     ],
     dropCount: 2,
     dkpReward: 10,
@@ -191,10 +226,25 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'nightslayer_cover',      // Rogue
       'earthfury_helmet',       // Shaman
       'giantstalker_helm',      // Hunter
+      'helm_of_might',          // Warrior
+      'lawbringer_helm',        // Paladin
       // Non-set weapons
       'aurastone_hammer',       // Healer mace
+      'brutality_blade',        // Melee sword
+      'gutgore_ripper',         // Rogue dagger
       // Shared Non-Flamewaker loot
       'fire_runed_grimoire',    // Caster offhand
+      // Shields
+      'drillborer_disk',        // Tank shield
+      // Shared non-set armor
+      'mana_igniting_cord',     // Caster belt
+      'aged_core_leather_gloves', // Leather hands
+      'magma_tempered_boots',   // Plate boots
+      'flameguard_gauntlets',   // Plate hands
+      'flamewaker_legplates',   // Plate legs
+      // Accessories
+      'quick_strike_ring',      // Melee ring
+      'talisman_of_ephemeral_power', // Caster trinket
     ],
     dropCount: 3,
     dkpReward: 15,
@@ -214,8 +264,19 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'cenarion_spaulders',     // Druid
       'earthfury_epaulets',     // Shaman
       'giantstalker_epaulets',  // Hunter
+      'lawbringer_spaulders',   // Paladin
       // Shared Non-Flamewaker loot
       'fire_runed_grimoire',    // Caster offhand
+      // Shared non-set armor
+      'mana_igniting_cord',     // Caster belt
+      'aged_core_leather_gloves', // Leather hands
+      'magma_tempered_boots',   // Plate boots
+      'flameguard_gauntlets',   // Plate hands
+      'flamewaker_legplates',   // Plate legs
+      // Accessories
+      'seal_of_the_archmagus',  // Caster ring
+      'quick_strike_ring',      // Melee ring
+      'talisman_of_ephemeral_power', // Caster trinket
     ],
     dropCount: 2,
     dkpReward: 15,
@@ -239,6 +300,13 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Shared Flamewaker loot
       'sorcerous_dagger',       // Caster weapon
       'salamander_scale_pants', // Leather legs
+      // Shared non-set cloth
+      'robe_of_volatile_power', // Caster chest
+      'manastorm_leggings',     // Caster legs
+      // Shared non-set leather
+      'wristguards_of_stability', // Leather wrist
+      // Accessories
+      'ring_of_spell_power',    // Caster ring
     ],
     dropCount: 2,
     dkpReward: 15,
@@ -254,10 +322,25 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // T1 Shoulders
       'mantle_of_prophecy',     // Priest
       'nightslayer_shoulder_pads', // Rogue
-      'giantstalker_epaulets',  // Hunter (also drops here)
+      'giantstalker_epaulets',  // Hunter
+      'pauldrons_of_might',     // Warrior
+      // Non-set weapons
+      'shadowstrike',           // 2H Polearm
+      'crimson_shocker',        // Wand
       // Shared Flamewaker loot
       'sorcerous_dagger',       // Caster weapon
       'salamander_scale_pants', // Leather legs
+      // Shared non-set armor
+      'sash_of_whispered_secrets', // Caster belt (moved from Majordomo)
+      'gloves_of_the_hypnotic_flame', // Caster gloves (moved from Majordomo)
+      'manastorm_leggings',     // Caster legs
+      'wristguards_of_stability', // Leather wrist
+      'fireguard_shoulders',    // Leather shoulders
+      'wild_growth_spaulders',  // Healer shoulders
+      'flamewaker_legplates',   // Plate legs
+      // Accessories
+      'ring_of_spell_power',    // Caster ring
+      'heavy_dark_iron_ring',   // Tank ring
     ],
     dropCount: 2,
     dkpReward: 15,
@@ -272,6 +355,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // T1 Chests
       'arcanist_robes',         // Mage
       'robes_of_prophecy',      // Priest
+      'felheart_robes',         // Warlock
       'cenarion_vestments',     // Druid
       'nightslayer_chestpiece', // Rogue
       'earthfury_vestments',    // Shaman
@@ -281,8 +365,19 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Non-set weapons
       'azuresong_mageblade',    // Caster sword
       'staff_of_dominance',     // Caster staff
+      'obsidian_edged_blade',   // Warrior 2H sword
+      'blastershot_launcher',   // Hunter gun
       // Shared Non-Flamewaker loot
       'fire_runed_grimoire',    // Caster offhand
+      // Shared non-set armor
+      'mana_igniting_cord',     // Caster belt
+      'aged_core_leather_gloves', // Leather hands
+      'magma_tempered_boots',   // Plate boots
+      'flameguard_gauntlets',   // Plate hands
+      'flamewaker_legplates',   // Plate legs
+      // Accessories
+      'quick_strike_ring',      // Melee ring
+      'talisman_of_ephemeral_power', // Caster trinket
     ],
     dropCount: 3,
     dkpReward: 20,
@@ -298,10 +393,23 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   // =========================================================================
   majordomo: {
     items: [
-      // Placeholder drops until Majordomo-specific items are added
+      // Majordomo-specific weapons
+      'core_hound_tooth',       // Rogue dagger
+      'finkles_lava_dredger',   // Warrior 2H
+      // Majordomo-specific armor
+      'sash_of_whispered_secrets', // Caster belt
+      'gloves_of_the_hypnotic_flame', // Caster gloves
+      // Shared drops
       'fire_runed_grimoire',    // Caster offhand
-      'sorcerous_dagger',       // Caster dagger
       'salamander_scale_pants', // Leather legs
+      // Accessories
+      'cauterizing_band',       // Healer ring
+      'fireproof_cloak',        // Fire resist cloak
+      // Class Relics
+      'libram_of_grace',        // Paladin
+      'totem_of_sustaining',    // Shaman
+      'idol_of_rejuvenation',   // Druid
+      'crimson_shocker',        // Wand (casters)
     ],
     dropCount: 2,
     dkpReward: 20,
@@ -315,12 +423,34 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   // =========================================================================
   ragnaros: {
     items: [
+      // T2 Legs
+      'leggings_of_transcendence', // Priest
+      'netherwind_pants',       // Mage
+      'nemesis_leggings',       // Warlock
+      'stormrage_legguards',    // Druid
+      'bloodfang_pants',        // Rogue
+      'dragonstalker_legguards', // Hunter
+      'legplates_of_ten_storms', // Shaman
+      'legplates_of_wrath',     // Warrior
+      'judgement_legplates',    // Paladin
+      // Non-set head
+      'crown_of_destruction',   // Hunter/Shaman head
       // Ragnaros-only weapons (authentic drops)
       'perditions_blade',       // Rogue dagger
       'bonereaver_edge',        // Warrior 2H sword
-      // Note: Spinal Reaper, Band of Accuria, Band of Sulfuras, Onslaught Girdle,
-      // Crown of Destruction, Choker of the Fire Lord, Malistar's Defender, etc.
-      // are authentic Rag drops but we don't have items defined for them yet
+      'spinal_reaper',          // Warrior 2H axe
+      // Ragnaros-only armor
+      'onslaught_girdle',       // Warrior/Paladin belt (BiS)
+      // Shields
+      'malistars_defender',     // Healer shield (Paladin/Shaman)
+      // Accessories
+      'choker_of_the_fire_lord', // Caster neck
+      'band_of_accuria',        // Melee ring
+      'band_of_sulfuras',       // Caster ring
+      'cloak_of_the_shrouded_mists', // Agility cloak
+      'dragons_blood_cape',     // Tank cloak
+      'essence_of_the_pure_flame', // Fire damage trinket
+      'shard_of_the_flame',     // Health regen trinket
     ],
     dropCount: 4,
     dkpReward: 30,
@@ -345,6 +475,10 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'arcanist_belt',
       'bracers_of_might',
       'belt_of_might',
+      // Starter relics
+      'libram_of_light',        // Paladin starter libram
+      'totem_of_rebirth',       // Shaman starter totem
+      'idol_of_longevity',      // Druid starter idol
     ],
     dropCount: 2,
     dkpReward: 5,
@@ -370,9 +504,14 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_bindings',        // Mage T2
       'bloodfang_bracers',          // Rogue T2
       'nemesis_bracers',            // Warlock T2
+      'bracers_of_ten_storms',      // Shaman T2
       // Non-set weapons
       'the_untamed_blade',          // Warrior 2H sword
+      'spineshatter',               // Warrior/Paladin/Shaman 1H mace
       'bracers_of_arcane_accuracy', // Caster bracers
+      // Class trinkets
+      'arcane_infused_gem',         // Hunter
+      'the_black_book',             // Warlock
     ],
     dropCount: 2,
     dkpReward: 15,
@@ -381,7 +520,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   // =========================================================================
   // VAELASTRASZ THE CORRUPT - BWL Boss 2
   // Drops: T2 Belts (normally trash drops, assigned here since no trash)
-  // + Dragonfang Blade
+  // + Dragonfang Blade, Helm of Endless Rage, Red Dragonscale Protector
   // =========================================================================
   vaelastrasz: {
     items: [
@@ -394,9 +533,18 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_belt',            // Mage T2
       'bloodfang_belt',             // Rogue T2
       'nemesis_belt',               // Warlock T2
+      'belt_of_ten_storms',         // Shaman T2
       // Non-set
       'dragonfang_blade',           // Rogue dagger
       'angelista_grasp',            // Caster belt
+      'helm_of_endless_rage',       // Warrior helm
+      'red_dragonscale_protector',  // Healer shield
+      'primalists_linked_waistguard', // Shaman healer belt
+      // Accessories
+      'pendant_of_the_fallen_dragon', // Healer neck
+      // Class trinkets
+      'mind_quickening_gem',        // Mage
+      'rune_of_metamorphosis',      // Druid
     ],
     dropCount: 2,
     dkpReward: 20,
@@ -404,7 +552,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
 
   // =========================================================================
   // BROODLORD LASHLAYER - BWL Boss 3
-  // Drops: T2 Boots + Maladath, Heartstriker
+  // Drops: T2 Boots + Maladath, Heartstriker, Black Brood Pauldrons
   // =========================================================================
   broodlord: {
     items: [
@@ -417,10 +565,17 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_boots',           // Mage T2
       'bloodfang_boots',            // Rogue T2
       'nemesis_boots',              // Warlock T2
+      'greaves_of_ten_storms',      // Shaman T2
       // Non-set
       'maladath',                   // Sword +4 Sword Skill
       'heartstriker',               // Hunter bow
       'boots_of_the_shadow_flame',  // Leather boots
+      'black_brood_pauldrons',      // Plate shoulders
+      'shimmering_geta',            // Leather boots
+      'boots_of_pure_thought',      // Healer boots
+      // Class trinkets
+      'lifegiving_gem',             // Warrior
+      'venomous_totem',             // Rogue
     ],
     dropCount: 2,
     dkpReward: 20,
@@ -441,10 +596,21 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_gloves',          // Mage T2
       'bloodfang_gloves',           // Rogue T2
       'nemesis_gloves',             // Warlock T2
-      // Non-set
+      'gauntlets_of_ten_storms',    // Shaman T2
+      // Non-set weapons
       'crul_shorukh',               // Warrior axe
+      'claw_of_the_black_drake',    // Fist weapon
+      // Non-set armor
       'ebony_flame_gloves',         // Leather gloves
-      'black_brood_pauldrons',      // Plate shoulders
+      'taut_dragonhide_gloves',     // Leather gloves
+      'gloves_of_rapid_evolution',  // Druid healer gloves
+      'firemaws_clutch',            // Caster belt
+      // Accessories
+      'cloak_of_firemaw',           // Caster cloak
+      'ring_of_blackrock',          // Caster ring
+      // Class trinkets
+      'scrolls_of_blinding_light_trinket', // Paladin
+      'natural_alignment_crystal',  // Shaman
     ],
     dropCount: 2,
     dkpReward: 20,
@@ -465,10 +631,22 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_gloves',          // Mage T2
       'bloodfang_gloves',           // Rogue T2
       'nemesis_gloves',             // Warlock T2
-      // Non-set
+      'gauntlets_of_ten_storms',    // Shaman T2
+      // Non-set weapons
       'shadow_wing_focus_staff',    // Caster staff
+      'dragonbreath_hand_cannon',   // Hunter gun
+      // Non-set armor
       'malfurions_blessed_bulwark', // Druid chest
       'shroud_of_pure_thought',     // Healer cloak
+      'black_ash_robe',             // Caster chest
+      'chromatic_boots',            // Hunter/Shaman mail boots
+      // Accessories
+      'band_of_forced_concentration', // Caster ring
+      'ring_of_blackrock',          // Caster ring
+      'drake_fang_talisman',        // Melee trinket
+      'rejuvenating_gem',           // Healer trinket
+      // Class trinket
+      'aegis_of_preservation',      // Priest
     ],
     dropCount: 2,
     dkpReward: 20,
@@ -489,10 +667,21 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_gloves',          // Mage T2
       'bloodfang_gloves',           // Rogue T2
       'nemesis_gloves',             // Warlock T2
-      // Non-set
+      'gauntlets_of_ten_storms',    // Shaman T2
+      // Non-set weapons
       'drake_talon_cleaver',        // Warrior 2H axe
+      'herald_of_woe',              // Warrior 2H mace
+      'dragons_touch',              // Caster wand
+      // Non-set armor
       'taut_dragonhide_belt',       // Leather belt
       'drake_talon_pauldrons',      // Plate shoulders
+      'emberweave_leggings',        // Leather legs
+      'therazanes_link',            // Hunter/Shaman mail belt
+      // Accessories
+      'ring_of_blackrock',          // Caster ring
+      'circle_of_applied_force',    // Melee ring
+      'styleens_impeding_scarab',   // Tank trinket
+      'rejuvenating_gem',           // Healer trinket
     ],
     dropCount: 2,
     dkpReward: 20,
@@ -513,11 +702,18 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_mantle',          // Mage T2
       'bloodfang_spaulders',        // Rogue T2
       'nemesis_spaulders',          // Warlock T2
-      // Non-set
+      'epaulets_of_ten_storms',     // Shaman T2
+      // Non-set weapons
       'ashjrethul',                 // Hunter crossbow
       'chromatically_tempered_sword', // Sword
+      'claw_of_chromaggus',         // Rogue dagger
+      // Non-set armor
       'elementium_threaded_cloak',  // Resist cloak
       'mantle_of_the_blackwing_cabal', // Caster shoulders
+      'elementium_reinforced_bulwark', // Tank shield
+      'taut_dragonhide_shoulderpads', // Leather shoulders
+      // Accessories
+      'prestors_talisman_of_connivery', // Melee neck
     ],
     dropCount: 3,
     dkpReward: 25,
@@ -526,7 +722,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
   // =========================================================================
   // NEFARIAN - BWL Final Boss
   // Drops: T2 Chest + Ashkandi, Staff of the Shadow Flame, Lok'amir,
-  // Neltharion's Tear, Prestor's Talisman, Mish'undare
+  // Neltharion's Tear, Mish'undare
   // =========================================================================
   nefarian: {
     items: [
@@ -539,15 +735,27 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'netherwind_robes',           // Mage T2
       'bloodfang_chestpiece',       // Rogue T2
       'nemesis_robes',              // Warlock T2
+      'breastplate_of_ten_storms',  // Shaman T2
       // Non-set weapons
       'ashkandi',                   // Warrior 2H sword
       'staff_of_the_shadow_flame', // Caster staff
       'lok_amir',                   // Healer mace
       // Armor
       'mishundare',                 // Caster helm
-      'scrolls_of_blinding_light',  // Healer offhand
-      'helm_of_endless_rage',       // Warrior helm
-      'red_dragonscale_protector',  // Tank shield
+      'empowered_leggings',         // Caster legs
+      'primalists_linked_legguards', // Shaman healer legs
+      'girdle_of_the_fallen_crusader', // Plate melee belt
+      'legguards_of_the_fallen_crusader', // Plate melee legs
+      // Accessories
+      'cloak_of_the_brood_lord',    // Caster cloak
+      'pure_elementium_band',       // Caster ring
+      'archimtiros_ring_of_reckoning', // Tank ring
+      'neltharions_tear',           // Caster trinket
+      // Class Relics (Epic)
+      'libram_of_divinity',         // Paladin
+      'totem_of_life',              // Shaman
+      'idol_of_health',             // Druid
+      'doomfinger',                 // Wand (casters)
     ],
     dropCount: 4,
     dkpReward: 35,
@@ -591,9 +799,11 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'deathbringer',             // 2H sword
       'vis_kag',                  // 1H sword
       'ancient_cornerstone_grimoire', // Caster offhand
+      // Accessories
       'sapphiron_drape',          // Caster cloak
-      'ring_of_binding',          // Ring
-      'onyxia_tooth_pendant',     // Neck
+      'ring_of_binding',          // Caster ring
+      'eskhandars_collar',        // Melee neck
+      'shard_of_the_scale',       // Healer trinket
     ],
     dropCount: 3,
     dkpReward: 25,
