@@ -79,7 +79,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.20.0';
+  const CURRENT_PATCH_VERSION = '0.21.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -1294,6 +1294,26 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.21.0 - Quality of Life & Fixes</h3>
+                  <span className="patch-date">December 1, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Buff All Button</h4>
+                  <ul>
+                    <li><strong>One-Click Buffs</strong>: Buff All now applies raid buffs, consumables, AND world buffs</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bug Fixes</h4>
+                  <ul>
+                    <li><strong>Paladin Auras</strong>: Auras now correctly affect only your party, not the entire raid (authentic Classic behavior)</li>
+                    <li><strong>Cloud Save Duplicates</strong>: Fixed saves creating duplicates when using Save button</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.20.0 - GCD Animation & Polish</h3>
                   <span className="patch-date">November 30, 2025</span>
                 </div>
@@ -2307,7 +2327,7 @@ function App() {
                 </span>
                 <div className="buffs-panel-actions">
                   <button
-                    onClick={(e) => { e.stopPropagation(); engine.applyAllRaidBuffs(); }}
+                    onClick={(e) => { e.stopPropagation(); engine.applyAllBuffs(); }}
                   >
                     Buff All
                   </button>
@@ -3409,11 +3429,12 @@ function App() {
                       // Save keybinds with this save slot
                       localStorage.setItem(`mc_healer_keybinds_${saveSlotName.trim()}`, JSON.stringify(keybinds));
 
-                      // If logged in, also save to cloud
-                      if (currentUser) {
+                      // If logged in, also save to cloud using character ID (not slot name)
+                      // This ensures we update the same cloud save, not create a new one
+                      if (currentUser && currentCharacterId) {
                         setCloudSyncStatus('syncing');
                         const saveData = engine.exportSaveData();
-                        const success = await saveToCloud(saveSlotName.trim(), saveData);
+                        const success = await saveToCloud(currentCharacterId, saveData);
                         setCloudSyncStatus(success ? 'saved' : 'error');
                         setTimeout(() => setCloudSyncStatus(null), 3000);
                       }
