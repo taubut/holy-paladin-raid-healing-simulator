@@ -480,6 +480,7 @@ export interface GameState {
   playerDKP: DKPState;
   pendingLoot: GearItem[];
   showLootModal: boolean;
+  showAuctionHouse: boolean;  // Auction House modal for buying enchants
   inspectedMember: RaidMember | null;
   // Multiplayer loot bidding
   lootBids: Record<string, LootBid[]>;  // itemId -> array of bids

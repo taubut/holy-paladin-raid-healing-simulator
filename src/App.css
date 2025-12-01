@@ -1754,7 +1754,7 @@ body {
   right: 2px;
   font-size: 10px;
   font-weight: bold;
-  text-shadow: 1px 1px 2px #000;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
   color: #fff;
 }
 
@@ -1959,6 +1959,93 @@ body {
   font-weight: bold;
   color: #ffd700;
   text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* DKP Row with Utility Icons */
+.player-dkp-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.player-dkp-row .player-dkp {
+  justify-content: flex-start;
+  margin-top: 0;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.player-utility-icons {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.utility-mini-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid #4a4a4a;
+  background: rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.utility-mini-btn:hover {
+  border-color: #ffd700;
+  transform: scale(1.1);
+}
+
+.utility-mini-btn img {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+}
+
+.utility-mini-btn.has-items {
+  border-color: #a335ee;
+  box-shadow: 0 0 6px rgba(163, 53, 238, 0.5);
+}
+
+.utility-mini-btn.has-crystals {
+  border-color: #1eff00;
+  box-shadow: 0 0 6px rgba(30, 255, 0, 0.5);
+}
+
+.mini-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #a335ee;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 8px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.mini-badge.crystal {
+  background: #1eff00;
+  color: #000;
+}
+
+.utility-mini-btn .keybind-text {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 9px;
+  color: #fff;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  font-weight: bold;
 }
 
 /* Utility Menu Dropdown */
@@ -2358,14 +2445,14 @@ body {
   text-align: center;
 }
 
-/* Inspection Panel */
+/* Inspection Panel - Redesigned */
 .inspection-panel {
   background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
   border: 3px solid #4a4a6a;
   border-radius: 8px;
   padding: 24px;
-  min-width: 350px;
-  max-width: 450px;
+  min-width: 700px;
+  max-width: 800px;
   box-shadow: 0 0 40px rgba(74, 74, 106, 0.5);
 }
 
@@ -2430,14 +2517,24 @@ body {
   border: 1px solid rgba(255, 215, 0, 0.3);
 }
 
-.inspection-equipment {
+/* Two-column layout */
+.inspection-content {
+  display: flex;
+  gap: 20px;
+}
+
+.equipment-list {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
+  max-height: 450px;
+  overflow-y: auto;
 }
 
 .equipment-slot {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding: 6px 8px;
   background: rgba(0, 0, 0, 0.3);
@@ -2445,19 +2542,187 @@ body {
   font-size: 12px;
 }
 
+.equipment-slot.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-left: 3px solid transparent;
+}
+
+.equipment-slot.clickable:hover {
+  background: rgba(255, 215, 0, 0.1);
+  transform: translateX(4px);
+}
+
+.equipment-slot.selected {
+  background: rgba(255, 215, 0, 0.2);
+  border-left-color: #ffd700;
+}
+
+.slot-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  border: 1px solid #4a4a4a;
+  flex-shrink: 0;
+}
+
+.slot-icon.empty {
+  background: rgba(0, 0, 0, 0.4);
+}
+
 .slot-name {
   color: #888;
-  width: 80px;
-  text-transform: capitalize;
+  width: 70px;
+  flex-shrink: 0;
 }
 
 .slot-item {
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.slot-empty {
-  color: #555;
+.enchant-indicator {
+  color: #1eff00;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+/* Item Detail Panel */
+.item-detail-panel {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 6px;
+  padding: 16px;
+  min-height: 350px;
+  border: 1px solid #3a3a4a;
+}
+
+.no-selection {
+  color: #666;
+  text-align: center;
+  padding-top: 120px;
   font-style: italic;
+}
+
+.detail-header {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #3a3a4a;
+}
+
+.detail-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 2px solid #4a4a4a;
+}
+
+.detail-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.detail-meta {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.detail-slot {
+  font-size: 11px;
+  color: #ffd100;
+}
+
+.detail-stats {
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.detail-stats .stat-healing {
+  color: #1eff00;
+}
+
+.detail-stats .stat-mana {
+  color: #00bfff;
+}
+
+.detail-stats .stat-crit {
+  color: #ffcc00;
+}
+
+.detail-stats .stat-hit {
+  color: #ffcc00;
+}
+
+.detail-stats .stat-fire {
+  color: #ff4500;
+}
+
+.detail-stats .stat-frost {
+  color: #00bfff;
+}
+
+.detail-stats .stat-shadow {
+  color: #9370db;
+}
+
+.detail-stats .stat-nature {
+  color: #32cd32;
+}
+
+.detail-stats .stat-arcane {
+  color: #ff69b4;
+}
+
+.detail-stats .stat-attack {
+  color: #ff8c00;
+}
+
+.detail-stats .stat-defense {
+  color: #c0c0c0;
+}
+
+.detail-stats .stat-dodge {
+  color: #00ff7f;
+}
+
+.detail-stats .stat-resist-all {
+  color: #daa520;
+}
+
+.detail-enchant {
+  margin-top: 12px;
+}
+
+.enchant-divider {
+  height: 1px;
+  background: #3a3a4a;
+  margin-bottom: 12px;
+}
+
+.enchant-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.enchant-name {
+  color: #1eff00;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.enchant-stats {
+  color: #1eff00;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .inspection-stats {
@@ -2483,8 +2748,9 @@ body {
   color: #888;
 }
 
-.stat-row span:last-child {
-  color: #88ff88;
+.stat-row .stat-value {
+  color: #1eff00;
+  font-weight: bold;
 }
 
 /* Player Name Editable */
@@ -10515,4 +10781,534 @@ body {
 .utility-menu button.auth-logged-in {
   color: #8f8;
   border-left: 3px solid #4a8;
+}
+
+/* ==================== AUCTION HOUSE STYLES ==================== */
+
+.auction-house-modal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 3px solid #4a4a6a;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.ah-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #2a2a4a 0%, #1a1a3a 100%);
+  border-bottom: 2px solid #4a4a6a;
+  border-radius: 5px 5px 0 0;
+}
+
+.ah-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.ah-title-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 2px solid #a335ee;
+}
+
+.ah-title h2 {
+  margin: 0;
+  color: #ffd700;
+  font-size: 20px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.ah-currency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: 1px solid #4a4a6a;
+}
+
+.ah-currency img {
+  width: 24px;
+  height: 24px;
+}
+
+.ah-currency span {
+  color: #a335ee;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.ah-close-btn {
+  background: rgba(200, 50, 50, 0.6);
+  border: 1px solid #c83232;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ah-close-btn:hover {
+  background: rgba(200, 50, 50, 0.9);
+}
+
+.ah-member-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid #3a3a5a;
+}
+
+.ah-member-selector label {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.ah-member-selector select {
+  flex: 1;
+  max-width: 300px;
+  background: #1a1a2e;
+  border: 1px solid #4a4a6a;
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ah-member-selector select:hover {
+  border-color: #6a6a8a;
+}
+
+.ah-content {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.ah-equipment {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ah-equipment h3,
+.ah-enchants h3 {
+  margin: 0 0 12px 0;
+  color: #ffd700;
+  font-size: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #3a3a5a;
+}
+
+.ah-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.ah-equipment-slot {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #3a3a5a;
+  border-radius: 4px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  min-height: 70px;
+}
+
+.ah-equipment-slot.empty {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ah-equipment-slot.filled:hover {
+  border-color: #6a6a8a;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.ah-equipment-slot.selected {
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.15);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.ah-equipment-slot.enchanted {
+  border-color: #1eff00;
+}
+
+.ah-equipment-slot img {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+}
+
+.ah-slot-label {
+  font-size: 10px;
+  color: #aaa;
+  text-transform: capitalize;
+}
+
+.ah-slot-empty {
+  font-size: 11px;
+  color: #666;
+  text-transform: capitalize;
+}
+
+.enchant-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 10px;
+  height: 10px;
+  background: #1eff00;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #1eff00;
+}
+
+.ah-selected-item {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.ah-item-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.ah-item-header img {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 2px solid #4a4a6a;
+}
+
+.ah-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ah-item-name {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.ah-item-slot {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.ah-current-enchant {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #3a3a5a;
+  font-size: 13px;
+  color: #aaa;
+}
+
+.enchant-text {
+  color: #1eff00;
+  font-weight: 500;
+}
+
+.ah-enchants {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ah-enchants-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 8px;
+}
+
+.ah-enchant-card {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  padding: 12px;
+  transition: all 0.2s;
+}
+
+.ah-enchant-card:hover {
+  border-color: #6a6a8a;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.ah-enchant-card.cannot-afford {
+  opacity: 0.6;
+}
+
+.ah-enchant-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ah-enchant-header img {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  border: 2px solid #1eff00;
+}
+
+.ah-enchant-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.ah-enchant-name {
+  color: #1eff00;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.ah-enchant-desc {
+  color: #ccc;
+  font-size: 12px;
+}
+
+.ah-enchant-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #3a3a5a;
+}
+
+.ah-enchant-cost {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ah-enchant-cost img {
+  width: 20px;
+  height: 20px;
+}
+
+.ah-enchant-cost span {
+  color: #a335ee;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.ah-enchant-cost span.not-enough {
+  color: #ff4444;
+}
+
+.ah-buy-btn {
+  background: linear-gradient(180deg, #2a6a2a 0%, #1a4a1a 100%);
+  border: 1px solid #4a8a4a;
+  color: #fff;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ah-buy-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #3a7a3a 0%, #2a5a2a 100%);
+  box-shadow: 0 0 10px rgba(100, 200, 100, 0.3);
+}
+
+.ah-buy-btn:disabled {
+  background: #333;
+  border-color: #444;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.ah-no-enchants,
+.ah-select-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Rarity border classes for AH */
+.rarity-common-border { border-color: #9d9d9d; }
+.rarity-uncommon-border { border-color: #1eff00; }
+.rarity-rare-border { border-color: #0070dd; }
+.rarity-epic-border { border-color: #a335ee; }
+.rarity-legendary-border { border-color: #ff8000; }
+
+/* Rarity text classes for AH */
+.rarity-common-text { color: #9d9d9d; }
+.rarity-uncommon-text { color: #1eff00; }
+.rarity-rare-text { color: #0070dd; }
+.rarity-epic-text { color: #a335ee; }
+.rarity-legendary-text { color: #ff8000; }
+
+/* AH button in action bar */
+.ah-button {
+  position: relative;
+}
+
+.ah-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ah-button .bag-item-count {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: #a335ee;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+/* Mobile responsiveness for AH */
+@media (max-width: 768px) {
+  .auction-house-modal {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .ah-content {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .ah-equipment {
+    flex: 0 0 auto;
+  }
+
+  .ah-equipment-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+
+  .ah-enchants-list {
+    max-height: 300px;
+  }
+}
+
+/* Enchant display in tooltips */
+.tooltip-enchant {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Enchanted item indicator in bag */
+.bag-slot.enchanted {
+  box-shadow: 0 0 6px rgba(30, 255, 0, 0.4);
+}
+
+/* Equipment slot with enchant display */
+.slot-item-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.slot-enchant {
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Player utility buttons (Bags, Enchants) - positioned inside player frame */
+.player-utility-buttons {
+  position: absolute;
+  right: -52px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.utility-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  border: 2px solid #4a4a6a;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.utility-icon-btn:hover {
+  border-color: #6a6a8a;
+  transform: scale(1.05);
+}
+
+.utility-icon-btn img {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.utility-icon-btn.has-items {
+  border-color: #ff8000;
+  box-shadow: 0 0 8px rgba(255, 128, 0, 0.4);
+}
+
+.utility-icon-btn.has-crystals {
+  border-color: #a335ee;
+  box-shadow: 0 0 8px rgba(163, 53, 238, 0.4);
+}
+
+.utility-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: #ff8000;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 1px 4px;
+  border-radius: 3px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.utility-badge.crystal {
+  background: #a335ee;
 }

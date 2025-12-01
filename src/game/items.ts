@@ -55,6 +55,466 @@ export const ENCHANTING_MATERIALS: Record<EnchantingMaterialId, EnchantingMateri
   },
 };
 
+// =============================================================================
+// ENCHANTING SYSTEM - Auction House Enchants
+// =============================================================================
+
+export type EnchantSlot =
+  | 'head' | 'legs' | 'shoulders' | 'back' | 'chest'
+  | 'wrist' | 'hands' | 'feet' | 'weapon' | 'offhand';
+
+export type EnchantId =
+  // Head/Legs
+  | 'arcanum_rapidity' | 'arcanum_focus' | 'lesser_voracity_agi'
+  | 'lesser_voracity_str' | 'lesser_voracity_int' | 'lesser_rumination'
+  | 'lesser_constitution'
+  // Shoulders
+  | 'zg_might' | 'zg_mojo' | 'zg_serenity' | 'chromatic_mantle' | 'power_scourge'
+  // Back
+  | 'cloak_lesser_agi' | 'cloak_superior_defense' | 'cloak_greater_resistance' | 'cloak_subtlety'
+  // Chest
+  | 'chest_greater_stats' | 'chest_major_mana'
+  // Wrists
+  | 'bracer_superior_str' | 'bracer_superior_sta' | 'bracer_superior_int'
+  | 'bracer_healing' | 'bracer_mana_regen'
+  // Hands
+  | 'gloves_greater_agi' | 'gloves_superior_agi' | 'gloves_threat'
+  | 'gloves_fire_power' | 'gloves_shadow_power' | 'gloves_healing'
+  // Feet
+  | 'boots_greater_agi' | 'boots_greater_sta' | 'boots_minor_speed'
+  // Weapons
+  | 'weapon_crusader' | 'weapon_lifestealing' | 'weapon_spell_power' | 'weapon_healing'
+  // Shield
+  | 'shield_greater_sta';
+
+export type EnchantRole = 'melee' | 'caster' | 'healer' | 'tank' | 'all';
+
+export interface Enchant {
+  id: EnchantId;
+  name: string;
+  icon: string;
+  description: string;
+  slots: EnchantSlot[];
+  stats: Partial<ItemStats>;
+  cost: number;  // Nexus Crystal cost
+  role: EnchantRole;
+}
+
+const ENCHANT_ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+
+export const ENCHANTS: Record<EnchantId, Enchant> = {
+  // ===========================================
+  // HEAD / LEGS (Same enchants work on both)
+  // ===========================================
+  arcanum_rapidity: {
+    id: 'arcanum_rapidity',
+    name: 'Arcanum of Rapidity',
+    icon: `${ENCHANT_ICON_BASE}/spell_nature_timestop.jpg`,
+    description: '+1% Haste',
+    slots: ['head', 'legs'],
+    stats: { critChance: 1 },  // Using crit as proxy for haste since no haste stat
+    cost: 3,
+    role: 'melee',
+  },
+  arcanum_focus: {
+    id: 'arcanum_focus',
+    name: 'Arcanum of Focus',
+    icon: `${ENCHANT_ICON_BASE}/spell_shadow_burningspirit.jpg`,
+    description: '+8 Spell Power',
+    slots: ['head', 'legs'],
+    stats: { spellPower: 8 },
+    cost: 3,
+    role: 'caster',
+  },
+  lesser_voracity_agi: {
+    id: 'lesser_voracity_agi',
+    name: 'Lesser Arcanum of Voracity',
+    icon: `${ENCHANT_ICON_BASE}/spell_holy_greaterheal.jpg`,
+    description: '+8 Agility',
+    slots: ['head', 'legs'],
+    stats: { agility: 8 },
+    cost: 2,
+    role: 'melee',
+  },
+  lesser_voracity_str: {
+    id: 'lesser_voracity_str',
+    name: 'Lesser Arcanum of Voracity',
+    icon: `${ENCHANT_ICON_BASE}/spell_holy_greaterheal.jpg`,
+    description: '+8 Strength',
+    slots: ['head', 'legs'],
+    stats: { strength: 8 },
+    cost: 2,
+    role: 'melee',
+  },
+  lesser_voracity_int: {
+    id: 'lesser_voracity_int',
+    name: 'Lesser Arcanum of Voracity',
+    icon: `${ENCHANT_ICON_BASE}/spell_holy_greaterheal.jpg`,
+    description: '+8 Intellect',
+    slots: ['head', 'legs'],
+    stats: { intellect: 8 },
+    cost: 2,
+    role: 'caster',
+  },
+  lesser_rumination: {
+    id: 'lesser_rumination',
+    name: 'Lesser Arcanum of Rumination',
+    icon: `${ENCHANT_ICON_BASE}/spell_frost_manarecharge.jpg`,
+    description: '+150 Mana',
+    slots: ['head', 'legs'],
+    stats: { intellect: 10 },  // Approx equivalent to 150 mana
+    cost: 2,
+    role: 'healer',
+  },
+  lesser_constitution: {
+    id: 'lesser_constitution',
+    name: 'Lesser Arcanum of Constitution',
+    icon: `${ENCHANT_ICON_BASE}/spell_holy_sealofprotection.jpg`,
+    description: '+100 HP',
+    slots: ['head', 'legs'],
+    stats: { stamina: 10 },
+    cost: 2,
+    role: 'tank',
+  },
+
+  // ===========================================
+  // SHOULDERS
+  // ===========================================
+  zg_might: {
+    id: 'zg_might',
+    name: 'Zandalar Signet of Might',
+    icon: `${ENCHANT_ICON_BASE}/inv_misc_armorkit_09.jpg`,
+    description: '+30 Attack Power',
+    slots: ['shoulders'],
+    stats: { strength: 15 },  // 30 AP = ~15 str equivalent
+    cost: 3,
+    role: 'melee',
+  },
+  zg_mojo: {
+    id: 'zg_mojo',
+    name: 'Zandalar Signet of Mojo',
+    icon: `${ENCHANT_ICON_BASE}/inv_misc_armorkit_09.jpg`,
+    description: '+18 Spell Power',
+    slots: ['shoulders'],
+    stats: { spellPower: 18 },
+    cost: 3,
+    role: 'caster',
+  },
+  zg_serenity: {
+    id: 'zg_serenity',
+    name: 'Zandalar Signet of Serenity',
+    icon: `${ENCHANT_ICON_BASE}/inv_misc_armorkit_09.jpg`,
+    description: '+33 Healing',
+    slots: ['shoulders'],
+    stats: { healingPower: 33 },
+    cost: 3,
+    role: 'healer',
+  },
+  chromatic_mantle: {
+    id: 'chromatic_mantle',
+    name: 'Chromatic Mantle of the Dawn',
+    icon: `${ENCHANT_ICON_BASE}/inv_misc_cape_20.jpg`,
+    description: '+5 All Resistances',
+    slots: ['shoulders'],
+    stats: { stamina: 5 },  // Resistance approximation
+    cost: 2,
+    role: 'all',
+  },
+  power_scourge: {
+    id: 'power_scourge',
+    name: 'Power of the Scourge',
+    icon: `${ENCHANT_ICON_BASE}/spell_shadow_deadofnight.jpg`,
+    description: '+15 Spell Power, +1% Crit',
+    slots: ['shoulders'],
+    stats: { spellPower: 15, critChance: 1 },
+    cost: 4,
+    role: 'caster',
+  },
+
+  // ===========================================
+  // BACK (Cloak)
+  // ===========================================
+  cloak_lesser_agi: {
+    id: 'cloak_lesser_agi',
+    name: 'Enchant Cloak - Lesser Agility',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+3 Agility',
+    slots: ['back'],
+    stats: { agility: 3 },
+    cost: 1,
+    role: 'melee',
+  },
+  cloak_superior_defense: {
+    id: 'cloak_superior_defense',
+    name: 'Enchant Cloak - Superior Defense',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+70 Armor',
+    slots: ['back'],
+    stats: { armor: 70 },
+    cost: 2,
+    role: 'tank',
+  },
+  cloak_greater_resistance: {
+    id: 'cloak_greater_resistance',
+    name: 'Enchant Cloak - Greater Resistance',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+5 All Resistances',
+    slots: ['back'],
+    stats: { stamina: 5 },
+    cost: 2,
+    role: 'all',
+  },
+  cloak_subtlety: {
+    id: 'cloak_subtlety',
+    name: 'Enchant Cloak - Subtlety',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '-2% Threat',
+    slots: ['back'],
+    stats: { spirit: 5 },  // Threat reduction approximation
+    cost: 2,
+    role: 'caster',
+  },
+
+  // ===========================================
+  // CHEST
+  // ===========================================
+  chest_greater_stats: {
+    id: 'chest_greater_stats',
+    name: 'Enchant Chest - Greater Stats',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+4 All Stats',
+    slots: ['chest'],
+    stats: { stamina: 4, intellect: 4, spirit: 4, strength: 4, agility: 4 },
+    cost: 3,
+    role: 'all',
+  },
+  chest_major_mana: {
+    id: 'chest_major_mana',
+    name: 'Enchant Chest - Major Mana',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+100 Mana',
+    slots: ['chest'],
+    stats: { intellect: 7 },  // ~100 mana equivalent
+    cost: 2,
+    role: 'caster',
+  },
+
+  // ===========================================
+  // WRISTS (Bracers)
+  // ===========================================
+  bracer_superior_str: {
+    id: 'bracer_superior_str',
+    name: 'Enchant Bracer - Superior Strength',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+9 Strength',
+    slots: ['wrist'],
+    stats: { strength: 9 },
+    cost: 2,
+    role: 'melee',
+  },
+  bracer_superior_sta: {
+    id: 'bracer_superior_sta',
+    name: 'Enchant Bracer - Superior Stamina',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+9 Stamina',
+    slots: ['wrist'],
+    stats: { stamina: 9 },
+    cost: 2,
+    role: 'tank',
+  },
+  bracer_superior_int: {
+    id: 'bracer_superior_int',
+    name: 'Enchant Bracer - Superior Intellect',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+9 Intellect',
+    slots: ['wrist'],
+    stats: { intellect: 9 },
+    cost: 2,
+    role: 'caster',
+  },
+  bracer_healing: {
+    id: 'bracer_healing',
+    name: 'Enchant Bracer - Healing Power',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+24 Healing',
+    slots: ['wrist'],
+    stats: { healingPower: 24 },
+    cost: 3,
+    role: 'healer',
+  },
+  bracer_mana_regen: {
+    id: 'bracer_mana_regen',
+    name: 'Enchant Bracer - Mana Regeneration',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+4 MP5',
+    slots: ['wrist'],
+    stats: { mp5: 4 },
+    cost: 2,
+    role: 'healer',
+  },
+
+  // ===========================================
+  // HANDS (Gloves)
+  // ===========================================
+  gloves_greater_agi: {
+    id: 'gloves_greater_agi',
+    name: 'Enchant Gloves - Greater Agility',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+7 Agility',
+    slots: ['hands'],
+    stats: { agility: 7 },
+    cost: 2,
+    role: 'melee',
+  },
+  gloves_superior_agi: {
+    id: 'gloves_superior_agi',
+    name: 'Enchant Gloves - Superior Agility',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulasuperior_01.jpg`,
+    description: '+15 Agility',
+    slots: ['hands'],
+    stats: { agility: 15 },
+    cost: 3,
+    role: 'melee',
+  },
+  gloves_threat: {
+    id: 'gloves_threat',
+    name: 'Enchant Gloves - Threat',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+2% Threat',
+    slots: ['hands'],
+    stats: { strength: 5 },  // Threat approximation
+    cost: 2,
+    role: 'tank',
+  },
+  gloves_fire_power: {
+    id: 'gloves_fire_power',
+    name: 'Enchant Gloves - Fire Power',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+20 Fire Damage',
+    slots: ['hands'],
+    stats: { spellPower: 20 },
+    cost: 2,
+    role: 'caster',
+  },
+  gloves_shadow_power: {
+    id: 'gloves_shadow_power',
+    name: 'Enchant Gloves - Shadow Power',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+20 Shadow Damage',
+    slots: ['hands'],
+    stats: { spellPower: 20 },
+    cost: 2,
+    role: 'caster',
+  },
+  gloves_healing: {
+    id: 'gloves_healing',
+    name: 'Enchant Gloves - Healing Power',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+30 Healing',
+    slots: ['hands'],
+    stats: { healingPower: 30 },
+    cost: 3,
+    role: 'healer',
+  },
+
+  // ===========================================
+  // FEET (Boots)
+  // ===========================================
+  boots_greater_agi: {
+    id: 'boots_greater_agi',
+    name: 'Enchant Boots - Greater Agility',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+7 Agility',
+    slots: ['feet'],
+    stats: { agility: 7 },
+    cost: 2,
+    role: 'melee',
+  },
+  boots_greater_sta: {
+    id: 'boots_greater_sta',
+    name: 'Enchant Boots - Greater Stamina',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+7 Stamina',
+    slots: ['feet'],
+    stats: { stamina: 7 },
+    cost: 2,
+    role: 'tank',
+  },
+  boots_minor_speed: {
+    id: 'boots_minor_speed',
+    name: 'Enchant Boots - Minor Speed',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+8% Movement Speed',
+    slots: ['feet'],
+    stats: { agility: 3 },  // Minor stat for speed
+    cost: 3,
+    role: 'all',
+  },
+
+  // ===========================================
+  // WEAPONS (Main Hand / Two-Hand)
+  // ===========================================
+  weapon_crusader: {
+    id: 'weapon_crusader',
+    name: 'Enchant Weapon - Crusader',
+    icon: `${ENCHANT_ICON_BASE}/spell_holy_greaterheal.jpg`,
+    description: 'Chance on hit: +100 Strength, heal',
+    slots: ['weapon'],
+    stats: { strength: 20 },  // Average proc value
+    cost: 4,
+    role: 'melee',
+  },
+  weapon_lifestealing: {
+    id: 'weapon_lifestealing',
+    name: 'Enchant Weapon - Lifestealing',
+    icon: `${ENCHANT_ICON_BASE}/spell_shadow_lifedrain02.jpg`,
+    description: 'Chance on hit: Steal 30 HP',
+    slots: ['weapon'],
+    stats: { stamina: 10 },  // Survival equivalent
+    cost: 3,
+    role: 'tank',
+  },
+  weapon_spell_power: {
+    id: 'weapon_spell_power',
+    name: 'Enchant Weapon - Spell Power',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulasuperior_01.jpg`,
+    description: '+30 Spell Power',
+    slots: ['weapon'],
+    stats: { spellPower: 30 },
+    cost: 4,
+    role: 'caster',
+  },
+  weapon_healing: {
+    id: 'weapon_healing',
+    name: 'Enchant Weapon - Healing Power',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulasuperior_01.jpg`,
+    description: '+55 Healing',
+    slots: ['weapon'],
+    stats: { healingPower: 55 },
+    cost: 4,
+    role: 'healer',
+  },
+
+  // ===========================================
+  // SHIELD (Off-Hand)
+  // ===========================================
+  shield_greater_sta: {
+    id: 'shield_greater_sta',
+    name: 'Enchant Shield - Greater Stamina',
+    icon: `${ENCHANT_ICON_BASE}/inv_enchant_formulagood_01.jpg`,
+    description: '+7 Stamina',
+    slots: ['offhand'],
+    stats: { stamina: 7 },
+    cost: 2,
+    role: 'tank',
+  },
+};
+
+// Helper to get enchants available for a specific slot
+export function getEnchantsForSlot(slot: EnchantSlot): Enchant[] {
+  return Object.values(ENCHANTS).filter(enchant => enchant.slots.includes(slot));
+}
+
 // Quest material types (turn-in items like Head of Onyxia, Head of Nefarian)
 export type QuestMaterialId = 'head_of_onyxia' | 'head_of_nefarian';
 
@@ -84,6 +544,16 @@ export interface ItemStats {
   critChance?: number;
   hitChance?: number;
   armor?: number;
+  attackPower?: number;
+  defense?: number;
+  dodge?: number;
+  // Resistances
+  fireResistance?: number;
+  frostResistance?: number;
+  shadowResistance?: number;
+  natureResistance?: number;
+  arcaneResistance?: number;
+  allResistance?: number;  // For items that give +X to all resistances
 }
 
 export interface GearItem {
@@ -99,6 +569,7 @@ export interface GearItem {
   weaponType?: WeaponType;  // For weapons: one_hand, two_hand, offhand_only, ranged
   itemCategory?: ItemCategory;  // For spec-aware loot filtering
   relicType?: RelicType;  // For ranged slot items: libram, totem, idol, wand, bow, etc.
+  enchantId?: EnchantId;  // Applied enchant (if any)
 }
 
 const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
@@ -114,8 +585,8 @@ export const LAWBRINGER_BOOTS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 20, intellect: 13, spirit: 10, spellPower: 9, mp5: 2 },
-  icon: `${ICON_BASE}/inv_boots_plate_06.jpg`,
+  stats: { armor: 588, strength: 7, stamina: 20, intellect: 13, spirit: 10, spellPower: 9, mp5: 2, shadowResistance: 7 },
+  icon: `${ICON_BASE}/inv_boots_plate_09.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
 
@@ -126,7 +597,7 @@ export const LAWBRINGER_GAUNTLETS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 15, intellect: 15, spirit: 14, spellPower: 9 },
+  stats: { armor: 534, strength: 10, stamina: 15, intellect: 15, spirit: 14, spellPower: 9, fireResistance: 7 },
   icon: `${ICON_BASE}/inv_gauntlets_29.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
@@ -138,8 +609,8 @@ export const LAWBRINGER_HELM: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 20, intellect: 24, spirit: 10, spellPower: 12, mp5: 4 },
-  icon: `${ICON_BASE}/inv_helmet_22.jpg`,
+  stats: { armor: 695, strength: 9, stamina: 20, intellect: 24, spirit: 10, spellPower: 12, mp5: 4, fireResistance: 10 },
+  icon: `${ICON_BASE}/inv_helmet_05.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
 
@@ -150,7 +621,7 @@ export const LAWBRINGER_LEGPLATES: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 24, intellect: 18, spirit: 18, spellPower: 12, mp5: 3 },
+  stats: { armor: 748, strength: 7, stamina: 24, intellect: 18, spirit: 18, spellPower: 12, mp5: 3, shadowResistance: 10 },
   icon: `${ICON_BASE}/inv_pants_04.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
@@ -162,8 +633,8 @@ export const LAWBRINGER_SPAULDERS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 22, intellect: 15, spirit: 8, spellPower: 9 },
-  icon: `${ICON_BASE}/inv_shoulder_02.jpg`,
+  stats: { armor: 641, strength: 10, stamina: 22, intellect: 15, spirit: 8, spellPower: 9, shadowResistance: 7 },
+  icon: `${ICON_BASE}/inv_shoulder_20.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
 
@@ -174,8 +645,8 @@ export const LAWBRINGER_CHESTGUARD: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 26, intellect: 21, spirit: 13, spellPower: 12 },
-  icon: `${ICON_BASE}/inv_chest_plate11.jpg`,
+  stats: { armor: 855, strength: 8, stamina: 26, intellect: 21, spirit: 13, spellPower: 12, fireResistance: 10 },
+  icon: `${ICON_BASE}/inv_chest_plate03.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
 
@@ -186,8 +657,8 @@ export const LAWBRINGER_BELT: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 15, intellect: 20, spirit: 8, spellPower: 9 },
-  icon: `${ICON_BASE}/inv_belt_09.jpg`,
+  stats: { armor: 481, strength: 13, stamina: 15, intellect: 20, spirit: 8, spellPower: 9, fireResistance: 7 },
+  icon: `${ICON_BASE}/inv_belt_27.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
 
@@ -198,8 +669,8 @@ export const LAWBRINGER_BRACERS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['paladin'],
-  stats: { stamina: 11, intellect: 8, spirit: 11, mp5: 4 },
-  icon: `${ICON_BASE}/inv_bracer_19.jpg`,
+  stats: { armor: 374, strength: 10, stamina: 11, intellect: 8, spirit: 11, mp5: 4 },
+  icon: `${ICON_BASE}/inv_bracer_18.jpg`,
   setId: 'lawbringer', itemCategory: 'healer',
 };
 
@@ -214,8 +685,8 @@ export const BOOTS_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 16, intellect: 17, spirit: 20, spellPower: 12 },
-  icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`,
+  stats: { armor: 80, stamina: 17, intellect: 18, spirit: 15, spellPower: 9, shadowResistance: 7 },
+  icon: `${ICON_BASE}/inv_boots_07.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
 
@@ -226,8 +697,8 @@ export const GLOVES_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 13, intellect: 17, spirit: 13, spellPower: 12 },
-  icon: `${ICON_BASE}/inv_gauntlets_17.jpg`,
+  stats: { armor: 72, stamina: 10, intellect: 15, spirit: 15, spellPower: 9, mp5: 6, fireResistance: 7 },
+  icon: `${ICON_BASE}/inv_gauntlets_14.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
 
@@ -238,8 +709,8 @@ export const CIRCLET_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 18, intellect: 32, spirit: 10, spellPower: 18, mp5: 4 },
-  icon: `${ICON_BASE}/inv_helmet_51.jpg`,
+  stats: { armor: 94, stamina: 17, intellect: 27, spirit: 20, spellPower: 12, fireResistance: 10 },
+  icon: `${ICON_BASE}/inv_helmet_34.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
 
@@ -250,8 +721,8 @@ export const PANTS_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 22, intellect: 24, spirit: 18, spellPower: 14, mp5: 4 },
-  icon: `${ICON_BASE}/inv_pants_cloth_14.jpg`,
+  stats: { armor: 101, stamina: 18, intellect: 24, spirit: 20, spellPower: 12, mp5: 6, shadowResistance: 10 },
+  icon: `${ICON_BASE}/inv_pants_08.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
 
@@ -262,7 +733,7 @@ export const MANTLE_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 16, intellect: 15, spirit: 20, spellPower: 9 },
+  stats: { armor: 87, stamina: 13, intellect: 23, spirit: 10, spellPower: 9, shadowResistance: 7 },
   icon: `${ICON_BASE}/inv_shoulder_02.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
@@ -274,8 +745,8 @@ export const ROBES_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 20, intellect: 17, spirit: 30, spellPower: 18 },
-  icon: `${ICON_BASE}/inv_chest_cloth_46.jpg`,
+  stats: { armor: 116, stamina: 20, intellect: 27, spirit: 17, spellPower: 12, fireResistance: 10 },
+  icon: `${ICON_BASE}/inv_chest_cloth_03.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
 
@@ -286,8 +757,8 @@ export const GIRDLE_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 16, intellect: 17, spirit: 8, spellPower: 9 },
-  icon: `${ICON_BASE}/inv_belt_18.jpg`,
+  stats: { armor: 65, stamina: 10, intellect: 22, spirit: 10, spellPower: 9, mp5: 4, fireResistance: 7 },
+  icon: `${ICON_BASE}/inv_belt_22.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
 
@@ -298,7 +769,7 @@ export const VAMBRACES_OF_PROPHECY: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['priest'],
-  stats: { stamina: 8, intellect: 11, spirit: 12, mp5: 4 },
+  stats: { armor: 51, stamina: 8, intellect: 14, spirit: 10, spellPower: 13, mp5: 2 },
   icon: `${ICON_BASE}/inv_bracer_09.jpg`,
   setId: 'prophecy', itemCategory: 'healer',
 };
@@ -314,8 +785,8 @@ export const CENARION_BOOTS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 18, intellect: 15, spirit: 14, spellPower: 9, mp5: 3 },
-  icon: `${ICON_BASE}/inv_boots_cloth_09.jpg`,
+  stats: { armor: 157, stamina: 16, intellect: 13, spirit: 15, spellPower: 9, mp5: 3, shadowResistance: 7 },
+  icon: `${ICON_BASE}/inv_boots_08.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
 
@@ -326,8 +797,8 @@ export const CENARION_GLOVES: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 10, intellect: 17, spirit: 18, spellPower: 18 },
-  icon: `${ICON_BASE}/inv_gauntlets_11.jpg`,
+  stats: { armor: 143, stamina: 17, intellect: 18, spirit: 15, spellPower: 9, fireResistance: 7 },
+  icon: `${ICON_BASE}/inv_gauntlets_07.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
 
@@ -338,7 +809,7 @@ export const CENARION_HELM: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 18, intellect: 24, spirit: 20, spellPower: 12, mp5: 4 },
+  stats: { armor: 186, stamina: 26, intellect: 28, spirit: 13, spellPower: 12, fireResistance: 10 },
   icon: `${ICON_BASE}/inv_helmet_09.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
@@ -350,8 +821,8 @@ export const CENARION_LEGGINGS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 21, intellect: 22, spirit: 17, spellPower: 14, mp5: 4 },
-  icon: `${ICON_BASE}/inv_pants_09.jpg`,
+  stats: { armor: 200, stamina: 18, intellect: 19, spirit: 20, spellPower: 12, mp5: 5, critChance: 1, shadowResistance: 10 },
+  icon: `${ICON_BASE}/inv_pants_06.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
 
@@ -362,8 +833,8 @@ export const CENARION_SPAULDERS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 18, intellect: 12, spirit: 20, spellPower: 12 },
-  icon: `${ICON_BASE}/inv_shoulder_08.jpg`,
+  stats: { armor: 171, stamina: 13, intellect: 20, spirit: 10, spellPower: 9, mp5: 5, shadowResistance: 7 },
+  icon: `${ICON_BASE}/inv_shoulder_07.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
 
@@ -374,8 +845,8 @@ export const CENARION_VESTMENTS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 23, intellect: 18, spirit: 24, spellPower: 18 },
-  icon: `${ICON_BASE}/inv_chest_leather_03.jpg`,
+  stats: { armor: 228, stamina: 23, intellect: 24, spirit: 16, spellPower: 12, mp5: 4, fireResistance: 10 },
+  icon: `${ICON_BASE}/inv_chest_cloth_06.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
 
@@ -386,7 +857,7 @@ export const CENARION_BELT: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 14, intellect: 15, spirit: 12, spellPower: 9 },
+  stats: { armor: 128, stamina: 10, intellect: 22, spirit: 10, spellPower: 9, mp5: 5, fireResistance: 7 },
   icon: `${ICON_BASE}/inv_belt_06.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
@@ -398,8 +869,8 @@ export const CENARION_BRACERS: GearItem = {
   rarity: 'epic',
   itemLevel: 66,
   classes: ['druid'],
-  stats: { stamina: 10, intellect: 12, spirit: 10, mp5: 4 },
-  icon: `${ICON_BASE}/inv_bracer_08.jpg`,
+  stats: { armor: 100, stamina: 13, intellect: 14, spirit: 13, spellPower: 6 },
+  icon: `${ICON_BASE}/inv_bracer_09.jpg`,
   setId: 'cenarion', itemCategory: 'healer',
 };
 
@@ -415,7 +886,7 @@ export const SALAMANDER_SCALE_PANTS: GearItem = {
   itemLevel: 64,
   classes: ['druid', 'priest', 'paladin'],
   stats: { stamina: 14, intellect: 14, healingPower: 51, mp5: 9 },
-  icon: `${ICON_BASE}/inv_pants_06.jpg`,
+  icon: `${ICON_BASE}/inv_pants_12.jpg`,
   itemCategory: 'healer',
 };
 
@@ -426,7 +897,7 @@ export const AZURESONG_MAGEBLADE: GearItem = {
   rarity: 'epic',
   itemLevel: 71,
   classes: ['all'],
-  stats: { stamina: 7, intellect: 12, spellPower: 40, critChance: 1 },
+  stats: { stamina: 17, intellect: 12, spellPower: 40, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_39.jpg`,
   weaponType: 'one_hand',
   itemCategory: 'caster',
@@ -437,28 +908,28 @@ export const AZURESONG_MAGEBLADE: GearItem = {
 // =============================================================================
 
 // MC Necklaces
-export const CHOKER_OF_ENLIGHTENMENT: GearItem = { id: 'choker_of_enlightenment', name: 'Choker of Enlightenment', slot: 'neck', rarity: 'epic', itemLevel: 66, classes: ['all'], stats: { intellect: 10, spirit: 10, stamina: 9, spellPower: 18 }, icon: `${ICON_BASE}/inv_jewelry_necklace_10.jpg`, itemCategory: 'caster' };
-export const MEDALLION_OF_STEADFAST_MIGHT: GearItem = { id: 'medallion_of_steadfast_might', name: 'Medallion of Steadfast Might', slot: 'neck', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { stamina: 13, strength: 9 }, icon: `${ICON_BASE}/inv_jewelry_necklace_07.jpg`, itemCategory: 'melee' };
-export const CHOKER_OF_THE_FIRE_LORD: GearItem = { id: 'choker_of_the_fire_lord', name: 'Choker of the Fire Lord', slot: 'neck', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { intellect: 7, stamina: 7, spellPower: 34 }, icon: `${ICON_BASE}/inv_jewelry_necklace_14.jpg`, itemCategory: 'caster' };
+export const CHOKER_OF_ENLIGHTENMENT: GearItem = { id: 'choker_of_enlightenment', name: 'Choker of Enlightenment', slot: 'neck', rarity: 'epic', itemLevel: 65, classes: ['all'], stats: { stamina: 9, intellect: 10, spirit: 10, spellPower: 18 }, icon: `${ICON_BASE}/inv_jewelry_necklace_10.jpg`, itemCategory: 'caster' };
+export const MEDALLION_OF_STEADFAST_MIGHT: GearItem = { id: 'medallion_of_steadfast_might', name: 'Medallion of Steadfast Might', slot: 'neck', rarity: 'epic', itemLevel: 68, classes: ['warrior', 'paladin', 'druid'], stats: { strength: 9, stamina: 13, defense: 8, dodge: 1 }, icon: `${ICON_BASE}/inv_jewelry_amulet_03.jpg`, itemCategory: 'melee' };
+export const CHOKER_OF_THE_FIRE_LORD: GearItem = { id: 'choker_of_the_fire_lord', name: 'Choker of the Fire Lord', slot: 'neck', rarity: 'epic', itemLevel: 78, classes: ['all'], stats: { stamina: 7, intellect: 7, spellPower: 34 }, icon: `${ICON_BASE}/inv_jewelry_amulet_05.jpg`, itemCategory: 'caster' };
+export const ANIMATED_CHAIN_NECKLACE: GearItem = { id: 'animated_chain_necklace', name: 'Animated Chain Necklace', slot: 'neck', rarity: 'epic', itemLevel: 62, classes: ['paladin', 'priest', 'druid', 'shaman'], stats: { stamina: 7, spirit: 6, healingPower: 33 }, icon: `${ICON_BASE}/inv_jewelry_necklace_04.jpg`, itemCategory: 'healer' };
 
 // MC Cloaks
-export const FIREPROOF_CLOAK: GearItem = { id: 'fireproof_cloak', name: 'Fireproof Cloak', slot: 'back', rarity: 'epic', itemLevel: 66, classes: ['all'], stats: { intellect: 9, spirit: 8, stamina: 12 }, icon: `${ICON_BASE}/inv_misc_cape_20.jpg`, itemCategory: 'caster' };
-export const CLOAK_OF_THE_SHROUDED_MISTS: GearItem = { id: 'cloak_of_the_shrouded_mists', name: 'Cloak of the Shrouded Mists', slot: 'back', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { agility: 22, stamina: 12 }, icon: `${ICON_BASE}/inv_misc_cape_02.jpg`, itemCategory: 'melee' };
-export const DRAGONS_BLOOD_CAPE: GearItem = { id: 'dragons_blood_cape', name: "Dragon's Blood Cape", slot: 'back', rarity: 'epic', itemLevel: 71, classes: ['warrior', 'paladin'], stats: { stamina: 22, strength: 9 }, icon: `${ICON_BASE}/inv_misc_cape_17.jpg`, itemCategory: 'melee' };
+export const FIREPROOF_CLOAK: GearItem = { id: 'fireproof_cloak', name: 'Fireproof Cloak', slot: 'back', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { armor: 54, stamina: 12, intellect: 9, spirit: 8, fireResistance: 18 }, icon: `${ICON_BASE}/inv_misc_cape_18.jpg`, itemCategory: 'caster' };
+export const CLOAK_OF_THE_SHROUDED_MISTS: GearItem = { id: 'cloak_of_the_shrouded_mists', name: 'Cloak of the Shrouded Mists', slot: 'back', rarity: 'epic', itemLevel: 74, classes: ['all'], stats: { armor: 57, agility: 22, stamina: 12, fireResistance: 6, natureResistance: 6 }, icon: `${ICON_BASE}/inv_misc_cape_17.jpg`, itemCategory: 'melee' };
+export const DRAGONS_BLOOD_CAPE: GearItem = { id: 'dragons_blood_cape', name: "Dragon's Blood Cape", slot: 'back', rarity: 'epic', itemLevel: 73, classes: ['warrior', 'paladin'], stats: { armor: 116, strength: 9, stamina: 22, fireResistance: 5, shadowResistance: 5, arcaneResistance: 5 }, icon: `${ICON_BASE}/inv_misc_cape_08.jpg`, itemCategory: 'melee' };
 
 // MC Rings
-export const RING_OF_SPELL_POWER: GearItem = { id: 'ring_of_spell_power', name: 'Ring of Spell Power', slot: 'ring1', rarity: 'epic', itemLevel: 66, classes: ['all'], stats: { spellPower: 33 }, icon: `${ICON_BASE}/inv_jewelry_ring_14.jpg`, itemCategory: 'caster' };
-export const HEAVY_DARK_IRON_RING: GearItem = { id: 'heavy_dark_iron_ring', name: 'Heavy Dark Iron Ring', slot: 'ring1', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { stamina: 20 }, icon: `${ICON_BASE}/inv_jewelry_ring_01.jpg`, itemCategory: 'melee' };
-export const SEAL_OF_THE_ARCHMAGUS: GearItem = { id: 'seal_of_the_archmagus', name: 'Seal of the Archmagus', slot: 'ring1', rarity: 'epic', itemLevel: 68, classes: ['all'], stats: { intellect: 11, spirit: 11, stamina: 11, mp5: 3 }, icon: `${ICON_BASE}/inv_jewelry_ring_16.jpg`, itemCategory: 'caster' };
-export const CAUTERIZING_BAND: GearItem = { id: 'cauterizing_band', name: 'Cauterizing Band', slot: 'ring1', rarity: 'epic', itemLevel: 68, classes: ['paladin', 'priest', 'druid', 'shaman'], stats: { intellect: 12, stamina: 9, healingPower: 46 }, icon: `${ICON_BASE}/inv_jewelry_ring_38.jpg`, itemCategory: 'healer' };
-export const BAND_OF_ACCURIA: GearItem = { id: 'band_of_accuria', name: 'Band of Accuria', slot: 'ring1', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { agility: 16, stamina: 10, hitChance: 2 }, icon: `${ICON_BASE}/inv_jewelry_ring_30.jpg`, itemCategory: 'melee' };
-export const BAND_OF_SULFURAS: GearItem = { id: 'band_of_sulfuras', name: 'Band of Sulfuras', slot: 'ring1', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { intellect: 23, spirit: 10, stamina: 13 }, icon: `${ICON_BASE}/inv_jewelry_ring_33.jpg`, itemCategory: 'caster' };
-export const QUICK_STRIKE_RING: GearItem = { id: 'quick_strike_ring', name: 'Quick Strike Ring', slot: 'ring1', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'rogue', 'hunter', 'paladin'], stats: { strength: 5, stamina: 8, critChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_ring_03.jpg`, itemCategory: 'melee' };
+export const RING_OF_SPELL_POWER: GearItem = { id: 'ring_of_spell_power', name: 'Ring of Spell Power', slot: 'ring1', rarity: 'epic', itemLevel: 66, classes: ['all'], stats: { spellPower: 33 }, icon: `${ICON_BASE}/inv_jewelry_ring_38.jpg`, itemCategory: 'caster' };
+export const HEAVY_DARK_IRON_RING: GearItem = { id: 'heavy_dark_iron_ring', name: 'Heavy Dark Iron Ring', slot: 'ring1', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { stamina: 20, armor: 110, defense: 8 }, icon: `${ICON_BASE}/inv_jewelry_ring_14.jpg`, itemCategory: 'melee' };
+export const SEAL_OF_THE_ARCHMAGUS: GearItem = { id: 'seal_of_the_archmagus', name: 'Seal of the Archmagus', slot: 'ring1', rarity: 'epic', itemLevel: 70, classes: ['all'], stats: { stamina: 11, intellect: 11, spirit: 11, mp5: 3, fireResistance: 6, frostResistance: 6, shadowResistance: 6, natureResistance: 6, arcaneResistance: 6 }, icon: `${ICON_BASE}/inv_jewelry_ring_21.jpg`, itemCategory: 'caster' };
+export const CAUTERIZING_BAND: GearItem = { id: 'cauterizing_band', name: 'Cauterizing Band', slot: 'ring1', rarity: 'epic', itemLevel: 71, classes: ['paladin', 'priest', 'druid', 'shaman'], stats: { intellect: 12, stamina: 9, healingPower: 46 }, icon: `${ICON_BASE}/inv_jewelry_ring_39.jpg`, itemCategory: 'healer' };
+export const BAND_OF_ACCURIA: GearItem = { id: 'band_of_accuria', name: 'Band of Accuria', slot: 'ring1', rarity: 'epic', itemLevel: 78, classes: ['all'], stats: { agility: 16, stamina: 10, hitChance: 2 }, icon: `${ICON_BASE}/inv_jewelry_ring_15.jpg`, itemCategory: 'melee' };
+export const BAND_OF_SULFURAS: GearItem = { id: 'band_of_sulfuras', name: 'Band of Sulfuras', slot: 'ring1', rarity: 'epic', itemLevel: 78, classes: ['all'], stats: { intellect: 23, spirit: 10, stamina: 13 }, icon: `${ICON_BASE}/inv_jewelry_ring_36.jpg`, itemCategory: 'caster' };
+export const QUICK_STRIKE_RING: GearItem = { id: 'quick_strike_ring', name: 'Quick Strike Ring', slot: 'ring1', rarity: 'epic', itemLevel: 67, classes: ['warrior', 'rogue', 'hunter', 'paladin'], stats: { strength: 5, stamina: 8, attackPower: 30, critChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_ring_07.jpg`, itemCategory: 'melee' };
 
-// MC Trinkets
-export const TALISMAN_OF_EPHEMERAL_POWER: GearItem = { id: 'talisman_of_ephemeral_power', name: 'Talisman of Ephemeral Power', slot: 'trinket1', rarity: 'epic', itemLevel: 66, classes: ['all'], stats: { spellPower: 10 }, icon: `${ICON_BASE}/inv_misc_stonetablet_11.jpg`, itemCategory: 'caster' };
-export const ESSENCE_OF_THE_PURE_FLAME: GearItem = { id: 'essence_of_the_pure_flame', name: 'Essence of the Pure Flame', slot: 'trinket1', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { stamina: 14 }, icon: `${ICON_BASE}/inv_elemental_primal_fire.jpg`, itemCategory: 'universal' };
-export const SHARD_OF_THE_FLAME: GearItem = { id: 'shard_of_the_flame', name: 'Shard of the Flame', slot: 'trinket1', rarity: 'epic', itemLevel: 71, classes: ['all'], stats: { stamina: 7 }, icon: `${ICON_BASE}/inv_misc_gem_flamespessarite_02.jpg`, itemCategory: 'universal' };
+// MC Trinkets (many have on-use or proc effects rather than passive stats)
+export const TALISMAN_OF_EPHEMERAL_POWER: GearItem = { id: 'talisman_of_ephemeral_power', name: 'Talisman of Ephemeral Power', slot: 'trinket1', rarity: 'rare', itemLevel: 66, classes: ['all'], stats: {}, icon: `${ICON_BASE}/inv_misc_stonetablet_11.jpg`, itemCategory: 'caster' }; // Use: +175 spell damage/healing for 15s
+export const ESSENCE_OF_THE_PURE_FLAME: GearItem = { id: 'essence_of_the_pure_flame', name: 'Essence of the Pure Flame', slot: 'trinket1', rarity: 'epic', itemLevel: 75, classes: ['all'], stats: {}, icon: `${ICON_BASE}/spell_fire_fire.jpg`, itemCategory: 'melee' }; // Equip: When struck, deal 13 fire damage
 
 // =============================================================================
 // MELEE DPS WEAPONS
@@ -471,9 +942,10 @@ export const BONEREAVER_EDGE: GearItem = {
   rarity: 'epic',
   itemLevel: 77,
   classes: ['warrior'],
-  stats: { strength: 25, stamina: 15, agility: 8, critChance: 1 },
+  stats: {}, // Proc: Attacks ignore 700 armor (stacks 3x)
   icon: `${ICON_BASE}/inv_sword_12.jpg`,
   weaponType: 'two_hand',
+  itemCategory: 'melee',
 };
 
 export const PERDITIONS_BLADE: GearItem = {
@@ -481,11 +953,12 @@ export const PERDITIONS_BLADE: GearItem = {
   name: "Perdition's Blade",
   slot: 'weapon',
   rarity: 'epic',
-  itemLevel: 75,
+  itemLevel: 77,
   classes: ['rogue', 'warrior'],
-  stats: { agility: 14, stamina: 9, critChance: 1, hitChance: 1 },
+  stats: {}, // Fire damage proc
   icon: `${ICON_BASE}/inv_sword_48.jpg`,
   weaponType: 'one_hand',
+  itemCategory: 'melee',
 };
 
 export const STRIKERS_MARK: GearItem = {
@@ -493,9 +966,9 @@ export const STRIKERS_MARK: GearItem = {
   name: "Striker's Mark",
   slot: 'ranged',
   rarity: 'epic',
-  itemLevel: 75,
-  classes: ['hunter'],
-  stats: { agility: 22, stamina: 8, hitChance: 1 },
+  itemLevel: 69,
+  classes: ['hunter', 'warrior', 'rogue'],
+  stats: { attackPower: 22, hitChance: 1 },
   icon: `${ICON_BASE}/inv_weapon_bow_08.jpg`,
   weaponType: 'ranged',
   relicType: 'bow',
@@ -513,7 +986,7 @@ export const BRUTALITY_BLADE: GearItem = {
   rarity: 'epic',
   itemLevel: 70,
   classes: ['warrior', 'rogue', 'hunter'],
-  stats: { agility: 9, stamina: 9, strength: 9, critChance: 1, hitChance: 1 },
+  stats: { agility: 9, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_15.jpg`,
   weaponType: 'one_hand',
   itemCategory: 'melee',
@@ -524,10 +997,10 @@ export const GUTGORE_RIPPER: GearItem = {
   name: 'Gutgore Ripper',
   slot: 'weapon',
   rarity: 'epic',
-  itemLevel: 70,
+  itemLevel: 69,
   classes: ['warrior', 'rogue'],
-  stats: { agility: 16, stamina: 9, critChance: 1 },
-  icon: `${ICON_BASE}/inv_weapon_shortblade_03.jpg`,
+  stats: {}, // Proc: 75 Shadow damage, -25 all stats for 30s
+  icon: `${ICON_BASE}/inv_weapon_shortblade_18.jpg`,
   weaponType: 'one_hand',
   itemCategory: 'melee',
 };
@@ -537,10 +1010,10 @@ export const CORE_HOUND_TOOTH: GearItem = {
   name: 'Core Hound Tooth',
   slot: 'weapon',
   rarity: 'epic',
-  itemLevel: 75,
+  itemLevel: 70,
   classes: ['warrior', 'rogue'],
-  stats: { agility: 16, stamina: 7, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_weapon_shortblade_07.jpg`,
+  stats: { stamina: 9, attackPower: 20, critChance: 1 },
+  icon: `${ICON_BASE}/inv_weapon_shortblade_11.jpg`,
   weaponType: 'one_hand',
   itemCategory: 'melee',
 };
@@ -550,9 +1023,9 @@ export const SPINAL_REAPER: GearItem = {
   name: 'Spinal Reaper',
   slot: 'weapon',
   rarity: 'epic',
-  itemLevel: 77,
+  itemLevel: 76,
   classes: ['warrior'],
-  stats: { strength: 20, stamina: 15, critChance: 1 },
+  stats: { attackPower: 34 }, // Proc: Restore 150 mana or 20 rage on kill
   icon: `${ICON_BASE}/inv_axe_09.jpg`,
   weaponType: 'two_hand',
   itemCategory: 'melee',
@@ -566,7 +1039,7 @@ export const EARTHSHAKER: GearItem = {
   itemLevel: 70,
   classes: ['warrior', 'paladin'],
   stats: { strength: 17, stamina: 12 },
-  icon: `${ICON_BASE}/inv_hammer_09.jpg`,
+  icon: `${ICON_BASE}/inv_hammer_04.jpg`,
   weaponType: 'two_hand',
   itemCategory: 'melee',
 };
@@ -577,11 +1050,11 @@ export const FINKLES_LAVA_DREDGER: GearItem = {
   slot: 'weapon',
   rarity: 'epic',
   itemLevel: 70,
-  classes: ['warrior', 'paladin', 'shaman'],
-  stats: { strength: 12, stamina: 15, spirit: 10 },
-  icon: `${ICON_BASE}/inv_pick_02.jpg`,
+  classes: ['paladin', 'shaman', 'druid'],
+  stats: { stamina: 25, intellect: 24, mp5: 9, fireResistance: 15 },
+  icon: `${ICON_BASE}/inv_gizmo_02.jpg`,
   weaponType: 'two_hand',
-  itemCategory: 'melee',
+  itemCategory: 'healer',
 };
 
 export const OBSIDIAN_EDGED_BLADE: GearItem = {
@@ -589,10 +1062,10 @@ export const OBSIDIAN_EDGED_BLADE: GearItem = {
   name: 'Obsidian Edged Blade',
   slot: 'weapon',
   rarity: 'epic',
-  itemLevel: 70,
+  itemLevel: 68,
   classes: ['warrior', 'paladin'],
-  stats: { strength: 26, stamina: 13, critChance: 1 },
-  icon: `${ICON_BASE}/inv_sword_42.jpg`,
+  stats: { strength: 42 }, // +8 Two-Handed Swords skill
+  icon: `${ICON_BASE}/inv_sword_28.jpg`,
   weaponType: 'two_hand',
   itemCategory: 'melee',
 };
@@ -609,85 +1082,85 @@ export const BLASTERSHOT_LAUNCHER: GearItem = {
   itemLevel: 70,
   classes: ['hunter', 'warrior', 'rogue'],
   stats: { agility: 7, stamina: 8, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_weapon_rifle_01.jpg`,
+  icon: `${ICON_BASE}/inv_weapon_rifle_09.jpg`,
   weaponType: 'ranged',
   relicType: 'gun',
   itemCategory: 'physical_ranged',
 };
 
 // Wand
-export const CRIMSON_SHOCKER: GearItem = { id: 'crimson_shocker', name: 'Crimson Shocker', slot: 'ranged', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 4, stamina: 4, spellPower: 11 }, icon: `${ICON_BASE}/inv_wand_05.jpg`, weaponType: 'ranged', relicType: 'wand', itemCategory: 'caster' };
+export const CRIMSON_SHOCKER: GearItem = { id: 'crimson_shocker', name: 'Crimson Shocker', slot: 'ranged', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 4, stamina: 4, spellPower: 11 }, icon: `${ICON_BASE}/inv_staff_13.jpg`, weaponType: 'ranged', relicType: 'wand', itemCategory: 'caster' };
 
 // =============================================================================
 // MOLTEN CORE - ADDITIONAL WEAPONS
 // =============================================================================
 
 // Shadowstrike - Sulfuron Harbinger
-export const SHADOWSTRIKE: GearItem = { id: 'shadowstrike', name: 'Shadowstrike', slot: 'weapon', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'paladin', 'hunter', 'druid'], stats: { strength: 22, stamina: 15, agility: 13 }, icon: `${ICON_BASE}/inv_weapon_halberd_02.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const SHADOWSTRIKE: GearItem = { id: 'shadowstrike', name: 'Shadowstrike', slot: 'weapon', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'paladin', 'hunter', 'druid'], stats: { strength: 22, stamina: 15, agility: 13 }, icon: `${ICON_BASE}/inv_spear_08.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
 
 // Eskhandar's Right Claw - Magmadar
-export const ESKHANDARS_RIGHT_CLAW: GearItem = { id: 'eskhandars_right_claw', name: "Eskhandar's Right Claw", slot: 'weapon', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'rogue', 'shaman'], stats: { strength: 8, agility: 8, stamina: 10 }, icon: `${ICON_BASE}/inv_weapon_hand_01.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const ESKHANDARS_RIGHT_CLAW: GearItem = { id: 'eskhandars_right_claw', name: "Eskhandar's Right Claw", slot: 'weapon', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'rogue', 'shaman'], stats: { strength: 8, agility: 8, stamina: 10 }, icon: `${ICON_BASE}/inv_misc_monsterclaw_04.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
 
 // =============================================================================
 // MOLTEN CORE - SHARED NON-SET ARMOR (Drops from multiple bosses)
 // =============================================================================
 
 // Cloth
-export const ROBE_OF_VOLATILE_POWER: GearItem = { id: 'robe_of_volatile_power', name: 'Robe of Volatile Power', slot: 'chest', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 12, stamina: 16, spellPower: 23, critChance: 1 }, icon: `${ICON_BASE}/inv_chest_cloth_45.jpg`, itemCategory: 'caster' };
+export const ROBE_OF_VOLATILE_POWER: GearItem = { id: 'robe_of_volatile_power', name: 'Robe of Volatile Power', slot: 'chest', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 12, stamina: 16, spellPower: 23, critChance: 1 }, icon: `${ICON_BASE}/inv_chest_cloth_18.jpg`, itemCategory: 'caster' };
 
 export const MANASTORM_LEGGINGS: GearItem = { id: 'manastorm_leggings', name: 'Manastorm Leggings', slot: 'legs', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 21, stamina: 14, spellPower: 20 }, icon: `${ICON_BASE}/inv_pants_08.jpg`, itemCategory: 'caster' };
 
-export const MANA_IGNITING_CORD: GearItem = { id: 'mana_igniting_cord', name: 'Mana Igniting Cord', slot: 'waist', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 13, stamina: 8, spellPower: 24, hitChance: 1 }, icon: `${ICON_BASE}/inv_belt_13.jpg`, itemCategory: 'caster' };
+export const MANA_IGNITING_CORD: GearItem = { id: 'mana_igniting_cord', name: 'Mana Igniting Cord', slot: 'waist', rarity: 'epic', itemLevel: 66, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 13, stamina: 8, spellPower: 24, hitChance: 1 }, icon: `${ICON_BASE}/inv_belt_11.jpg`, itemCategory: 'caster' };
 
 // Leather
-export const AGED_CORE_LEATHER_GLOVES: GearItem = { id: 'aged_core_leather_gloves', name: 'Aged Core Leather Gloves', slot: 'hands', rarity: 'epic', itemLevel: 66, classes: ['rogue', 'druid'], stats: { agility: 17, stamina: 17, hitChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_26.jpg`, itemCategory: 'melee' };
+export const AGED_CORE_LEATHER_GLOVES: GearItem = { id: 'aged_core_leather_gloves', name: 'Aged Core Leather Gloves', slot: 'hands', rarity: 'epic', itemLevel: 66, classes: ['rogue', 'druid'], stats: { agility: 17, stamina: 17, hitChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_23.jpg`, itemCategory: 'melee' };
 
-export const WRISTGUARDS_OF_STABILITY: GearItem = { id: 'wristguards_of_stability', name: 'Wristguards of Stability', slot: 'wrist', rarity: 'epic', itemLevel: 66, classes: ['rogue', 'druid'], stats: { agility: 16, stamina: 11, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_15.jpg`, itemCategory: 'melee' };
+export const WRISTGUARDS_OF_STABILITY: GearItem = { id: 'wristguards_of_stability', name: 'Wristguards of Stability', slot: 'wrist', rarity: 'epic', itemLevel: 66, classes: ['rogue', 'druid'], stats: { agility: 16, stamina: 11, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_04.jpg`, itemCategory: 'melee' };
 
-export const FIREGUARD_SHOULDERS: GearItem = { id: 'fireguard_shoulders', name: 'Fireguard Shoulders', slot: 'shoulders', rarity: 'epic', itemLevel: 66, classes: ['rogue', 'druid'], stats: { agility: 18, stamina: 17, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_01.jpg`, itemCategory: 'melee' };
+export const FIREGUARD_SHOULDERS: GearItem = { id: 'fireguard_shoulders', name: 'Fireguard Shoulders', slot: 'shoulders', rarity: 'epic', itemLevel: 66, classes: ['rogue', 'druid'], stats: { agility: 18, stamina: 17, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_23.jpg`, itemCategory: 'melee' };
 
-export const WILD_GROWTH_SPAULDERS: GearItem = { id: 'wild_growth_spaulders', name: 'Wild Growth Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 66, classes: ['druid', 'shaman'], stats: { intellect: 13, spirit: 14, stamina: 10, healingPower: 33 }, icon: `${ICON_BASE}/inv_shoulder_08.jpg`, itemCategory: 'healer' };
+export const WILD_GROWTH_SPAULDERS: GearItem = { id: 'wild_growth_spaulders', name: 'Wild Growth Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 66, classes: ['druid', 'shaman'], stats: { intellect: 13, spirit: 14, stamina: 10, healingPower: 33 }, icon: `${ICON_BASE}/inv_shoulder_18.jpg`, itemCategory: 'healer' };
 
 // Plate
-export const MAGMA_TEMPERED_BOOTS: GearItem = { id: 'magma_tempered_boots', name: 'Magma Tempered Boots', slot: 'feet', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 20, stamina: 20, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_plate_06.jpg`, itemCategory: 'melee' };
+export const MAGMA_TEMPERED_BOOTS: GearItem = { id: 'magma_tempered_boots', name: 'Magma Tempered Boots', slot: 'feet', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 20, stamina: 20, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_plate_08.jpg`, itemCategory: 'melee' };
 
 export const FLAMEGUARD_GAUNTLETS: GearItem = { id: 'flameguard_gauntlets', name: 'Flameguard Gauntlets', slot: 'hands', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 16, stamina: 16, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_26.jpg`, itemCategory: 'melee' };
 
-export const FLAMEWAKER_LEGPLATES: GearItem = { id: 'flamewaker_legplates', name: 'Flamewaker Legplates', slot: 'legs', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 26, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_plate_16.jpg`, itemCategory: 'melee' };
+export const FLAMEWAKER_LEGPLATES: GearItem = { id: 'flamewaker_legplates', name: 'Flamewaker Legplates', slot: 'legs', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 26, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_04.jpg`, itemCategory: 'melee' };
 
 // =============================================================================
 // MOLTEN CORE - T2 LEGS (Ragnaros drops)
 // =============================================================================
 
 // Priest T2 Legs
-export const LEGGINGS_OF_TRANSCENDENCE: GearItem = { id: 'leggings_of_transcendence', name: 'Leggings of Transcendence', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 28, spirit: 18, stamina: 18, healingPower: 44 }, icon: `${ICON_BASE}/inv_pants_cloth_05.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const LEGGINGS_OF_TRANSCENDENCE: GearItem = { id: 'leggings_of_transcendence', name: 'Leggings of Transcendence', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 116, stamina: 16, intellect: 21, spirit: 21, spellPower: 25, mp5: 7, shadowResistance: 10, arcaneResistance: 10 }, icon: `${ICON_BASE}/inv_pants_08.jpg`, setId: 'transcendence', itemCategory: 'healer' };
 
 // Mage T2 Legs
-export const NETHERWIND_PANTS: GearItem = { id: 'netherwind_pants', name: 'Netherwind Pants', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 26, stamina: 17, spellPower: 34, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_cloth_14.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_PANTS: GearItem = { id: 'netherwind_pants', name: 'Netherwind Pants', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 26, stamina: 17, spellPower: 34, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_08.jpg`, setId: 'netherwind', itemCategory: 'caster' };
 
 // Warlock T2 Legs
-export const NEMESIS_LEGGINGS: GearItem = { id: 'nemesis_leggings', name: 'Nemesis Leggings', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { intellect: 25, stamina: 20, spellPower: 32, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_cloth_09.jpg`, setId: 'nemesis', itemCategory: 'caster' };
+export const NEMESIS_LEGGINGS: GearItem = { id: 'nemesis_leggings', name: 'Nemesis Leggings', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { intellect: 25, stamina: 20, spellPower: 32, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_07.jpg`, setId: 'nemesis', itemCategory: 'caster' };
 
 // Druid T2 Legs
-export const STORMRAGE_LEGGUARDS: GearItem = { id: 'stormrage_legguards', name: 'Stormrage Legguards', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 24, spirit: 18, stamina: 16, healingPower: 40 }, icon: `${ICON_BASE}/inv_pants_mail_08.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_LEGGUARDS: GearItem = { id: 'stormrage_legguards', name: 'Stormrage Legguards', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 224, stamina: 17, intellect: 26, spirit: 16, spellPower: 26, mp5: 6, fireResistance: 10, arcaneResistance: 10 }, icon: `${ICON_BASE}/inv_pants_06.jpg`, setId: 'stormrage', itemCategory: 'healer' };
 
 // Rogue T2 Legs
-export const BLOODFANG_PANTS: GearItem = { id: 'bloodfang_pants', name: 'Bloodfang Pants', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 32, stamina: 22, critChance: 1, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_leather_03.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
+export const BLOODFANG_PANTS: GearItem = { id: 'bloodfang_pants', name: 'Bloodfang Pants', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 32, stamina: 22, critChance: 1, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_06.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
 
 // Hunter T2 Legs
-export const DRAGONSTALKER_LEGGUARDS: GearItem = { id: 'dragonstalker_legguards', name: "Dragonstalker's Legguards", slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 28, stamina: 20, intellect: 12, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_mail_08.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
+export const DRAGONSTALKER_LEGGUARDS: GearItem = { id: 'dragonstalker_legguards', name: "Dragonstalker's Legguards", slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 28, stamina: 20, intellect: 12, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_03.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
 
 // Shaman T2 Legs
-export const LEGPLATES_OF_TEN_STORMS: GearItem = { id: 'legplates_of_ten_storms', name: 'Legplates of Ten Storms', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 22, stamina: 18, mp5: 8, healingPower: 37 }, icon: `${ICON_BASE}/inv_pants_mail_10.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
+export const LEGPLATES_OF_TEN_STORMS: GearItem = { id: 'legplates_of_ten_storms', name: 'Legplates of Ten Storms', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 22, stamina: 18, mp5: 8, healingPower: 37 }, icon: `${ICON_BASE}/inv_pants_03.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
 
 // Warrior T2 Legs
-export const LEGPLATES_OF_WRATH: GearItem = { id: 'legplates_of_wrath', name: 'Legplates of Wrath', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 30, stamina: 26, critChance: 1, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_plate_17.jpg`, setId: 'wrath', itemCategory: 'melee' };
+export const LEGPLATES_OF_WRATH: GearItem = { id: 'legplates_of_wrath', name: 'Legplates of Wrath', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 30, stamina: 26, critChance: 1, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_04.jpg`, setId: 'wrath', itemCategory: 'melee' };
 
 // Paladin T2 Legs
-export const JUDGEMENT_LEGPLATES: GearItem = { id: 'judgement_legplates', name: 'Judgement Legplates', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 20, stamina: 22, strength: 10, healingPower: 35 }, icon: `${ICON_BASE}/inv_pants_plate_12.jpg`, setId: 'judgement', itemCategory: 'healer' };
+export const JUDGEMENT_LEGPLATES: GearItem = { id: 'judgement_legplates', name: 'Judgement Legplates', slot: 'legs', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 856, strength: 10, stamina: 26, intellect: 27, spirit: 5, spellPower: 20, mp5: 4, arcaneResistance: 10, fireResistance: 10 }, icon: `${ICON_BASE}/inv_pants_04.jpg`, setId: 'judgement', itemCategory: 'healer' };
 
 // Crown of Destruction - Hunter head from Ragnaros
-export const CROWN_OF_DESTRUCTION: GearItem = { id: 'crown_of_destruction', name: 'Crown of Destruction', slot: 'head', rarity: 'epic', itemLevel: 74, classes: ['hunter', 'shaman'], stats: { agility: 19, stamina: 18, intellect: 10, critChance: 1 }, icon: `${ICON_BASE}/inv_helmet_49.jpg`, itemCategory: 'physical_ranged' };
+export const CROWN_OF_DESTRUCTION: GearItem = { id: 'crown_of_destruction', name: 'Crown of Destruction', slot: 'head', rarity: 'epic', itemLevel: 74, classes: ['hunter', 'shaman'], stats: { agility: 19, stamina: 18, intellect: 10, critChance: 1 }, icon: `${ICON_BASE}/inv_crown_02.jpg`, itemCategory: 'physical_ranged' };
 
 // =============================================================================
 // MOLTEN CORE - MISSING ARMOR
@@ -701,7 +1174,7 @@ export const ONSLAUGHT_GIRDLE: GearItem = {
   itemLevel: 78,
   classes: ['warrior', 'paladin'],
   stats: { strength: 31, stamina: 11, critChance: 1, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_belt_13.jpg`,
+  icon: `${ICON_BASE}/inv_belt_29.jpg`,
   itemCategory: 'melee',
 };
 
@@ -713,7 +1186,7 @@ export const SASH_OF_WHISPERED_SECRETS: GearItem = {
   itemLevel: 70,
   classes: ['mage', 'warlock', 'priest'],
   stats: { intellect: 14, stamina: 12, spellPower: 26, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_belt_23.jpg`,
+  icon: `${ICON_BASE}/inv_belt_12.jpg`,
   itemCategory: 'caster',
 };
 
@@ -725,7 +1198,7 @@ export const GLOVES_OF_THE_HYPNOTIC_FLAME: GearItem = {
   itemLevel: 70,
   classes: ['mage', 'warlock', 'priest'],
   stats: { intellect: 18, stamina: 9, spellPower: 30 },
-  icon: `${ICON_BASE}/inv_gauntlets_17.jpg`,
+  icon: `${ICON_BASE}/inv_gauntlets_03.jpg`,
   itemCategory: 'caster',
 };
 
@@ -742,7 +1215,7 @@ export const MALISTARS_DEFENDER: GearItem = {
   itemLevel: 75,
   classes: ['paladin', 'shaman'],
   stats: { stamina: 9, intellect: 12, mp5: 9 },
-  icon: `${ICON_BASE}/inv_shield_17.jpg`,
+  icon: `${ICON_BASE}/inv_shield_08.jpg`,
   weaponType: 'offhand_only',
   itemCategory: 'healer',
 };
@@ -756,7 +1229,7 @@ export const DRILLBORER_DISK: GearItem = {
   itemLevel: 67,
   classes: ['warrior', 'paladin'],
   stats: { stamina: 10 },
-  icon: `${ICON_BASE}/inv_shield_03.jpg`,
+  icon: `${ICON_BASE}/inv_shield_10.jpg`,
   weaponType: 'offhand_only',
   itemCategory: 'melee',
 };
@@ -797,7 +1270,7 @@ export const AURASTONE_HAMMER: GearItem = {
   itemLevel: 70,
   classes: ['paladin', 'priest', 'druid'],
   stats: { stamina: 8, intellect: 9, spirit: 8, healingPower: 55 },
-  icon: `${ICON_BASE}/inv_mace_02.jpg`,
+  icon: `${ICON_BASE}/inv_hammer_05.jpg`,
   weaponType: 'one_hand',
 };
 
@@ -818,9 +1291,9 @@ export const STAFF_OF_DOMINANCE: GearItem = {
   name: 'Staff of Dominance',
   slot: 'weapon',
   rarity: 'epic',
-  itemLevel: 68,
+  itemLevel: 70,
   classes: ['druid', 'mage', 'priest', 'shaman', 'warlock'], // Staves - NOT Paladin/Rogue
-  stats: { stamina: 11, intellect: 24, spirit: 10, spellPower: 33 },
+  stats: { stamina: 16, intellect: 37, spirit: 14, spellPower: 40, critChance: 1 },
   icon: `${ICON_BASE}/inv_staff_13.jpg`,
   weaponType: 'two_hand',
   itemCategory: 'caster',
@@ -834,7 +1307,7 @@ export const FIRE_RUNED_GRIMOIRE: GearItem = {
   itemLevel: 66,
   classes: ['mage', 'warlock', 'priest'],
   stats: { stamina: 12, intellect: 8, spellPower: 21, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_misc_book_06.jpg`,
+  icon: `${ICON_BASE}/inv_misc_book_09.jpg`,
   weaponType: 'offhand_only',
   itemCategory: 'caster',
 };
@@ -847,7 +1320,7 @@ export const SORCEROUS_DAGGER: GearItem = {
   itemLevel: 66,
   classes: ['mage', 'warlock', 'priest', 'druid', 'shaman', 'rogue', 'warrior', 'hunter'],
   stats: { stamina: 7, intellect: 6, spellPower: 20 },
-  icon: `${ICON_BASE}/inv_weapon_shortblade_16.jpg`,
+  icon: `${ICON_BASE}/inv_weapon_shortblade_07.jpg`,
   weaponType: 'one_hand',
   itemCategory: 'caster',
 };
@@ -876,7 +1349,7 @@ export const PAULDRONS_OF_MIGHT: GearItem = {
   itemLevel: 66,
   classes: ['warrior'],
   stats: { strength: 18, stamina: 27, agility: 9 },
-  icon: `${ICON_BASE}/inv_shoulder_11.jpg`,
+  icon: `${ICON_BASE}/inv_shoulder_15.jpg`,
   setId: 'might', itemCategory: 'melee',
 };
 
@@ -900,7 +1373,7 @@ export const GAUNTLETS_OF_MIGHT: GearItem = {
   itemLevel: 66,
   classes: ['warrior'],
   stats: { strength: 22, stamina: 17, agility: 5 },
-  icon: `${ICON_BASE}/inv_gauntlets_25.jpg`,
+  icon: `${ICON_BASE}/inv_gauntlets_10.jpg`,
   setId: 'might', itemCategory: 'melee',
 };
 
@@ -924,7 +1397,7 @@ export const SABATONS_OF_MIGHT: GearItem = {
   itemLevel: 66,
   classes: ['warrior'],
   stats: { strength: 13, stamina: 22, agility: 13 },
-  icon: `${ICON_BASE}/inv_boots_plate_06.jpg`,
+  icon: `${ICON_BASE}/inv_boots_plate_04.jpg`,
   setId: 'might', itemCategory: 'melee',
 };
 
@@ -936,7 +1409,7 @@ export const BELT_OF_MIGHT: GearItem = {
   itemLevel: 66,
   classes: ['warrior'],
   stats: { strength: 21, stamina: 18 },
-  icon: `${ICON_BASE}/inv_belt_01.jpg`,
+  icon: `${ICON_BASE}/inv_belt_09.jpg`,
   setId: 'might', itemCategory: 'melee',
 };
 
@@ -964,7 +1437,7 @@ export const GIANTSTALKER_HELM: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 24, agility: 27, intellect: 15 },
-  icon: `${ICON_BASE}/inv_helmet_11.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_05.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -976,7 +1449,7 @@ export const GIANTSTALKER_EPAULETS: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 18, agility: 20, intellect: 9 },
-  icon: `${ICON_BASE}/inv_shoulder_25.jpg`,
+  icon: `${ICON_BASE}/inv_shoulder_10.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -988,7 +1461,7 @@ export const GIANTSTALKER_BREASTPLATE: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 27, agility: 25, intellect: 20 },
-  icon: `${ICON_BASE}/inv_chest_chain_06.jpg`,
+  icon: `${ICON_BASE}/inv_chest_chain_03.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -1012,7 +1485,7 @@ export const GIANTSTALKER_LEGGINGS: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 23, agility: 25, intellect: 15 },
-  icon: `${ICON_BASE}/inv_pants_03.jpg`,
+  icon: `${ICON_BASE}/inv_pants_mail_03.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -1024,7 +1497,7 @@ export const GIANTSTALKER_BOOTS: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 18, agility: 23, intellect: 6 },
-  icon: `${ICON_BASE}/inv_boots_chain_08.jpg`,
+  icon: `${ICON_BASE}/inv_boots_chain_13.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -1036,7 +1509,7 @@ export const GIANTSTALKER_BELT: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 18, agility: 16, intellect: 8 },
-  icon: `${ICON_BASE}/inv_belt_15.jpg`,
+  icon: `${ICON_BASE}/inv_belt_28.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -1048,7 +1521,7 @@ export const GIANTSTALKER_BRACERS: GearItem = {
   itemLevel: 66,
   classes: ['hunter'],
   stats: { stamina: 8, agility: 14, intellect: 9 },
-  icon: `${ICON_BASE}/inv_bracer_14.jpg`,
+  icon: `${ICON_BASE}/inv_bracer_17.jpg`,
   setId: 'giantstalker', itemCategory: 'physical_ranged',
 };
 
@@ -1064,7 +1537,7 @@ export const ARCANIST_BOOTS: GearItem = {
   itemLevel: 66,
   classes: ['mage'],
   stats: { stamina: 17, intellect: 17, spirit: 14, spellPower: 12 },
-  icon: `${ICON_BASE}/inv_boots_cloth_04.jpg`,
+  icon: `${ICON_BASE}/inv_boots_07.jpg`,
   setId: 'arcanist', itemCategory: 'caster',
 };
 
@@ -1088,7 +1561,7 @@ export const ARCANIST_CROWN: GearItem = {
   itemLevel: 66,
   classes: ['mage'],
   stats: { stamina: 18, intellect: 28, spirit: 14, spellPower: 18 },
-  icon: `${ICON_BASE}/inv_crown_01.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_53.jpg`,
   setId: 'arcanist', itemCategory: 'caster',
 };
 
@@ -1100,7 +1573,7 @@ export const ARCANIST_LEGGINGS: GearItem = {
   itemLevel: 66,
   classes: ['mage'],
   stats: { stamina: 20, intellect: 23, spirit: 18, spellPower: 21 },
-  icon: `${ICON_BASE}/inv_pants_cloth_14.jpg`,
+  icon: `${ICON_BASE}/inv_pants_08.jpg`,
   setId: 'arcanist', itemCategory: 'caster',
 };
 
@@ -1124,7 +1597,7 @@ export const ARCANIST_ROBES: GearItem = {
   itemLevel: 66,
   classes: ['mage'],
   stats: { stamina: 19, intellect: 18, spirit: 24, spellPower: 21 },
-  icon: `${ICON_BASE}/inv_chest_cloth_01.jpg`,
+  icon: `${ICON_BASE}/inv_chest_cloth_03.jpg`,
   setId: 'arcanist', itemCategory: 'caster',
 };
 
@@ -1136,7 +1609,7 @@ export const ARCANIST_BELT: GearItem = {
   itemLevel: 66,
   classes: ['mage'],
   stats: { stamina: 12, intellect: 21, spellPower: 12 },
-  icon: `${ICON_BASE}/inv_belt_29.jpg`,
+  icon: `${ICON_BASE}/inv_belt_30.jpg`,
   setId: 'arcanist', itemCategory: 'caster',
 };
 
@@ -1148,7 +1621,7 @@ export const ARCANIST_BINDINGS: GearItem = {
   itemLevel: 66,
   classes: ['mage'],
   stats: { stamina: 9, intellect: 14, spirit: 7, spellPower: 7 },
-  icon: `${ICON_BASE}/inv_bracer_09.jpg`,
+  icon: `${ICON_BASE}/inv_belt_29.jpg`,
   setId: 'arcanist', itemCategory: 'caster',
 };
 
@@ -1164,7 +1637,7 @@ export const NIGHTSLAYER_COVER: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 24, agility: 31 },
-  icon: `${ICON_BASE}/inv_helmet_21.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_41.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1176,7 +1649,7 @@ export const NIGHTSLAYER_SHOULDER_PADS: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 20, agility: 23 },
-  icon: `${ICON_BASE}/inv_shoulder_13.jpg`,
+  icon: `${ICON_BASE}/inv_shoulder_25.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1188,7 +1661,7 @@ export const NIGHTSLAYER_CHESTPIECE: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 29, agility: 33, strength: 11 },
-  icon: `${ICON_BASE}/inv_chest_leather_08.jpg`,
+  icon: `${ICON_BASE}/inv_chest_cloth_07.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1200,7 +1673,7 @@ export const NIGHTSLAYER_GLOVES: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 14, agility: 26, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_gauntlets_18.jpg`,
+  icon: `${ICON_BASE}/inv_gauntlets_21.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1212,7 +1685,7 @@ export const NIGHTSLAYER_PANTS: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 26, agility: 32, strength: 7 },
-  icon: `${ICON_BASE}/inv_pants_07.jpg`,
+  icon: `${ICON_BASE}/inv_pants_06.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1236,7 +1709,7 @@ export const NIGHTSLAYER_BELT: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 14, agility: 24 },
-  icon: `${ICON_BASE}/inv_belt_25.jpg`,
+  icon: `${ICON_BASE}/inv_belt_23.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1248,7 +1721,7 @@ export const NIGHTSLAYER_BRACELETS: GearItem = {
   itemLevel: 66,
   classes: ['rogue'],
   stats: { stamina: 12, agility: 18 },
-  icon: `${ICON_BASE}/inv_bracer_05.jpg`,
+  icon: `${ICON_BASE}/inv_bracer_02.jpg`,
   setId: 'nightslayer', itemCategory: 'melee',
 };
 
@@ -1288,7 +1761,7 @@ export const FELHEART_ROBES: GearItem = {
   itemLevel: 66,
   classes: ['warlock'],
   stats: { stamina: 30, intellect: 18, spirit: 11, spellPower: 22 },
-  icon: `${ICON_BASE}/inv_chest_cloth_26.jpg`,
+  icon: `${ICON_BASE}/inv_chest_cloth_09.jpg`,
   setId: 'felheart', itemCategory: 'caster',
 };
 
@@ -1312,7 +1785,7 @@ export const FELHEART_PANTS: GearItem = {
   itemLevel: 66,
   classes: ['warlock'],
   stats: { stamina: 27, intellect: 20, spirit: 17, spellPower: 18 },
-  icon: `${ICON_BASE}/inv_pants_cloth_02.jpg`,
+  icon: `${ICON_BASE}/inv_pants_cloth_14.jpg`,
   setId: 'felheart', itemCategory: 'caster',
 };
 
@@ -1364,7 +1837,7 @@ export const EARTHFURY_BOOTS: GearItem = {
   itemLevel: 66,
   classes: ['shaman'],
   stats: { stamina: 16, intellect: 17, spirit: 10, healingPower: 22, mp5: 3 },
-  icon: `${ICON_BASE}/inv_boots_chain_01.jpg`,
+  icon: `${ICON_BASE}/inv_boots_plate_06.jpg`,
   setId: 'earthfury', itemCategory: 'healer',
 };
 
@@ -1376,7 +1849,7 @@ export const EARTHFURY_GAUNTLETS: GearItem = {
   itemLevel: 66,
   classes: ['shaman'],
   stats: { stamina: 15, intellect: 20, spirit: 6, healingPower: 24 },
-  icon: `${ICON_BASE}/inv_gauntlets_25.jpg`,
+  icon: `${ICON_BASE}/inv_gauntlets_11.jpg`,
   setId: 'earthfury', itemCategory: 'healer',
 };
 
@@ -1400,7 +1873,7 @@ export const EARTHFURY_LEGGUARDS: GearItem = {
   itemLevel: 66,
   classes: ['shaman'],
   stats: { stamina: 24, intellect: 23, spirit: 15, healingPower: 31, mp5: 4 },
-  icon: `${ICON_BASE}/inv_pants_mail_08.jpg`,
+  icon: `${ICON_BASE}/inv_pants_03.jpg`,
   setId: 'earthfury', itemCategory: 'healer',
 };
 
@@ -1412,7 +1885,7 @@ export const EARTHFURY_EPAULETS: GearItem = {
   itemLevel: 66,
   classes: ['shaman'],
   stats: { stamina: 18, intellect: 19, spirit: 9, healingPower: 26 },
-  icon: `${ICON_BASE}/inv_shoulder_02.jpg`,
+  icon: `${ICON_BASE}/inv_shoulder_29.jpg`,
   setId: 'earthfury', itemCategory: 'healer',
 };
 
@@ -1436,7 +1909,7 @@ export const EARTHFURY_BELT: GearItem = {
   itemLevel: 66,
   classes: ['shaman'],
   stats: { stamina: 14, intellect: 21, spirit: 6, healingPower: 20, mp5: 3 },
-  icon: `${ICON_BASE}/inv_belt_29.jpg`,
+  icon: `${ICON_BASE}/inv_belt_14.jpg`,
   setId: 'earthfury', itemCategory: 'healer',
 };
 
@@ -1448,7 +1921,7 @@ export const EARTHFURY_BRACERS: GearItem = {
   itemLevel: 66,
   classes: ['shaman'],
   stats: { stamina: 11, intellect: 13, spirit: 8, healingPower: 15, mp5: 3 },
-  icon: `${ICON_BASE}/inv_bracer_02.jpg`,
+  icon: `${ICON_BASE}/inv_bracer_16.jpg`,
   setId: 'earthfury', itemCategory: 'healer',
 };
 
@@ -1464,7 +1937,7 @@ export const TEN_STORMS_CROWN: GearItem = {
   itemLevel: 76,
   classes: ['shaman'],
   stats: { stamina: 26, intellect: 30, spirit: 14, healingPower: 44, mp5: 6 },
-  icon: `${ICON_BASE}/inv_helmet_47.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_69.jpg`,
   setId: 'ten_storms',
 };
 
@@ -1474,14 +1947,14 @@ export const TEN_STORMS_CROWN: GearItem = {
 
 export const JUDGMENT_CROWN: GearItem = {
   id: 'judgment_crown',
-  name: 'Judgment Crown',
+  name: 'Judgement Crown',
   slot: 'head',
   rarity: 'epic',
   itemLevel: 76,
   classes: ['paladin'],
-  stats: { stamina: 24, intellect: 27, spellPower: 29, mp5: 6 },
-  icon: `${ICON_BASE}/inv_helmet_61.jpg`,
-  setId: 'judgment',
+  stats: { armor: 795, strength: 17, stamina: 18, intellect: 23, spirit: 6, spellPower: 32, frostResistance: 10, shadowResistance: 10 },
+  icon: `${ICON_BASE}/inv_helmet_74.jpg`,
+  setId: 'judgment', itemCategory: 'healer',
 };
 
 export const HALO_OF_TRANSCENDENCE: GearItem = {
@@ -1491,9 +1964,9 @@ export const HALO_OF_TRANSCENDENCE: GearItem = {
   rarity: 'epic',
   itemLevel: 76,
   classes: ['priest'],
-  stats: { stamina: 22, intellect: 34, spirit: 15, spellPower: 32, mp5: 5 },
-  icon: `${ICON_BASE}/inv_helmet_36.jpg`,
-  setId: 'transcendence',
+  stats: { armor: 107, stamina: 17, intellect: 27, spirit: 22, spellPower: 26, fireResistance: 10, frostResistance: 10 },
+  icon: `${ICON_BASE}/inv_helmet_24.jpg`,
+  setId: 'transcendence', itemCategory: 'healer',
 };
 
 export const STORMRAGE_COVER: GearItem = {
@@ -1503,9 +1976,9 @@ export const STORMRAGE_COVER: GearItem = {
   rarity: 'epic',
   itemLevel: 76,
   classes: ['druid'],
-  stats: { stamina: 21, intellect: 28, spirit: 22, spellPower: 27, mp5: 5 },
-  icon: `${ICON_BASE}/inv_helmet_45.jpg`,
-  setId: 'stormrage',
+  stats: { armor: 208, stamina: 20, intellect: 31, spirit: 12, spellPower: 15, mp5: 6, frostResistance: 10, shadowResistance: 10 },
+  icon: `${ICON_BASE}/inv_helmet_09.jpg`,
+  setId: 'stormrage', itemCategory: 'healer',
 };
 
 export const NETHERWIND_CROWN: GearItem = {
@@ -1516,7 +1989,7 @@ export const NETHERWIND_CROWN: GearItem = {
   itemLevel: 76,
   classes: ['mage'],
   stats: { stamina: 20, intellect: 32, spirit: 16, spellPower: 34, critChance: 1 },
-  icon: `${ICON_BASE}/inv_helmet_69.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_70.jpg`,
   setId: 'netherwind',
 };
 
@@ -1528,7 +2001,7 @@ export const NEMESIS_SKULLCAP: GearItem = {
   itemLevel: 76,
   classes: ['warlock'],
   stats: { stamina: 28, intellect: 22, spirit: 20, spellPower: 34, critChance: 1 },
-  icon: `${ICON_BASE}/inv_helmet_52.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_08.jpg`,
   setId: 'nemesis',
 };
 
@@ -1540,7 +2013,7 @@ export const DRAGONSTALKER_HELM: GearItem = {
   itemLevel: 76,
   classes: ['hunter'],
   stats: { stamina: 28, agility: 33, intellect: 18, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_helmet_53.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_05.jpg`,
   setId: 'dragonstalker',
 };
 
@@ -1552,7 +2025,7 @@ export const HELM_OF_WRATH: GearItem = {
   itemLevel: 76,
   classes: ['warrior'],
   stats: { strength: 24, stamina: 38, agility: 10, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_helmet_59.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_71.jpg`,
   setId: 'wrath',
 };
 
@@ -1564,7 +2037,7 @@ export const BLOODFANG_HOOD: GearItem = {
   itemLevel: 76,
   classes: ['rogue'],
   stats: { stamina: 28, agility: 38, strength: 12, critChance: 1 },
-  icon: `${ICON_BASE}/inv_helmet_20.jpg`,
+  icon: `${ICON_BASE}/inv_helmet_41.jpg`,
   setId: 'bloodfang',
 };
 
@@ -1580,7 +2053,7 @@ export const DEATHBRINGER: GearItem = {
   itemLevel: 71,
   classes: ['warrior'],
   stats: { strength: 22, stamina: 12, agility: 16, critChance: 1 },
-  icon: `${ICON_BASE}/inv_sword_26.jpg`,
+  icon: `${ICON_BASE}/inv_axe_09.jpg`,
   weaponType: 'two_hand',
 };
 
@@ -1592,7 +2065,7 @@ export const VIS_KAG: GearItem = {
   itemLevel: 71,
   classes: ['rogue', 'warrior'],
   stats: { agility: 16, stamina: 8, critChance: 1, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_sword_29.jpg`,
+  icon: `${ICON_BASE}/inv_sword_18.jpg`,
   weaponType: 'one_hand',
 };
 
@@ -1604,7 +2077,7 @@ export const ANCIENT_CORNERSTONE_GRIMOIRE: GearItem = {
   itemLevel: 71,
   classes: ['mage', 'warlock', 'priest'],
   stats: { stamina: 10, intellect: 11, spellPower: 32, mp5: 4 },
-  icon: `${ICON_BASE}/inv_misc_book_09.jpg`,
+  icon: `${ICON_BASE}/inv_misc_book_07.jpg`,
   weaponType: 'offhand_only',
 };
 
@@ -1616,7 +2089,7 @@ export const SAPPHIRON_DRAPE: GearItem = {
   itemLevel: 71,
   classes: ['all'],
   stats: { stamina: 10, intellect: 8, spellPower: 18, mp5: 3 },
-  icon: `${ICON_BASE}/inv_misc_cape_21.jpg`,
+  icon: `${ICON_BASE}/inv_misc_cape_16.jpg`,
 };
 
 export const RING_OF_BINDING: GearItem = {
@@ -1627,7 +2100,7 @@ export const RING_OF_BINDING: GearItem = {
   itemLevel: 71,
   classes: ['all'],
   stats: { stamina: 12, intellect: 10, spirit: 5, spellPower: 14 },
-  icon: `${ICON_BASE}/inv_jewelry_ring_17.jpg`,
+  icon: `${ICON_BASE}/inv_jewelry_ring_13.jpg`,
 };
 
 // Onyxia Tooth Pendant doesn't exist in Vanilla - replacing with Eskhandar's Collar
@@ -1639,7 +2112,7 @@ export const ESKHANDARS_COLLAR: GearItem = {
   itemLevel: 71,
   classes: ['warrior', 'rogue', 'paladin', 'hunter'],
   stats: { strength: 12, agility: 9, stamina: 8 },
-  icon: `${ICON_BASE}/inv_jewelry_necklace_10.jpg`,
+  icon: `${ICON_BASE}/inv_belt_12.jpg`,
 };
 
 // Shard of the Scale - Onyxia Trinket
@@ -1651,7 +2124,7 @@ export const SHARD_OF_THE_SCALE: GearItem = {
   itemLevel: 71,
   classes: ['paladin', 'priest', 'druid', 'shaman'],
   stats: { mp5: 16 },
-  icon: `${ICON_BASE}/inv_misc_gem_pearl_05.jpg`,
+  icon: `${ICON_BASE}/inv_misc_monsterscales_15.jpg`,
 };
 
 // =============================================================================
@@ -1666,7 +2139,7 @@ export const DRAGONSLAYERS_SIGNET: GearItem = {
   itemLevel: 60,
   classes: ['all'],
   stats: { stamina: 12, critChance: 1, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_jewelry_ring_40.jpg`,
+  icon: `${ICON_BASE}/inv_jewelry_ring_27.jpg`,
   itemCategory: 'melee',
 };
 
@@ -1678,7 +2151,7 @@ export const ONYXIA_BLOOD_TALISMAN: GearItem = {
   itemLevel: 60,
   classes: ['all'],
   stats: { stamina: 15 },
-  icon: `${ICON_BASE}/inv_jewelry_talisman_11.jpg`,
+  icon: `${ICON_BASE}/spell_shadow_lifedrain.jpg`,
   itemCategory: 'melee', // Proc is fire damage on hit
 };
 
@@ -1690,7 +2163,7 @@ export const ONYXIA_TOOTH_PENDANT: GearItem = {
   itemLevel: 60,
   classes: ['all'],
   stats: { stamina: 9, agility: 12, hitChance: 1 },
-  icon: `${ICON_BASE}/inv_jewelry_necklace_11.jpg`,
+  icon: `${ICON_BASE}/inv_jewelry_necklace_09.jpg`,
   itemCategory: 'melee',
 };
 
@@ -1738,112 +2211,112 @@ export const MASTER_DRAGONSLAYERS_RING: GearItem = {
 // BLACKWING LAIR - TIER 2 SETS
 // =============================================================================
 
-// PALADIN TIER 2 - JUDGMENT ARMOR
-export const JUDGMENT_BINDINGS: GearItem = { id: 'judgment_bindings', name: 'Judgment Bindings', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 14, stamina: 13, healingPower: 20, mp5: 4 }, icon: `${ICON_BASE}/inv_bracer_17.jpg`, setId: 'judgment', itemCategory: 'healer' };
-export const JUDGMENT_BELT: GearItem = { id: 'judgment_belt', name: 'Judgment Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 17, stamina: 15, healingPower: 24, mp5: 5 }, icon: `${ICON_BASE}/inv_belt_02.jpg`, setId: 'judgment', itemCategory: 'healer' };
-export const JUDGMENT_SABATONS: GearItem = { id: 'judgment_sabatons', name: 'Judgment Sabatons', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 19, stamina: 17, healingPower: 28, mp5: 5 }, icon: `${ICON_BASE}/inv_boots_chain_03.jpg`, setId: 'judgment', itemCategory: 'healer' };
-export const JUDGMENT_GAUNTLETS: GearItem = { id: 'judgment_gauntlets', name: 'Judgment Gauntlets', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 17, stamina: 15, healingPower: 26, mp5: 4 }, icon: `${ICON_BASE}/inv_gauntlets_30.jpg`, setId: 'judgment', itemCategory: 'healer' };
-export const JUDGMENT_SPAULDERS: GearItem = { id: 'judgment_spaulders', name: 'Judgment Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 21, stamina: 19, healingPower: 31, mp5: 6 }, icon: `${ICON_BASE}/inv_shoulder_37.jpg`, setId: 'judgment', itemCategory: 'healer' };
-export const JUDGMENT_BREASTPLATE: GearItem = { id: 'judgment_breastplate', name: 'Judgment Breastplate', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { intellect: 26, stamina: 24, healingPower: 40, mp5: 8 }, icon: `${ICON_BASE}/inv_chest_plate06.jpg`, setId: 'judgment', itemCategory: 'healer' };
+// PALADIN TIER 2 - JUDGMENT ARMOR (Judgement)
+export const JUDGMENT_BINDINGS: GearItem = { id: 'judgment_bindings', name: 'Judgement Bindings', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 375, strength: 9, stamina: 21, intellect: 9, spirit: 8, spellPower: 7 }, icon: `${ICON_BASE}/inv_bracer_18.jpg`, setId: 'judgment', itemCategory: 'healer' };
+export const JUDGMENT_BELT: GearItem = { id: 'judgment_belt', name: 'Judgement Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 482, strength: 8, stamina: 14, intellect: 20, spirit: 6, spellPower: 23, shadowResistance: 10 }, icon: `${ICON_BASE}/inv_belt_27.jpg`, setId: 'judgment', itemCategory: 'healer' };
+export const JUDGMENT_SABATONS: GearItem = { id: 'judgment_sabatons', name: 'Judgement Sabatons', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 672, strength: 13, stamina: 20, intellect: 14, spirit: 8, spellPower: 18, fireResistance: 10 }, icon: `${ICON_BASE}/inv_boots_plate_09.jpg`, setId: 'judgment', itemCategory: 'healer' };
+export const JUDGMENT_GAUNTLETS: GearItem = { id: 'judgment_gauntlets', name: 'Judgement Gauntlets', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 611, strength: 6, stamina: 15, intellect: 20, spirit: 6, spellPower: 15, mp5: 6, shadowResistance: 10 }, icon: `${ICON_BASE}/inv_gauntlets_29.jpg`, setId: 'judgment', itemCategory: 'healer' };
+export const JUDGMENT_SPAULDERS: GearItem = { id: 'judgment_spaulders', name: 'Judgement Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 733, strength: 13, stamina: 20, intellect: 14, spirit: 6, spellPower: 13, mp5: 5, fireResistance: 10 }, icon: `${ICON_BASE}/inv_shoulder_37.jpg`, setId: 'judgment', itemCategory: 'healer' };
+export const JUDGMENT_BREASTPLATE: GearItem = { id: 'judgment_breastplate', name: 'Judgement Breastplate', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['paladin'], stats: { armor: 857, strength: 16, stamina: 21, intellect: 21, spirit: 5, spellPower: 25, mp5: 5, fireResistance: 10, natureResistance: 10 }, icon: `${ICON_BASE}/inv_chest_plate03.jpg`, setId: 'judgment', itemCategory: 'healer' };
 
 // PRIEST TIER 2 - VESTMENTS OF TRANSCENDENCE
-export const BINDINGS_OF_TRANSCENDENCE: GearItem = { id: 'bindings_of_transcendence', name: 'Bindings of Transcendence', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 15, stamina: 14, healingPower: 22 }, icon: `${ICON_BASE}/inv_bracer_18.jpg`, setId: 'transcendence', itemCategory: 'healer' };
-export const BELT_OF_TRANSCENDENCE: GearItem = { id: 'belt_of_transcendence', name: 'Belt of Transcendence', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 18, stamina: 16, healingPower: 28 }, icon: `${ICON_BASE}/inv_belt_22.jpg`, setId: 'transcendence', itemCategory: 'healer' };
-export const BOOTS_OF_TRANSCENDENCE: GearItem = { id: 'boots_of_transcendence', name: 'Boots of Transcendence', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 20, stamina: 18, healingPower: 31 }, icon: `${ICON_BASE}/inv_boots_cloth_04.jpg`, setId: 'transcendence', itemCategory: 'healer' };
-export const HANDGUARDS_OF_TRANSCENDENCE: GearItem = { id: 'handguards_of_transcendence', name: 'Handguards of Transcendence', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 18, stamina: 16, healingPower: 29 }, icon: `${ICON_BASE}/inv_gauntlets_14.jpg`, setId: 'transcendence', itemCategory: 'healer' };
-export const PAULDRONS_OF_TRANSCENDENCE: GearItem = { id: 'pauldrons_of_transcendence', name: 'Pauldrons of Transcendence', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 22, stamina: 20, healingPower: 35 }, icon: `${ICON_BASE}/inv_shoulder_02.jpg`, setId: 'transcendence', itemCategory: 'healer' };
-export const ROBES_OF_TRANSCENDENCE: GearItem = { id: 'robes_of_transcendence', name: 'Robes of Transcendence', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { intellect: 28, stamina: 25, healingPower: 44, mp5: 6 }, icon: `${ICON_BASE}/inv_chest_cloth_46.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const BINDINGS_OF_TRANSCENDENCE: GearItem = { id: 'bindings_of_transcendence', name: 'Bindings of Transcendence', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 58, stamina: 9, intellect: 13, spirit: 16, spellPower: 18 }, icon: `${ICON_BASE}/inv_bracer_09.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const BELT_OF_TRANSCENDENCE: GearItem = { id: 'belt_of_transcendence', name: 'Belt of Transcendence', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 74, stamina: 14, intellect: 26, spirit: 9, spellPower: 14, shadowResistance: 10 }, icon: `${ICON_BASE}/inv_belt_22.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const BOOTS_OF_TRANSCENDENCE: GearItem = { id: 'boots_of_transcendence', name: 'Boots of Transcendence', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 91, stamina: 17, intellect: 17, spirit: 17, spellPower: 19, fireResistance: 10 }, icon: `${ICON_BASE}/inv_boots_07.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const HANDGUARDS_OF_TRANSCENDENCE: GearItem = { id: 'handguards_of_transcendence', name: 'Handguards of Transcendence', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 82, stamina: 15, intellect: 20, spirit: 14, spellPower: 16 }, icon: `${ICON_BASE}/inv_gauntlets_14.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const PAULDRONS_OF_TRANSCENDENCE: GearItem = { id: 'pauldrons_of_transcendence', name: 'Pauldrons of Transcendence', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 99, stamina: 12, intellect: 25, spirit: 13, spellPower: 14, fireResistance: 10 }, icon: `${ICON_BASE}/inv_shoulder_02.jpg`, setId: 'transcendence', itemCategory: 'healer' };
+export const ROBES_OF_TRANSCENDENCE: GearItem = { id: 'robes_of_transcendence', name: 'Robes of Transcendence', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['priest'], stats: { armor: 132, stamina: 17, intellect: 27, spirit: 16, spellPower: 30, fireResistance: 10, natureResistance: 10 }, icon: `${ICON_BASE}/inv_chest_cloth_03.jpg`, setId: 'transcendence', itemCategory: 'healer' };
 
 // DRUID TIER 2 - STORMRAGE RAIMENT
-export const STORMRAGE_BRACERS: GearItem = { id: 'stormrage_bracers', name: 'Stormrage Bracers', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 14, stamina: 12, spirit: 5, healingPower: 20 }, icon: `${ICON_BASE}/inv_bracer_03.jpg`, setId: 'stormrage', itemCategory: 'healer' };
-export const STORMRAGE_BELT: GearItem = { id: 'stormrage_belt', name: 'Stormrage Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 17, stamina: 14, healingPower: 26, mp5: 4 }, icon: `${ICON_BASE}/inv_belt_06.jpg`, setId: 'stormrage', itemCategory: 'healer' };
-export const STORMRAGE_BOOTS: GearItem = { id: 'stormrage_boots', name: 'Stormrage Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 19, stamina: 16, spirit: 7, healingPower: 29 }, icon: `${ICON_BASE}/inv_boots_cloth_08.jpg`, setId: 'stormrage', itemCategory: 'healer' };
-export const STORMRAGE_HANDGUARDS: GearItem = { id: 'stormrage_handguards', name: 'Stormrage Handguards', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 17, stamina: 14, spirit: 7, healingPower: 26 }, icon: `${ICON_BASE}/inv_gauntlets_25.jpg`, setId: 'stormrage', itemCategory: 'healer' };
-export const STORMRAGE_PAULDRONS: GearItem = { id: 'stormrage_pauldrons', name: 'Stormrage Pauldrons', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 21, stamina: 18, spirit: 9, healingPower: 33 }, icon: `${ICON_BASE}/inv_shoulder_06.jpg`, setId: 'stormrage', itemCategory: 'healer' };
-export const STORMRAGE_CHESTGUARD: GearItem = { id: 'stormrage_chestguard', name: 'Stormrage Chestguard', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { intellect: 26, stamina: 22, spirit: 12, healingPower: 42 }, icon: `${ICON_BASE}/inv_chest_leather_03.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_BRACERS: GearItem = { id: 'stormrage_bracers', name: 'Stormrage Bracers', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 112, stamina: 11, intellect: 15, spirit: 12, spellPower: 18 }, icon: `${ICON_BASE}/inv_bracer_03.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_BELT: GearItem = { id: 'stormrage_belt', name: 'Stormrage Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 144, stamina: 12, intellect: 23, spirit: 10, spellPower: 14, mp5: 4, shadowResistance: 10 }, icon: `${ICON_BASE}/inv_belt_06.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_BOOTS: GearItem = { id: 'stormrage_boots', name: 'Stormrage Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 176, stamina: 15, intellect: 17, spirit: 11, spellPower: 14, critChance: 1, fireResistance: 10 }, icon: `${ICON_BASE}/inv_boots_08.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_HANDGUARDS: GearItem = { id: 'stormrage_handguards', name: 'Stormrage Handguards', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 160, stamina: 13, intellect: 19, spirit: 15, spellPower: 22, shadowResistance: 10 }, icon: `${ICON_BASE}/inv_gauntlets_25.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_PAULDRONS: GearItem = { id: 'stormrage_pauldrons', name: 'Stormrage Pauldrons', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 192, stamina: 14, intellect: 21, spirit: 10, spellPower: 15, mp5: 4, fireResistance: 10 }, icon: `${ICON_BASE}/inv_shoulder_07.jpg`, setId: 'stormrage', itemCategory: 'healer' };
+export const STORMRAGE_CHESTGUARD: GearItem = { id: 'stormrage_chestguard', name: 'Stormrage Chestguard', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['druid'], stats: { armor: 257, stamina: 20, intellect: 25, spirit: 17, spellPower: 22, critChance: 1, fireResistance: 10, natureResistance: 10 }, icon: `${ICON_BASE}/inv_chest_chain_16.jpg`, setId: 'stormrage', itemCategory: 'healer' };
 
 // WARRIOR TIER 2 - BATTLEGEAR OF WRATH
-export const BRACELETS_OF_WRATH: GearItem = { id: 'bracelets_of_wrath', name: 'Bracelets of Wrath', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 17, stamina: 22, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_14.jpg`, setId: 'wrath', itemCategory: 'melee' };
-export const WAISTBAND_OF_WRATH: GearItem = { id: 'waistband_of_wrath', name: 'Waistband of Wrath', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 20, stamina: 24, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_27.jpg`, setId: 'wrath', itemCategory: 'melee' };
-export const SABATONS_OF_WRATH: GearItem = { id: 'sabatons_of_wrath', name: 'Sabatons of Wrath', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 18, stamina: 28, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_plate_06.jpg`, setId: 'wrath', itemCategory: 'melee' };
+export const BRACELETS_OF_WRATH: GearItem = { id: 'bracelets_of_wrath', name: 'Bracelets of Wrath', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 17, stamina: 22, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_19.jpg`, setId: 'wrath', itemCategory: 'melee' };
+export const WAISTBAND_OF_WRATH: GearItem = { id: 'waistband_of_wrath', name: 'Waistband of Wrath', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 20, stamina: 24, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_09.jpg`, setId: 'wrath', itemCategory: 'melee' };
+export const SABATONS_OF_WRATH: GearItem = { id: 'sabatons_of_wrath', name: 'Sabatons of Wrath', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 18, stamina: 28, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_plate_04.jpg`, setId: 'wrath', itemCategory: 'melee' };
 export const GAUNTLETS_OF_WRATH: GearItem = { id: 'gauntlets_of_wrath', name: 'Gauntlets of Wrath', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 19, stamina: 23, hitChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_10.jpg`, setId: 'wrath', itemCategory: 'melee' };
-export const PAULDRONS_OF_WRATH: GearItem = { id: 'pauldrons_of_wrath', name: 'Pauldrons of Wrath', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 22, stamina: 28, hitChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_29.jpg`, setId: 'wrath', itemCategory: 'melee' };
-export const BREASTPLATE_OF_WRATH: GearItem = { id: 'breastplate_of_wrath', name: 'Breastplate of Wrath', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 27, stamina: 38, hitChance: 1, critChance: 1 }, icon: `${ICON_BASE}/inv_chest_plate03.jpg`, setId: 'wrath', itemCategory: 'melee' };
+export const PAULDRONS_OF_WRATH: GearItem = { id: 'pauldrons_of_wrath', name: 'Pauldrons of Wrath', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 22, stamina: 28, hitChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_34.jpg`, setId: 'wrath', itemCategory: 'melee' };
+export const BREASTPLATE_OF_WRATH: GearItem = { id: 'breastplate_of_wrath', name: 'Breastplate of Wrath', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['warrior'], stats: { strength: 27, stamina: 38, hitChance: 1, critChance: 1 }, icon: `${ICON_BASE}/inv_chest_plate16.jpg`, setId: 'wrath', itemCategory: 'melee' };
 
 // HUNTER TIER 2 - DRAGONSTALKER ARMOR
-export const DRAGONSTALKER_BRACERS: GearItem = { id: 'dragonstalker_bracers', name: "Dragonstalker's Bracers", slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 18, stamina: 14, intellect: 12 }, icon: `${ICON_BASE}/inv_bracer_13.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
+export const DRAGONSTALKER_BRACERS: GearItem = { id: 'dragonstalker_bracers', name: "Dragonstalker's Bracers", slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 18, stamina: 14, intellect: 12 }, icon: `${ICON_BASE}/inv_bracer_17.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
 export const DRAGONSTALKER_BELT: GearItem = { id: 'dragonstalker_belt', name: "Dragonstalker's Belt", slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 22, stamina: 17, intellect: 8 }, icon: `${ICON_BASE}/inv_belt_28.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
-export const DRAGONSTALKER_GREAVES: GearItem = { id: 'dragonstalker_greaves', name: "Dragonstalker's Greaves", slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 25, stamina: 20, intellect: 10 }, icon: `${ICON_BASE}/inv_boots_chain_09.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
-export const DRAGONSTALKER_GAUNTLETS: GearItem = { id: 'dragonstalker_gauntlets', name: "Dragonstalker's Gauntlets", slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 24, stamina: 18, intellect: 9 }, icon: `${ICON_BASE}/inv_gauntlets_11.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
-export const DRAGONSTALKER_SPAULDERS: GearItem = { id: 'dragonstalker_spaulders', name: "Dragonstalker's Spaulders", slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 27, stamina: 22, intellect: 11 }, icon: `${ICON_BASE}/inv_shoulder_30.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
-export const DRAGONSTALKER_BREASTPLATE: GearItem = { id: 'dragonstalker_breastplate', name: "Dragonstalker's Breastplate", slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 32, stamina: 28, intellect: 14 }, icon: `${ICON_BASE}/inv_chest_chain_16.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
+export const DRAGONSTALKER_GREAVES: GearItem = { id: 'dragonstalker_greaves', name: "Dragonstalker's Greaves", slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 25, stamina: 20, intellect: 10 }, icon: `${ICON_BASE}/inv_boots_plate_07.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
+export const DRAGONSTALKER_GAUNTLETS: GearItem = { id: 'dragonstalker_gauntlets', name: "Dragonstalker's Gauntlets", slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 24, stamina: 18, intellect: 9 }, icon: `${ICON_BASE}/inv_gauntlets_10.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
+export const DRAGONSTALKER_SPAULDERS: GearItem = { id: 'dragonstalker_spaulders', name: "Dragonstalker's Spaulders", slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 27, stamina: 22, intellect: 11 }, icon: `${ICON_BASE}/inv_shoulder_10.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
+export const DRAGONSTALKER_BREASTPLATE: GearItem = { id: 'dragonstalker_breastplate', name: "Dragonstalker's Breastplate", slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['hunter'], stats: { agility: 32, stamina: 28, intellect: 14 }, icon: `${ICON_BASE}/inv_chest_chain_03.jpg`, setId: 'dragonstalker', itemCategory: 'physical_ranged' };
 
 // MAGE TIER 2 - NETHERWIND REGALIA
-export const NETHERWIND_BINDINGS: GearItem = { id: 'netherwind_bindings', name: 'Netherwind Bindings', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 14, stamina: 12, spellPower: 18 }, icon: `${ICON_BASE}/inv_bracer_07.jpg`, setId: 'netherwind', itemCategory: 'caster' };
-export const NETHERWIND_BELT: GearItem = { id: 'netherwind_belt', name: 'Netherwind Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 18, stamina: 14, spellPower: 23 }, icon: `${ICON_BASE}/inv_belt_02.jpg`, setId: 'netherwind', itemCategory: 'caster' };
-export const NETHERWIND_BOOTS: GearItem = { id: 'netherwind_boots', name: 'Netherwind Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 20, stamina: 16, spellPower: 25 }, icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, setId: 'netherwind', itemCategory: 'caster' };
-export const NETHERWIND_GLOVES: GearItem = { id: 'netherwind_gloves', name: 'Netherwind Gloves', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 18, stamina: 14, spellPower: 23, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_19.jpg`, setId: 'netherwind', itemCategory: 'caster' };
-export const NETHERWIND_MANTLE: GearItem = { id: 'netherwind_mantle', name: 'Netherwind Mantle', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 22, stamina: 18, spellPower: 28 }, icon: `${ICON_BASE}/inv_shoulder_02.jpg`, setId: 'netherwind', itemCategory: 'caster' };
-export const NETHERWIND_ROBES: GearItem = { id: 'netherwind_robes', name: 'Netherwind Robes', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 28, stamina: 22, spellPower: 36, critChance: 1 }, icon: `${ICON_BASE}/inv_chest_cloth_31.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_BINDINGS: GearItem = { id: 'netherwind_bindings', name: 'Netherwind Bindings', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 14, stamina: 12, spellPower: 18 }, icon: `${ICON_BASE}/inv_bracer_09.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_BELT: GearItem = { id: 'netherwind_belt', name: 'Netherwind Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 18, stamina: 14, spellPower: 23 }, icon: `${ICON_BASE}/inv_belt_22.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_BOOTS: GearItem = { id: 'netherwind_boots', name: 'Netherwind Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 20, stamina: 16, spellPower: 25 }, icon: `${ICON_BASE}/inv_boots_07.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_GLOVES: GearItem = { id: 'netherwind_gloves', name: 'Netherwind Gloves', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 18, stamina: 14, spellPower: 23, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_14.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_MANTLE: GearItem = { id: 'netherwind_mantle', name: 'Netherwind Mantle', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 22, stamina: 18, spellPower: 28 }, icon: `${ICON_BASE}/inv_shoulder_32.jpg`, setId: 'netherwind', itemCategory: 'caster' };
+export const NETHERWIND_ROBES: GearItem = { id: 'netherwind_robes', name: 'Netherwind Robes', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['mage'], stats: { intellect: 28, stamina: 22, spellPower: 36, critChance: 1 }, icon: `${ICON_BASE}/inv_chest_cloth_03.jpg`, setId: 'netherwind', itemCategory: 'caster' };
 
 // ROGUE TIER 2 - BLOODFANG ARMOR
-export const BLOODFANG_BRACERS: GearItem = { id: 'bloodfang_bracers', name: 'Bloodfang Bracers', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 21, stamina: 16, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_16.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
-export const BLOODFANG_BELT: GearItem = { id: 'bloodfang_belt', name: 'Bloodfang Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 25, stamina: 19, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_28.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
+export const BLOODFANG_BRACERS: GearItem = { id: 'bloodfang_bracers', name: 'Bloodfang Bracers', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 21, stamina: 16, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_02.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
+export const BLOODFANG_BELT: GearItem = { id: 'bloodfang_belt', name: 'Bloodfang Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 25, stamina: 19, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_23.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
 export const BLOODFANG_BOOTS: GearItem = { id: 'bloodfang_boots', name: 'Bloodfang Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 28, stamina: 18, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_08.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
-export const BLOODFANG_GLOVES: GearItem = { id: 'bloodfang_gloves', name: 'Bloodfang Gloves', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 26, stamina: 17, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_05.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
-export const BLOODFANG_SPAULDERS: GearItem = { id: 'bloodfang_spaulders', name: 'Bloodfang Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 29, stamina: 20, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_07.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
-export const BLOODFANG_CHESTPIECE: GearItem = { id: 'bloodfang_chestpiece', name: 'Bloodfang Chestpiece', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 35, stamina: 26, critChance: 2 }, icon: `${ICON_BASE}/inv_chest_leather_08.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
+export const BLOODFANG_GLOVES: GearItem = { id: 'bloodfang_gloves', name: 'Bloodfang Gloves', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 26, stamina: 17, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_21.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
+export const BLOODFANG_SPAULDERS: GearItem = { id: 'bloodfang_spaulders', name: 'Bloodfang Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 29, stamina: 20, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_23.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
+export const BLOODFANG_CHESTPIECE: GearItem = { id: 'bloodfang_chestpiece', name: 'Bloodfang Chestpiece', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['rogue'], stats: { agility: 35, stamina: 26, critChance: 2 }, icon: `${ICON_BASE}/inv_chest_cloth_07.jpg`, setId: 'bloodfang', itemCategory: 'melee' };
 
 // WARLOCK TIER 2 - NEMESIS RAIMENT
 export const NEMESIS_BRACERS: GearItem = { id: 'nemesis_bracers', name: 'Nemesis Bracers', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 16, intellect: 12, spellPower: 18 }, icon: `${ICON_BASE}/inv_bracer_07.jpg`, setId: 'nemesis', itemCategory: 'caster' };
 export const NEMESIS_BELT: GearItem = { id: 'nemesis_belt', name: 'Nemesis Belt', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 20, intellect: 15, spellPower: 23 }, icon: `${ICON_BASE}/inv_belt_13.jpg`, setId: 'nemesis', itemCategory: 'caster' };
-export const NEMESIS_BOOTS: GearItem = { id: 'nemesis_boots', name: 'Nemesis Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 22, intellect: 17, spellPower: 25 }, icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, setId: 'nemesis', itemCategory: 'caster' };
-export const NEMESIS_GLOVES: GearItem = { id: 'nemesis_gloves', name: 'Nemesis Gloves', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 19, intellect: 15, spellPower: 23 }, icon: `${ICON_BASE}/inv_gauntlets_17.jpg`, setId: 'nemesis', itemCategory: 'caster' };
-export const NEMESIS_SPAULDERS: GearItem = { id: 'nemesis_spaulders', name: 'Nemesis Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 24, intellect: 19, spellPower: 28 }, icon: `${ICON_BASE}/inv_shoulder_12.jpg`, setId: 'nemesis', itemCategory: 'caster' };
-export const NEMESIS_ROBES: GearItem = { id: 'nemesis_robes', name: 'Nemesis Robes', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 30, intellect: 24, spellPower: 36 }, icon: `${ICON_BASE}/inv_chest_cloth_07.jpg`, setId: 'nemesis', itemCategory: 'caster' };
+export const NEMESIS_BOOTS: GearItem = { id: 'nemesis_boots', name: 'Nemesis Boots', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 22, intellect: 17, spellPower: 25 }, icon: `${ICON_BASE}/inv_boots_05.jpg`, setId: 'nemesis', itemCategory: 'caster' };
+export const NEMESIS_GLOVES: GearItem = { id: 'nemesis_gloves', name: 'Nemesis Gloves', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 19, intellect: 15, spellPower: 23 }, icon: `${ICON_BASE}/inv_gauntlets_19.jpg`, setId: 'nemesis', itemCategory: 'caster' };
+export const NEMESIS_SPAULDERS: GearItem = { id: 'nemesis_spaulders', name: 'Nemesis Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 24, intellect: 19, spellPower: 28 }, icon: `${ICON_BASE}/inv_shoulder_19.jpg`, setId: 'nemesis', itemCategory: 'caster' };
+export const NEMESIS_ROBES: GearItem = { id: 'nemesis_robes', name: 'Nemesis Robes', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['warlock'], stats: { stamina: 30, intellect: 24, spellPower: 36 }, icon: `${ICON_BASE}/inv_chest_leather_01.jpg`, setId: 'nemesis', itemCategory: 'caster' };
 
 // SHAMAN TIER 2 - TEN STORMS (BWL pieces - Helm from Onyxia, Legs from Ragnaros)
-export const BRACERS_OF_TEN_STORMS: GearItem = { id: 'bracers_of_ten_storms', name: 'Bracers of Ten Storms', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 13, stamina: 12, spirit: 5, healingPower: 18, mp5: 3 }, icon: `${ICON_BASE}/inv_bracer_02.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
-export const BELT_OF_TEN_STORMS: GearItem = { id: 'belt_of_ten_storms', name: 'Belt of Ten Storms', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 16, stamina: 14, healingPower: 24, mp5: 5 }, icon: `${ICON_BASE}/inv_belt_29.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
-export const GREAVES_OF_TEN_STORMS: GearItem = { id: 'greaves_of_ten_storms', name: 'Greaves of Ten Storms', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 18, stamina: 16, spirit: 6, healingPower: 26, mp5: 4 }, icon: `${ICON_BASE}/inv_boots_chain_08.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
+export const BRACERS_OF_TEN_STORMS: GearItem = { id: 'bracers_of_ten_storms', name: 'Bracers of Ten Storms', slot: 'wrist', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 13, stamina: 12, spirit: 5, healingPower: 18, mp5: 3 }, icon: `${ICON_BASE}/inv_bracer_16.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
+export const BELT_OF_TEN_STORMS: GearItem = { id: 'belt_of_ten_storms', name: 'Belt of Ten Storms', slot: 'waist', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 16, stamina: 14, healingPower: 24, mp5: 5 }, icon: `${ICON_BASE}/inv_belt_14.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
+export const GREAVES_OF_TEN_STORMS: GearItem = { id: 'greaves_of_ten_storms', name: 'Greaves of Ten Storms', slot: 'feet', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 18, stamina: 16, spirit: 6, healingPower: 26, mp5: 4 }, icon: `${ICON_BASE}/inv_boots_plate_06.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
 export const GAUNTLETS_OF_TEN_STORMS: GearItem = { id: 'gauntlets_of_ten_storms', name: 'Gauntlets of Ten Storms', slot: 'hands', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 16, stamina: 14, healingPower: 24, mp5: 4 }, icon: `${ICON_BASE}/inv_gauntlets_11.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
-export const EPAULETS_OF_TEN_STORMS: GearItem = { id: 'epaulets_of_ten_storms', name: 'Epaulets of Ten Storms', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 20, stamina: 18, spirit: 8, healingPower: 29, mp5: 5 }, icon: `${ICON_BASE}/inv_shoulder_29.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
-export const BREASTPLATE_OF_TEN_STORMS: GearItem = { id: 'breastplate_of_ten_storms', name: 'Breastplate of Ten Storms', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 25, stamina: 22, spirit: 10, healingPower: 37, mp5: 7 }, icon: `${ICON_BASE}/inv_chest_chain_15.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
+export const EPAULETS_OF_TEN_STORMS: GearItem = { id: 'epaulets_of_ten_storms', name: 'Epaulets of Ten Storms', slot: 'shoulders', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 20, stamina: 18, spirit: 8, healingPower: 29, mp5: 5 }, icon: `${ICON_BASE}/inv_shoulder_33.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
+export const BREASTPLATE_OF_TEN_STORMS: GearItem = { id: 'breastplate_of_ten_storms', name: 'Breastplate of Ten Storms', slot: 'chest', rarity: 'epic', itemLevel: 76, classes: ['shaman'], stats: { intellect: 25, stamina: 22, spirit: 10, healingPower: 37, mp5: 7 }, icon: `${ICON_BASE}/inv_chest_chain_11.jpg`, setId: 'ten_storms', itemCategory: 'healer' };
 
 // =============================================================================
 // BWL NON-SET ITEMS - WEAPONS & ACCESSORIES
 // =============================================================================
 
 // Weapons - Melee
-export const THE_UNTAMED_BLADE: GearItem = { id: 'the_untamed_blade', name: 'The Untamed Blade', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 38 }, icon: `${ICON_BASE}/inv_sword_41.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
-export const DRAGONFANG_BLADE: GearItem = { id: 'dragonfang_blade', name: 'Dragonfang Blade', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue'], stats: { agility: 16, stamina: 9, hitChance: 1 }, icon: `${ICON_BASE}/inv_weapon_shortblade_25.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
-export const MALADATH: GearItem = { id: 'maladath', name: 'Maladath, Runed Blade of the Black Flight', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'paladin'], stats: { agility: 13, stamina: 10 }, icon: `${ICON_BASE}/inv_sword_50.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const THE_UNTAMED_BLADE: GearItem = { id: 'the_untamed_blade', name: 'The Untamed Blade', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 38 }, icon: `${ICON_BASE}/inv_sword_50.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const DRAGONFANG_BLADE: GearItem = { id: 'dragonfang_blade', name: 'Dragonfang Blade', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue'], stats: { agility: 16, stamina: 9, hitChance: 1 }, icon: `${ICON_BASE}/inv_weapon_shortblade_29.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const MALADATH: GearItem = { id: 'maladath', name: 'Maladath, Runed Blade of the Black Flight', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'paladin'], stats: { agility: 13, stamina: 10 }, icon: `${ICON_BASE}/inv_sword_49.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
 export const CRUL_SHORUKH: GearItem = { id: 'crul_shorukh', name: "Crul'shorukh, Edge of Chaos", slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior'], stats: { strength: 16, stamina: 9, critChance: 1 }, icon: `${ICON_BASE}/inv_axe_12.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
-export const CHROMATICALLY_TEMPERED_SWORD: GearItem = { id: 'chromatically_tempered_sword', name: 'Chromatically Tempered Sword', slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'rogue', 'paladin'], stats: { strength: 14, agility: 10, critChance: 1 }, icon: `${ICON_BASE}/inv_sword_55.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
-export const ASHKANDI: GearItem = { id: 'ashkandi', name: 'Ashkandi, Greatsword of the Brotherhood', slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'paladin'], stats: { stamina: 14, strength: 43 }, icon: `${ICON_BASE}/inv_sword_36.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
-export const DRAKE_TALON_CLEAVER: GearItem = { id: 'drake_talon_cleaver', name: 'Drake Talon Cleaver', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior'], stats: { strength: 25, stamina: 22, critChance: 1 }, icon: `${ICON_BASE}/inv_axe_09.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const CHROMATICALLY_TEMPERED_SWORD: GearItem = { id: 'chromatically_tempered_sword', name: 'Chromatically Tempered Sword', slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'rogue', 'paladin'], stats: { strength: 14, agility: 10, critChance: 1 }, icon: `${ICON_BASE}/inv_sword_51.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const ASHKANDI: GearItem = { id: 'ashkandi', name: 'Ashkandi, Greatsword of the Brotherhood', slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'paladin'], stats: { stamina: 14, strength: 43 }, icon: `${ICON_BASE}/inv_sword_50.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const DRAKE_TALON_CLEAVER: GearItem = { id: 'drake_talon_cleaver', name: 'Drake Talon Cleaver', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior'], stats: { strength: 25, stamina: 22, critChance: 1 }, icon: `${ICON_BASE}/inv_axe_10.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
 
 // Weapons - Caster/Healer
-export const SHADOW_WING_FOCUS_STAFF: GearItem = { id: 'shadow_wing_focus_staff', name: 'Shadow Wing Focus Staff', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['druid', 'mage', 'priest', 'shaman', 'warlock'], stats: { intellect: 22, stamina: 18, spellPower: 68 }, icon: `${ICON_BASE}/inv_staff_37.jpg`, weaponType: 'two_hand', itemCategory: 'caster' };
-export const STAFF_OF_THE_SHADOW_FLAME: GearItem = { id: 'staff_of_the_shadow_flame', name: 'Staff of the Shadow Flame', slot: 'weapon', rarity: 'epic', itemLevel: 83, classes: ['druid', 'mage', 'priest', 'shaman', 'warlock'], stats: { intellect: 28, stamina: 20, spellPower: 84 }, icon: `${ICON_BASE}/inv_staff_30.jpg`, weaponType: 'two_hand', itemCategory: 'caster' };
-export const LOK_AMIR: GearItem = { id: 'lok_amir', name: "Lok'amir il Romathis", slot: 'weapon', rarity: 'epic', itemLevel: 81, classes: ['paladin', 'priest', 'druid'], stats: { intellect: 18, stamina: 12, healingPower: 84 }, icon: `${ICON_BASE}/inv_mace_15.jpg`, weaponType: 'one_hand', itemCategory: 'healer' };
+export const SHADOW_WING_FOCUS_STAFF: GearItem = { id: 'shadow_wing_focus_staff', name: 'Shadow Wing Focus Staff', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['druid', 'mage', 'priest', 'shaman', 'warlock'], stats: { intellect: 22, stamina: 18, spellPower: 68 }, icon: `${ICON_BASE}/inv_staff_13.jpg`, weaponType: 'two_hand', itemCategory: 'caster' };
+export const STAFF_OF_THE_SHADOW_FLAME: GearItem = { id: 'staff_of_the_shadow_flame', name: 'Staff of the Shadow Flame', slot: 'weapon', rarity: 'epic', itemLevel: 83, classes: ['druid', 'mage', 'priest', 'shaman', 'warlock'], stats: { intellect: 28, stamina: 20, spellPower: 84 }, icon: `${ICON_BASE}/inv_staff_06.jpg`, weaponType: 'two_hand', itemCategory: 'caster' };
+export const LOK_AMIR: GearItem = { id: 'lok_amir', name: "Lok'amir il Romathis", slot: 'weapon', rarity: 'epic', itemLevel: 81, classes: ['paladin', 'priest', 'druid'], stats: { intellect: 18, stamina: 12, healingPower: 84 }, icon: `${ICON_BASE}/inv_mace_06.jpg`, weaponType: 'one_hand', itemCategory: 'healer' };
 
 // Weapons - Ranged
-export const HEARTSTRIKER: GearItem = { id: 'heartstriker', name: 'Heartstriker', slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['hunter'], stats: { agility: 14, stamina: 7, critChance: 1 }, icon: `${ICON_BASE}/inv_weapon_bow_08.jpg`, weaponType: 'ranged', relicType: 'bow', itemCategory: 'physical_ranged' };
-export const ASHJRETHUL: GearItem = { id: 'ashjrethul', name: "Ashjre'thul, Crossbow of Smiting", slot: 'ranged', rarity: 'epic', itemLevel: 78, classes: ['hunter'], stats: { agility: 17, stamina: 8, critChance: 1 }, icon: `${ICON_BASE}/inv_weapon_crossbow_05.jpg`, weaponType: 'ranged', relicType: 'crossbow', itemCategory: 'physical_ranged' };
-export const DRAGONBREATH_HAND_CANNON: GearItem = { id: 'dragonbreath_hand_cannon', name: 'Dragonbreath Hand Cannon', slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['hunter', 'warrior', 'rogue'], stats: { agility: 7, stamina: 14, critChance: 1 }, icon: `${ICON_BASE}/inv_weapon_rifle_04.jpg`, weaponType: 'ranged', relicType: 'gun', itemCategory: 'physical_ranged' };
+export const HEARTSTRIKER: GearItem = { id: 'heartstriker', name: 'Heartstriker', slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['hunter'], stats: { agility: 14, stamina: 7, critChance: 1 }, icon: `${ICON_BASE}/inv_weapon_bow_09.jpg`, weaponType: 'ranged', relicType: 'bow', itemCategory: 'physical_ranged' };
+export const ASHJRETHUL: GearItem = { id: 'ashjrethul', name: "Ashjre'thul, Crossbow of Smiting", slot: 'ranged', rarity: 'epic', itemLevel: 78, classes: ['hunter'], stats: { agility: 17, stamina: 8, critChance: 1 }, icon: `${ICON_BASE}/inv_weapon_crossbow_09.jpg`, weaponType: 'ranged', relicType: 'crossbow', itemCategory: 'physical_ranged' };
+export const DRAGONBREATH_HAND_CANNON: GearItem = { id: 'dragonbreath_hand_cannon', name: 'Dragonbreath Hand Cannon', slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['hunter', 'warrior', 'rogue'], stats: { agility: 7, stamina: 14, critChance: 1 }, icon: `${ICON_BASE}/inv_weapon_rifle_02.jpg`, weaponType: 'ranged', relicType: 'gun', itemCategory: 'physical_ranged' };
 
 // BWL Missing Weapons - Melee
-export const CLAW_OF_CHROMAGGUS: GearItem = { id: 'claw_of_chromaggus', name: 'Claw of Chromaggus', slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'rogue'], stats: { agility: 14, stamina: 8, critChance: 1, hitChance: 1 }, icon: `${ICON_BASE}/inv_weapon_shortblade_22.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
-export const CLAW_OF_THE_BLACK_DRAKE: GearItem = { id: 'claw_of_the_black_drake', name: 'Claw of the Black Drake', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'hunter', 'shaman'], stats: { agility: 13, stamina: 10, strength: 5 }, icon: `${ICON_BASE}/inv_weapon_hand_05.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
-export const HERALD_OF_WOE: GearItem = { id: 'herald_of_woe', name: 'Herald of Woe', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin', 'shaman'], stats: { strength: 25, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_hammer_11.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
-export const SPINESHATTER: GearItem = { id: 'spineshatter', name: 'Spineshatter', slot: 'weapon', rarity: 'epic', itemLevel: 72, classes: ['warrior', 'paladin', 'shaman'], stats: { strength: 12, stamina: 15, spirit: 8 }, icon: `${ICON_BASE}/inv_mace_04.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const CLAW_OF_CHROMAGGUS: GearItem = { id: 'claw_of_chromaggus', name: 'Claw of Chromaggus', slot: 'weapon', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'rogue'], stats: { agility: 14, stamina: 8, critChance: 1, hitChance: 1 }, icon: `${ICON_BASE}/inv_weapon_shortblade_28.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const CLAW_OF_THE_BLACK_DRAKE: GearItem = { id: 'claw_of_the_black_drake', name: 'Claw of the Black Drake', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'hunter', 'shaman'], stats: { agility: 13, stamina: 10, strength: 5 }, icon: `${ICON_BASE}/inv_weapon_shortblade_27.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+export const HERALD_OF_WOE: GearItem = { id: 'herald_of_woe', name: 'Herald of Woe', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin', 'shaman'], stats: { strength: 25, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_mace_05.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const SPINESHATTER: GearItem = { id: 'spineshatter', name: 'Spineshatter', slot: 'weapon', rarity: 'epic', itemLevel: 72, classes: ['warrior', 'paladin', 'shaman'], stats: { strength: 12, stamina: 15, spirit: 8 }, icon: `${ICON_BASE}/inv_mace_06.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
 
 // BWL Missing Weapons - Wand
-export const DRAGONS_TOUCH: GearItem = { id: 'dragons_touch', name: "Dragon's Touch", slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 7, stamina: 6, spellPower: 26 }, icon: `${ICON_BASE}/inv_wand_04.jpg`, weaponType: 'ranged', relicType: 'wand', itemCategory: 'caster' };
+export const DRAGONS_TOUCH: GearItem = { id: 'dragons_touch', name: "Dragon's Touch", slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 7, stamina: 6, spellPower: 26 }, icon: `${ICON_BASE}/inv_wand_11.jpg`, weaponType: 'ranged', relicType: 'wand', itemCategory: 'caster' };
 
 // BWL Missing Shields
-export const ELEMENTIUM_REINFORCED_BULWARK: GearItem = { id: 'elementium_reinforced_bulwark', name: 'Elementium Reinforced Bulwark', slot: 'offhand', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'paladin'], stats: { stamina: 23, strength: 7 }, icon: `${ICON_BASE}/inv_shield_22.jpg`, weaponType: 'offhand_only', itemCategory: 'melee' };
+export const ELEMENTIUM_REINFORCED_BULWARK: GearItem = { id: 'elementium_reinforced_bulwark', name: 'Elementium Reinforced Bulwark', slot: 'offhand', rarity: 'epic', itemLevel: 78, classes: ['warrior', 'paladin'], stats: { stamina: 23, strength: 7 }, icon: `${ICON_BASE}/inv_shield_17.jpg`, weaponType: 'offhand_only', itemCategory: 'melee' };
 
 // =============================================================================
 // BLACKWING LAIR - ACCESSORIES (Necklaces, Cloaks, Rings, Trinkets)
@@ -1851,56 +2324,56 @@ export const ELEMENTIUM_REINFORCED_BULWARK: GearItem = { id: 'elementium_reinfor
 
 // BWL Necklaces
 export const PENDANT_OF_THE_FALLEN_DRAGON: GearItem = { id: 'pendant_of_the_fallen_dragon', name: 'Pendant of the Fallen Dragon', slot: 'neck', rarity: 'epic', itemLevel: 77, classes: ['paladin', 'priest', 'druid', 'shaman'], stats: { intellect: 12, stamina: 9, mp5: 9 }, icon: `${ICON_BASE}/inv_jewelry_necklace_12.jpg`, itemCategory: 'healer' };
-export const PRESTORS_TALISMAN_OF_CONNIVERY: GearItem = { id: 'prestors_talisman_of_connivery', name: "Prestor's Talisman of Connivery", slot: 'neck', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { agility: 30, hitChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_necklace_13.jpg`, itemCategory: 'melee' };
+export const PRESTORS_TALISMAN_OF_CONNIVERY: GearItem = { id: 'prestors_talisman_of_connivery', name: "Prestor's Talisman of Connivery", slot: 'neck', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { agility: 30, hitChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_necklace_17.jpg`, itemCategory: 'melee' };
 
 // BWL Cloaks
-export const ELEMENTIUM_THREADED_CLOAK: GearItem = { id: 'elementium_threaded_cloak', name: 'Elementium Threaded Cloak', slot: 'back', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { stamina: 15, agility: 8 }, icon: `${ICON_BASE}/inv_misc_cape_17.jpg`, itemCategory: 'melee' };
-export const SHROUD_OF_PURE_THOUGHT: GearItem = { id: 'shroud_of_pure_thought', name: 'Shroud of Pure Thought', slot: 'back', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 10, spirit: 8, healingPower: 33 }, icon: `${ICON_BASE}/inv_misc_cape_21.jpg`, itemCategory: 'healer' };
-export const CLOAK_OF_FIREMAW: GearItem = { id: 'cloak_of_firemaw', name: 'Cloak of Firemaw', slot: 'back', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 11, stamina: 7, spellPower: 27 }, icon: `${ICON_BASE}/inv_misc_cape_19.jpg`, itemCategory: 'caster' };
-export const CLOAK_OF_THE_BROOD_LORD: GearItem = { id: 'cloak_of_the_brood_lord', name: 'Cloak of the Brood Lord', slot: 'back', rarity: 'epic', itemLevel: 81, classes: ['all'], stats: { intellect: 14, stamina: 10, spellPower: 28 }, icon: `${ICON_BASE}/inv_misc_cape_18.jpg`, itemCategory: 'caster' };
+export const ELEMENTIUM_THREADED_CLOAK: GearItem = { id: 'elementium_threaded_cloak', name: 'Elementium Threaded Cloak', slot: 'back', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { stamina: 15, agility: 8 }, icon: `${ICON_BASE}/inv_misc_cape_01.jpg`, itemCategory: 'melee' };
+export const SHROUD_OF_PURE_THOUGHT: GearItem = { id: 'shroud_of_pure_thought', name: 'Shroud of Pure Thought', slot: 'back', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 10, spirit: 8, healingPower: 33 }, icon: `${ICON_BASE}/inv_misc_cape_16.jpg`, itemCategory: 'healer' };
+export const CLOAK_OF_FIREMAW: GearItem = { id: 'cloak_of_firemaw', name: 'Cloak of Firemaw', slot: 'back', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 11, stamina: 7, spellPower: 27 }, icon: `${ICON_BASE}/inv_misc_cape_18.jpg`, itemCategory: 'caster' };
+export const CLOAK_OF_THE_BROOD_LORD: GearItem = { id: 'cloak_of_the_brood_lord', name: 'Cloak of the Brood Lord', slot: 'back', rarity: 'epic', itemLevel: 81, classes: ['all'], stats: { intellect: 14, stamina: 10, spellPower: 28 }, icon: `${ICON_BASE}/inv_misc_cape_20.jpg`, itemCategory: 'caster' };
 
 // BWL Rings
-export const RING_OF_BLACKROCK: GearItem = { id: 'ring_of_blackrock', name: 'Ring of Blackrock', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 12, stamina: 8, spellPower: 20 }, icon: `${ICON_BASE}/inv_jewelry_ring_15.jpg`, itemCategory: 'caster' };
-export const BAND_OF_FORCED_CONCENTRATION: GearItem = { id: 'band_of_forced_concentration', name: 'Band of Forced Concentration', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 12, stamina: 10, spellPower: 21, hitChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_ring_24.jpg`, itemCategory: 'caster' };
-export const CIRCLE_OF_APPLIED_FORCE: GearItem = { id: 'circle_of_applied_force', name: 'Circle of Applied Force', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { strength: 12, agility: 22, stamina: 9 }, icon: `${ICON_BASE}/inv_jewelry_ring_22.jpg`, itemCategory: 'melee' };
-export const PURE_ELEMENTIUM_BAND: GearItem = { id: 'pure_elementium_band', name: 'Pure Elementium Band', slot: 'ring1', rarity: 'epic', itemLevel: 81, classes: ['all'], stats: { intellect: 14, stamina: 10, spellPower: 27 }, icon: `${ICON_BASE}/inv_jewelry_ring_25.jpg`, itemCategory: 'caster' };
-export const ARCHIMTIROS_RING_OF_RECKONING: GearItem = { id: 'archimtiros_ring_of_reckoning', name: "Archimtiros' Ring of Reckoning", slot: 'ring1', rarity: 'epic', itemLevel: 81, classes: ['warrior', 'paladin'], stats: { stamina: 16, strength: 14 }, icon: `${ICON_BASE}/inv_jewelry_ring_21.jpg`, itemCategory: 'melee' };
+export const RING_OF_BLACKROCK: GearItem = { id: 'ring_of_blackrock', name: 'Ring of Blackrock', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 12, stamina: 8, spellPower: 20 }, icon: `${ICON_BASE}/inv_jewelry_ring_43.jpg`, itemCategory: 'caster' };
+export const BAND_OF_FORCED_CONCENTRATION: GearItem = { id: 'band_of_forced_concentration', name: 'Band of Forced Concentration', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 12, stamina: 10, spellPower: 21, hitChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_ring_34.jpg`, itemCategory: 'caster' };
+export const CIRCLE_OF_APPLIED_FORCE: GearItem = { id: 'circle_of_applied_force', name: 'Circle of Applied Force', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { strength: 12, agility: 22, stamina: 9 }, icon: `${ICON_BASE}/inv_jewelry_ring_37.jpg`, itemCategory: 'melee' };
+export const PURE_ELEMENTIUM_BAND: GearItem = { id: 'pure_elementium_band', name: 'Pure Elementium Band', slot: 'ring1', rarity: 'epic', itemLevel: 81, classes: ['all'], stats: { intellect: 14, stamina: 10, spellPower: 27 }, icon: `${ICON_BASE}/inv_jewelry_ring_42.jpg`, itemCategory: 'caster' };
+export const ARCHIMTIROS_RING_OF_RECKONING: GearItem = { id: 'archimtiros_ring_of_reckoning', name: "Archimtiros' Ring of Reckoning", slot: 'ring1', rarity: 'epic', itemLevel: 81, classes: ['warrior', 'paladin'], stats: { stamina: 16, strength: 14 }, icon: `${ICON_BASE}/inv_jewelry_ring_40.jpg`, itemCategory: 'melee' };
 
 // BWL Trinkets - All Class
-export const DRAKE_FANG_TALISMAN: GearItem = { id: 'drake_fang_talisman', name: 'Drake Fang Talisman', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'hunter', 'paladin'], stats: { hitChance: 2 }, icon: `${ICON_BASE}/inv_jewelry_talisman_03.jpg`, itemCategory: 'melee' };
-export const NELTHARIONS_TEAR: GearItem = { id: 'neltharions_tear', name: "Neltharion's Tear", slot: 'trinket1', rarity: 'epic', itemLevel: 83, classes: ['all'], stats: { spellPower: 44, hitChance: 2 }, icon: `${ICON_BASE}/inv_jewelry_talisman_06.jpg`, itemCategory: 'caster' };
-export const REJUVENATING_GEM: GearItem = { id: 'rejuvenating_gem', name: 'Rejuvenating Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['paladin', 'priest', 'druid', 'shaman'], stats: { mp5: 9, healingPower: 66 }, icon: `${ICON_BASE}/inv_jewelry_talisman_02.jpg`, itemCategory: 'healer' };
-export const STYLEENS_IMPEDING_SCARAB: GearItem = { id: 'styleens_impeding_scarab', name: "Styleen's Impeding Scarab", slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { stamina: 12 }, icon: `${ICON_BASE}/inv_scarab_gold.jpg`, itemCategory: 'melee' };
+export const DRAKE_FANG_TALISMAN: GearItem = { id: 'drake_fang_talisman', name: 'Drake Fang Talisman', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'hunter', 'paladin'], stats: { hitChance: 2 }, icon: `${ICON_BASE}/inv_misc_bone_06.jpg`, itemCategory: 'melee' };
+export const NELTHARIONS_TEAR: GearItem = { id: 'neltharions_tear', name: "Neltharion's Tear", slot: 'trinket1', rarity: 'epic', itemLevel: 83, classes: ['all'], stats: { spellPower: 44, hitChance: 2 }, icon: `${ICON_BASE}/inv_stone_15.jpg`, itemCategory: 'caster' };
+export const REJUVENATING_GEM: GearItem = { id: 'rejuvenating_gem', name: 'Rejuvenating Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['paladin', 'priest', 'druid', 'shaman'], stats: { mp5: 9, healingPower: 66 }, icon: `${ICON_BASE}/inv_misc_gem_topaz_02.jpg`, itemCategory: 'healer' };
+export const STYLEENS_IMPEDING_SCARAB: GearItem = { id: 'styleens_impeding_scarab', name: "Styleen's Impeding Scarab", slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { stamina: 12 }, icon: `${ICON_BASE}/inv_misc_armorkit_10.jpg`, itemCategory: 'melee' };
 
 // BWL Trinkets - Class Specific
-export const AEGIS_OF_PRESERVATION: GearItem = { id: 'aegis_of_preservation', name: 'Aegis of Preservation', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['priest'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_misc_gem_pearl_02.jpg`, itemCategory: 'healer' };
-export const ARCANE_INFUSED_GEM: GearItem = { id: 'arcane_infused_gem', name: 'Arcane Infused Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['hunter'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_misc_gem_01.jpg`, itemCategory: 'physical_ranged' };
-export const LIFEGIVING_GEM: GearItem = { id: 'lifegiving_gem', name: 'Lifegiving Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior'], stats: { stamina: 15 }, icon: `${ICON_BASE}/inv_misc_gem_ruby_02.jpg`, itemCategory: 'melee' };
-export const MIND_QUICKENING_GEM: GearItem = { id: 'mind_quickening_gem', name: 'Mind Quickening Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['mage'], stats: { stamina: 10, intellect: 6 }, icon: `${ICON_BASE}/inv_misc_gem_sapphire_02.jpg`, itemCategory: 'caster' };
-export const NATURAL_ALIGNMENT_CRYSTAL: GearItem = { id: 'natural_alignment_crystal', name: 'Natural Alignment Crystal', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['shaman'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_misc_gem_emerald_01.jpg`, itemCategory: 'healer' };
-export const RUNE_OF_METAMORPHOSIS: GearItem = { id: 'rune_of_metamorphosis', name: 'Rune of Metamorphosis', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['druid'], stats: { stamina: 10, intellect: 6 }, icon: `${ICON_BASE}/spell_nature_crystalball.jpg`, itemCategory: 'healer' };
-export const SCROLLS_OF_BLINDING_LIGHT_TRINKET: GearItem = { id: 'scrolls_of_blinding_light_trinket', name: 'Scrolls of Blinding Light', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['paladin'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_scroll_02.jpg`, itemCategory: 'healer' };
-export const THE_BLACK_BOOK: GearItem = { id: 'the_black_book', name: 'The Black Book', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warlock'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_misc_book_08.jpg`, itemCategory: 'caster' };
+export const AEGIS_OF_PRESERVATION: GearItem = { id: 'aegis_of_preservation', name: 'Aegis of Preservation', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['priest'], stats: { stamina: 10 }, icon: `${ICON_BASE}/classic_spell_holy_blessingofprotection.jpg`, itemCategory: 'healer' };
+export const ARCANE_INFUSED_GEM: GearItem = { id: 'arcane_infused_gem', name: 'Arcane Infused Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['hunter'], stats: { stamina: 10 }, icon: `${ICON_BASE}/spell_nature_wispsplode.jpg`, itemCategory: 'physical_ranged' };
+export const LIFEGIVING_GEM: GearItem = { id: 'lifegiving_gem', name: 'Lifegiving Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior'], stats: { stamina: 15 }, icon: `${ICON_BASE}/inv_misc_gem_pearl_05.jpg`, itemCategory: 'melee' };
+export const MIND_QUICKENING_GEM: GearItem = { id: 'mind_quickening_gem', name: 'Mind Quickening Gem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['mage'], stats: { stamina: 10, intellect: 6 }, icon: `${ICON_BASE}/spell_nature_wispheal.jpg`, itemCategory: 'caster' };
+export const NATURAL_ALIGNMENT_CRYSTAL: GearItem = { id: 'natural_alignment_crystal', name: 'Natural Alignment Crystal', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['shaman'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_misc_gem_03.jpg`, itemCategory: 'healer' };
+export const RUNE_OF_METAMORPHOSIS: GearItem = { id: 'rune_of_metamorphosis', name: 'Rune of Metamorphosis', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['druid'], stats: { stamina: 10, intellect: 6 }, icon: `${ICON_BASE}/inv_misc_rune_06.jpg`, itemCategory: 'healer' };
+export const SCROLLS_OF_BLINDING_LIGHT_TRINKET: GearItem = { id: 'scrolls_of_blinding_light_trinket', name: 'Scrolls of Blinding Light', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['paladin'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_scroll_08.jpg`, itemCategory: 'healer' };
+export const THE_BLACK_BOOK: GearItem = { id: 'the_black_book', name: 'The Black Book', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warlock'], stats: { stamina: 10 }, icon: `${ICON_BASE}/inv_misc_book_06.jpg`, itemCategory: 'caster' };
 export const VENOMOUS_TOTEM: GearItem = { id: 'venomous_totem', name: 'Venomous Totem', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['rogue'], stats: { agility: 8 }, icon: `${ICON_BASE}/inv_misc_idol_03.jpg`, itemCategory: 'melee' };
 
 // BWL Shoulders (actual shoulder items)
-export const MANTLE_OF_THE_BLACKWING_CABAL: GearItem = { id: 'mantle_of_the_blackwing_cabal', name: 'Mantle of the Blackwing Cabal', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 21, stamina: 14, spellPower: 36 }, icon: `${ICON_BASE}/inv_shoulder_19.jpg`, itemCategory: 'caster' };
-export const BLACK_BROOD_PAULDRONS: GearItem = { id: 'black_brood_pauldrons', name: 'Black Brood Pauldrons', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 22, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_03.jpg`, itemCategory: 'melee' };
-export const DRAKE_TALON_PAULDRONS: GearItem = { id: 'drake_talon_pauldrons', name: 'Drake Talon Pauldrons', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 24, stamina: 20, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_11.jpg`, itemCategory: 'melee' };
+export const MANTLE_OF_THE_BLACKWING_CABAL: GearItem = { id: 'mantle_of_the_blackwing_cabal', name: 'Mantle of the Blackwing Cabal', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 21, stamina: 14, spellPower: 36 }, icon: `${ICON_BASE}/inv_shoulder_25.jpg`, itemCategory: 'caster' };
+export const BLACK_BROOD_PAULDRONS: GearItem = { id: 'black_brood_pauldrons', name: 'Black Brood Pauldrons', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 22, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_14.jpg`, itemCategory: 'melee' };
+export const DRAKE_TALON_PAULDRONS: GearItem = { id: 'drake_talon_pauldrons', name: 'Drake Talon Pauldrons', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 24, stamina: 20, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_23.jpg`, itemCategory: 'melee' };
 
 // Helm
-export const HELM_OF_ENDLESS_RAGE: GearItem = { id: 'helm_of_endless_rage', name: 'Helm of Endless Rage', slot: 'head', rarity: 'epic', itemLevel: 77, classes: ['warrior'], stats: { strength: 32, stamina: 24, critChance: 1 }, icon: `${ICON_BASE}/inv_helmet_08.jpg`, itemCategory: 'melee' };
-export const MISHUNDARE: GearItem = { id: 'mishundare', name: 'Mish\'undare, Circlet of the Mind Flayer', slot: 'head', rarity: 'epic', itemLevel: 83, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 24, stamina: 18, spellPower: 35, critChance: 2 }, icon: `${ICON_BASE}/inv_helmet_37.jpg`, itemCategory: 'caster' };
+export const HELM_OF_ENDLESS_RAGE: GearItem = { id: 'helm_of_endless_rage', name: 'Helm of Endless Rage', slot: 'head', rarity: 'epic', itemLevel: 77, classes: ['warrior'], stats: { strength: 32, stamina: 24, critChance: 1 }, icon: `${ICON_BASE}/inv_helmet_10.jpg`, itemCategory: 'melee' };
+export const MISHUNDARE: GearItem = { id: 'mishundare', name: 'Mish\'undare, Circlet of the Mind Flayer', slot: 'head', rarity: 'epic', itemLevel: 83, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 24, stamina: 18, spellPower: 35, critChance: 2 }, icon: `${ICON_BASE}/inv_helmet_52.jpg`, itemCategory: 'caster' };
 
 // Chest - Non-set
-export const MALFURIONS_BLESSED_BULWARK: GearItem = { id: 'malfurions_blessed_bulwark', name: "Malfurion's Blessed Bulwark", slot: 'chest', rarity: 'epic', itemLevel: 77, classes: ['druid'], stats: { stamina: 25, intellect: 20, spirit: 12, healingPower: 37 }, icon: `${ICON_BASE}/inv_chest_leather_04.jpg`, itemCategory: 'healer' };
+export const MALFURIONS_BLESSED_BULWARK: GearItem = { id: 'malfurions_blessed_bulwark', name: "Malfurion's Blessed Bulwark", slot: 'chest', rarity: 'epic', itemLevel: 77, classes: ['druid'], stats: { stamina: 25, intellect: 20, spirit: 12, healingPower: 37 }, icon: `${ICON_BASE}/inv_chest_leather_08.jpg`, itemCategory: 'healer' };
 
 // Gloves - Non-set
-export const EBONY_FLAME_GLOVES: GearItem = { id: 'ebony_flame_gloves', name: 'Ebony Flame Gloves', slot: 'hands', rarity: 'epic', itemLevel: 77, classes: ['rogue', 'druid'], stats: { agility: 23, stamina: 14 }, icon: `${ICON_BASE}/inv_gauntlets_26.jpg`, itemCategory: 'melee' };
+export const EBONY_FLAME_GLOVES: GearItem = { id: 'ebony_flame_gloves', name: 'Ebony Flame Gloves', slot: 'hands', rarity: 'epic', itemLevel: 77, classes: ['rogue', 'druid'], stats: { agility: 23, stamina: 14 }, icon: `${ICON_BASE}/inv_gauntlets_27.jpg`, itemCategory: 'melee' };
 
 // Belt - Non-set
-export const ANGELISTA_GRASP: GearItem = { id: 'angelista_grasp', name: "Angelista's Grasp", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 15, stamina: 12, spellPower: 32 }, icon: `${ICON_BASE}/inv_belt_18.jpg`, itemCategory: 'caster' };
-export const TAUT_DRAGONHIDE_BELT: GearItem = { id: 'taut_dragonhide_belt', name: 'Taut Dragonhide Belt', slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 24, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_14.jpg`, itemCategory: 'melee' };
+export const ANGELISTA_GRASP: GearItem = { id: 'angelista_grasp', name: "Angelista's Grasp", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 15, stamina: 12, spellPower: 32 }, icon: `${ICON_BASE}/inv_belt_13.jpg`, itemCategory: 'caster' };
+export const TAUT_DRAGONHIDE_BELT: GearItem = { id: 'taut_dragonhide_belt', name: 'Taut Dragonhide Belt', slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 24, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_16.jpg`, itemCategory: 'melee' };
 
 // Boots - Non-set
 export const BOOTS_OF_THE_SHADOW_FLAME: GearItem = { id: 'boots_of_the_shadow_flame', name: 'Boots of the Shadow Flame', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['rogue', 'druid'], stats: { agility: 26, stamina: 15 }, icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, itemCategory: 'melee' };
@@ -1909,30 +2382,30 @@ export const BOOTS_OF_THE_SHADOW_FLAME: GearItem = { id: 'boots_of_the_shadow_fl
 export const BRACERS_OF_ARCANE_ACCURACY: GearItem = { id: 'bracers_of_arcane_accuracy', name: 'Bracers of Arcane Accuracy', slot: 'wrist', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { intellect: 10, stamina: 10, spellPower: 21, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_07.jpg`, itemCategory: 'caster' };
 
 // Additional BWL Non-Set Armor - Cloth
-export const BLACK_ASH_ROBE: GearItem = { id: 'black_ash_robe', name: 'Black Ash Robe', slot: 'chest', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 22, stamina: 15, spellPower: 46 }, icon: `${ICON_BASE}/inv_chest_cloth_45.jpg`, itemCategory: 'caster' };
-export const BOOTS_OF_PURE_THOUGHT: GearItem = { id: 'boots_of_pure_thought', name: 'Boots of Pure Thought', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['priest', 'paladin', 'druid', 'shaman'], stats: { intellect: 15, stamina: 10, spirit: 8, healingPower: 46 }, icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, itemCategory: 'healer' };
-export const EMPOWERED_LEGGINGS: GearItem = { id: 'empowered_leggings', name: 'Empowered Leggings', slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 20, stamina: 18, spellPower: 39, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_cloth_14.jpg`, itemCategory: 'caster' };
-export const FIREMAWS_CLUTCH: GearItem = { id: 'firemaws_clutch', name: "Firemaw's Clutch", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 14, stamina: 12, spellPower: 30, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_13.jpg`, itemCategory: 'caster' };
+export const BLACK_ASH_ROBE: GearItem = { id: 'black_ash_robe', name: 'Black Ash Robe', slot: 'chest', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 22, stamina: 15, spellPower: 46 }, icon: `${ICON_BASE}/inv_chest_cloth_50.jpg`, itemCategory: 'caster' };
+export const BOOTS_OF_PURE_THOUGHT: GearItem = { id: 'boots_of_pure_thought', name: 'Boots of Pure Thought', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['priest', 'paladin', 'druid', 'shaman'], stats: { intellect: 15, stamina: 10, spirit: 8, healingPower: 46 }, icon: `${ICON_BASE}/inv_boots_cloth_03.jpg`, itemCategory: 'healer' };
+export const EMPOWERED_LEGGINGS: GearItem = { id: 'empowered_leggings', name: 'Empowered Leggings', slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 20, stamina: 18, spellPower: 39, hitChance: 1 }, icon: `${ICON_BASE}/inv_pants_cloth_19.jpg`, itemCategory: 'caster' };
+export const FIREMAWS_CLUTCH: GearItem = { id: 'firemaws_clutch', name: "Firemaw's Clutch", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 14, stamina: 12, spellPower: 30, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_10.jpg`, itemCategory: 'caster' };
 
 // Additional BWL Non-Set Armor - Leather
-export const GLOVES_OF_RAPID_EVOLUTION: GearItem = { id: 'gloves_of_rapid_evolution', name: 'Gloves of Rapid Evolution', slot: 'hands', rarity: 'epic', itemLevel: 77, classes: ['druid'], stats: { intellect: 18, stamina: 14, spirit: 8, healingPower: 35 }, icon: `${ICON_BASE}/inv_gauntlets_25.jpg`, itemCategory: 'healer' };
-export const SHIMMERING_GETA: GearItem = { id: 'shimmering_geta', name: 'Shimmering Geta', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 22, stamina: 16, spirit: 10 }, icon: `${ICON_BASE}/inv_boots_02.jpg`, itemCategory: 'melee' };
-export const TAUT_DRAGONHIDE_GLOVES: GearItem = { id: 'taut_dragonhide_gloves', name: 'Taut Dragonhide Gloves', slot: 'hands', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 23, stamina: 15, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_15.jpg`, itemCategory: 'melee' };
+export const GLOVES_OF_RAPID_EVOLUTION: GearItem = { id: 'gloves_of_rapid_evolution', name: 'Gloves of Rapid Evolution', slot: 'hands', rarity: 'epic', itemLevel: 77, classes: ['druid'], stats: { intellect: 18, stamina: 14, spirit: 8, healingPower: 35 }, icon: `${ICON_BASE}/inv_gauntlets_06.jpg`, itemCategory: 'healer' };
+export const SHIMMERING_GETA: GearItem = { id: 'shimmering_geta', name: 'Shimmering Geta', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 22, stamina: 16, spirit: 10 }, icon: `${ICON_BASE}/inv_boots_cloth_01.jpg`, itemCategory: 'melee' };
+export const TAUT_DRAGONHIDE_GLOVES: GearItem = { id: 'taut_dragonhide_gloves', name: 'Taut Dragonhide Gloves', slot: 'hands', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 23, stamina: 15, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_19.jpg`, itemCategory: 'melee' };
 export const TAUT_DRAGONHIDE_SHOULDERPADS: GearItem = { id: 'taut_dragonhide_shoulderpads', name: 'Taut Dragonhide Shoulderpads', slot: 'shoulders', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 26, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_shoulder_08.jpg`, itemCategory: 'melee' };
-export const EMBERWEAVE_LEGGINGS: GearItem = { id: 'emberweave_leggings', name: 'Emberweave Leggings', slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 30, stamina: 22, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_leather_03.jpg`, itemCategory: 'melee' };
+export const EMBERWEAVE_LEGGINGS: GearItem = { id: 'emberweave_leggings', name: 'Emberweave Leggings', slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['druid', 'rogue'], stats: { agility: 30, stamina: 22, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_mail_17.jpg`, itemCategory: 'melee' };
 
 // Additional BWL Non-Set Armor - Mail
-export const CHROMATIC_BOOTS: GearItem = { id: 'chromatic_boots', name: 'Chromatic Boots', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['hunter', 'shaman'], stats: { agility: 20, stamina: 15, intellect: 10, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_chain_06.jpg`, itemCategory: 'physical_ranged' };
-export const PRIMALISTS_LINKED_LEGGUARDS: GearItem = { id: 'primalists_linked_legguards', name: "Primalist's Linked Legguards", slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['shaman'], stats: { intellect: 20, stamina: 18, spirit: 10, healingPower: 40 }, icon: `${ICON_BASE}/inv_pants_mail_10.jpg`, itemCategory: 'healer' };
-export const PRIMALISTS_LINKED_WAISTGUARD: GearItem = { id: 'primalists_linked_waistguard', name: "Primalist's Linked Waistguard", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['shaman'], stats: { intellect: 15, stamina: 12, healingPower: 33 }, icon: `${ICON_BASE}/inv_belt_29.jpg`, itemCategory: 'healer' };
-export const THERAZANES_LINK: GearItem = { id: 'therazanes_link', name: "Therazane's Link", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['hunter', 'shaman'], stats: { agility: 18, stamina: 14, intellect: 8, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_28.jpg`, itemCategory: 'physical_ranged' };
+export const CHROMATIC_BOOTS: GearItem = { id: 'chromatic_boots', name: 'Chromatic Boots', slot: 'feet', rarity: 'epic', itemLevel: 77, classes: ['hunter', 'shaman'], stats: { agility: 20, stamina: 15, intellect: 10, hitChance: 1 }, icon: `${ICON_BASE}/inv_boots_plate_04.jpg`, itemCategory: 'physical_ranged' };
+export const PRIMALISTS_LINKED_LEGGUARDS: GearItem = { id: 'primalists_linked_legguards', name: "Primalist's Linked Legguards", slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['shaman'], stats: { intellect: 20, stamina: 18, spirit: 10, healingPower: 40 }, icon: `${ICON_BASE}/inv_pants_mail_19.jpg`, itemCategory: 'healer' };
+export const PRIMALISTS_LINKED_WAISTGUARD: GearItem = { id: 'primalists_linked_waistguard', name: "Primalist's Linked Waistguard", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['shaman'], stats: { intellect: 15, stamina: 12, healingPower: 33 }, icon: `${ICON_BASE}/inv_belt_21.jpg`, itemCategory: 'healer' };
+export const THERAZANES_LINK: GearItem = { id: 'therazanes_link', name: "Therazane's Link", slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['hunter', 'shaman'], stats: { agility: 18, stamina: 14, intellect: 8, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_18.jpg`, itemCategory: 'physical_ranged' };
 
 // Additional BWL Non-Set Armor - Plate
-export const GIRDLE_OF_THE_FALLEN_CRUSADER: GearItem = { id: 'girdle_of_the_fallen_crusader', name: 'Girdle of the Fallen Crusader', slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 20, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_27.jpg`, itemCategory: 'melee' };
-export const LEGGUARDS_OF_THE_FALLEN_CRUSADER: GearItem = { id: 'legguards_of_the_fallen_crusader', name: 'Legguards of the Fallen Crusader', slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 26, stamina: 24, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_plate_17.jpg`, itemCategory: 'melee' };
+export const GIRDLE_OF_THE_FALLEN_CRUSADER: GearItem = { id: 'girdle_of_the_fallen_crusader', name: 'Girdle of the Fallen Crusader', slot: 'waist', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 20, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_belt_11.jpg`, itemCategory: 'melee' };
+export const LEGGUARDS_OF_THE_FALLEN_CRUSADER: GearItem = { id: 'legguards_of_the_fallen_crusader', name: 'Legguards of the Fallen Crusader', slot: 'legs', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin'], stats: { strength: 26, stamina: 24, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_plate_16.jpg`, itemCategory: 'melee' };
 
 // Healer Shield
-export const RED_DRAGONSCALE_PROTECTOR: GearItem = { id: 'red_dragonscale_protector', name: 'Red Dragonscale Protector', slot: 'offhand', rarity: 'epic', itemLevel: 77, classes: ['paladin', 'shaman'], stats: { stamina: 6, intellect: 17, spirit: 6, healingPower: 37 }, icon: `${ICON_BASE}/inv_shield_22.jpg`, weaponType: 'offhand_only', itemCategory: 'healer' };
+export const RED_DRAGONSCALE_PROTECTOR: GearItem = { id: 'red_dragonscale_protector', name: 'Red Dragonscale Protector', slot: 'offhand', rarity: 'epic', itemLevel: 77, classes: ['paladin', 'shaman'], stats: { stamina: 6, intellect: 17, spirit: 6, healingPower: 37 }, icon: `${ICON_BASE}/inv_shield_20.jpg`, weaponType: 'offhand_only', itemCategory: 'healer' };
 
 // =============================================================================
 // CLASS RELICS (Ranged Slot)
@@ -1942,21 +2415,21 @@ export const RED_DRAGONSCALE_PROTECTOR: GearItem = { id: 'red_dragonscale_protec
 // Paladin Librams
 export const LIBRAM_OF_GRACE: GearItem = { id: 'libram_of_grace', name: 'Libram of Grace', slot: 'ranged', rarity: 'rare', itemLevel: 60, classes: ['paladin'], stats: { healingPower: 53 }, icon: `${ICON_BASE}/inv_relics_libramofgrace.jpg`, relicType: 'libram', itemCategory: 'healer' };
 export const LIBRAM_OF_DIVINITY: GearItem = { id: 'libram_of_divinity', name: 'Libram of Divinity', slot: 'ranged', rarity: 'epic', itemLevel: 68, classes: ['paladin'], stats: { healingPower: 53 }, icon: `${ICON_BASE}/inv_relics_libramofhope.jpg`, relicType: 'libram', itemCategory: 'healer' };
-export const LIBRAM_OF_LIGHT: GearItem = { id: 'libram_of_light', name: 'Libram of Light', slot: 'ranged', rarity: 'rare', itemLevel: 55, classes: ['paladin'], stats: { healingPower: 30 }, icon: `${ICON_BASE}/inv_relics_libramofhope.jpg`, relicType: 'libram', itemCategory: 'healer' };
+export const LIBRAM_OF_LIGHT: GearItem = { id: 'libram_of_light', name: 'Libram of Light', slot: 'ranged', rarity: 'rare', itemLevel: 55, classes: ['paladin'], stats: { healingPower: 30 }, icon: `${ICON_BASE}/inv_relics_libramofgrace.jpg`, relicType: 'libram', itemCategory: 'healer' };
 
 // Shaman Totems (Relic items, not spell totems)
 export const TOTEM_OF_SUSTAINING: GearItem = { id: 'totem_of_sustaining', name: 'Totem of Sustaining', slot: 'ranged', rarity: 'rare', itemLevel: 60, classes: ['shaman'], stats: { healingPower: 53 }, icon: `${ICON_BASE}/inv_relics_totemoflife.jpg`, relicType: 'totem', itemCategory: 'healer' };
 export const TOTEM_OF_LIFE: GearItem = { id: 'totem_of_life', name: 'Totem of Life', slot: 'ranged', rarity: 'epic', itemLevel: 68, classes: ['shaman'], stats: { healingPower: 53 }, icon: `${ICON_BASE}/inv_relics_totemoflife.jpg`, relicType: 'totem', itemCategory: 'healer' };
-export const TOTEM_OF_REBIRTH: GearItem = { id: 'totem_of_rebirth', name: 'Totem of Rebirth', slot: 'ranged', rarity: 'rare', itemLevel: 55, classes: ['shaman'], stats: { healingPower: 30 }, icon: `${ICON_BASE}/inv_relics_totemoflife.jpg`, relicType: 'totem', itemCategory: 'healer' };
+export const TOTEM_OF_REBIRTH: GearItem = { id: 'totem_of_rebirth', name: 'Totem of Rebirth', slot: 'ranged', rarity: 'rare', itemLevel: 55, classes: ['shaman'], stats: { healingPower: 30 }, icon: `${ICON_BASE}/inv_relics_totemofrebirth.jpg`, relicType: 'totem', itemCategory: 'healer' };
 
 // Druid Idols
 export const IDOL_OF_REJUVENATION: GearItem = { id: 'idol_of_rejuvenation', name: 'Idol of Rejuvenation', slot: 'ranged', rarity: 'rare', itemLevel: 60, classes: ['druid'], stats: { healingPower: 50 }, icon: `${ICON_BASE}/inv_relics_idolofrejuvenation.jpg`, relicType: 'idol', itemCategory: 'healer' };
-export const IDOL_OF_HEALTH: GearItem = { id: 'idol_of_health', name: 'Idol of Health', slot: 'ranged', rarity: 'epic', itemLevel: 68, classes: ['druid'], stats: { healingPower: 50 }, icon: `${ICON_BASE}/inv_relics_idolofrejuvenation.jpg`, relicType: 'idol', itemCategory: 'healer' };
-export const IDOL_OF_LONGEVITY: GearItem = { id: 'idol_of_longevity', name: 'Idol of Longevity', slot: 'ranged', rarity: 'rare', itemLevel: 55, classes: ['druid'], stats: { mp5: 4 }, icon: `${ICON_BASE}/inv_relics_idolofrejuvenation.jpg`, relicType: 'idol', itemCategory: 'healer' };
+export const IDOL_OF_HEALTH: GearItem = { id: 'idol_of_health', name: 'Idol of Health', slot: 'ranged', rarity: 'epic', itemLevel: 68, classes: ['druid'], stats: { healingPower: 50 }, icon: `${ICON_BASE}/inv_relics_idolofhealth.jpg`, relicType: 'idol', itemCategory: 'healer' };
+export const IDOL_OF_LONGEVITY: GearItem = { id: 'idol_of_longevity', name: 'Idol of Longevity', slot: 'ranged', rarity: 'rare', itemLevel: 55, classes: ['druid'], stats: { mp5: 4 }, icon: `${ICON_BASE}/inv_relics_idolofhealth.jpg`, relicType: 'idol', itemCategory: 'healer' };
 
 // Wands (Casters - Priest, Mage, Warlock)
 // CRIMSON_SHOCKER defined in MC section above
-export const DOOMFINGER: GearItem = { id: 'doomfinger', name: 'Doomfinger', slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['priest', 'mage', 'warlock'], stats: { intellect: 8, stamina: 7, spellPower: 16 }, icon: `${ICON_BASE}/inv_wand_12.jpg`, relicType: 'wand', itemCategory: 'caster' };
+export const DOOMFINGER: GearItem = { id: 'doomfinger', name: 'Doomfinger', slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['priest', 'mage', 'warlock'], stats: { intellect: 8, stamina: 7, spellPower: 16 }, icon: `${ICON_BASE}/inv_wand_1h_stratholme_d_02.jpg`, relicType: 'wand', itemCategory: 'caster' };
 export const SKULLFLAME_WAND: GearItem = { id: 'skullflame_wand', name: 'Nether Force Wand', slot: 'ranged', rarity: 'epic', itemLevel: 66, classes: ['priest', 'mage', 'warlock'], stats: { intellect: 7, stamina: 5, spellPower: 11 }, icon: `${ICON_BASE}/inv_wand_11.jpg`, relicType: 'wand', itemCategory: 'caster' };
 
 // =============================================================================
@@ -2067,6 +2540,7 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   choker_of_enlightenment: CHOKER_OF_ENLIGHTENMENT,
   medallion_of_steadfast_might: MEDALLION_OF_STEADFAST_MIGHT,
   choker_of_the_fire_lord: CHOKER_OF_THE_FIRE_LORD,
+  animated_chain_necklace: ANIMATED_CHAIN_NECKLACE,
 
   // MC Accessories - Cloaks
   fireproof_cloak: FIREPROOF_CLOAK,
@@ -2085,7 +2559,6 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   // MC Accessories - Trinkets
   talisman_of_ephemeral_power: TALISMAN_OF_EPHEMERAL_POWER,
   essence_of_the_pure_flame: ESSENCE_OF_THE_PURE_FLAME,
-  shard_of_the_flame: SHARD_OF_THE_FLAME,
 
   // DPS Weapons
   bonereaver_edge: BONEREAVER_EDGE,

@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, CONSUMABLES, WORLD_BUFFS } from './game/GameEngine';
 import { CLASS_COLORS, CLASS_SPECS, getSpecById } from './game/types';
-import type { WoWClass, BuffEffect } from './game/types';
+import type { WoWClass, BuffEffect, Equipment } from './game/types';
 import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
 import { ENCOUNTERS, DEBUFFS } from './game/encounters';
 import { RAIDS } from './game/raids';
 import { calculateDKPCost, BOSS_LOOT_TABLES } from './game/lootTables';
-import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTING_MATERIALS } from './game/items';
-import type { QuestMaterialId, QuestRewardId } from './game/items';
+import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTING_MATERIALS, ENCHANTS, getEnchantsForSlot } from './game/items';
+import type { QuestMaterialId, QuestRewardId, EnchantSlot, EnchantId } from './game/items';
 import { SPELL_TOOLTIPS } from './game/spells';
 import type { Spell } from './game/types';
 import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
@@ -47,6 +47,11 @@ function App() {
   const [selectedLegendaryCraftTarget, setSelectedLegendaryCraftTarget] = useState<string | null>(null);
   const [activeBagTab, setActiveBagTab] = useState<'equipment' | 'materials'>('equipment');
   const [bagContextMenu, setBagContextMenu] = useState<{ x: number; y: number; index: number } | null>(null);
+  // Auction House state
+  const [ahSelectedMember, setAhSelectedMember] = useState<string | null>(null);  // null = player, otherwise memberId
+  const [ahSelectedSlot, setAhSelectedSlot] = useState<EquipmentSlot | null>(null);
+  // Inspection panel state
+  const [selectedInspectSlot, setSelectedInspectSlot] = useState<EquipmentSlot | null>(null);
   // Quest turn-in state (dragon heads)
   const [selectedQuestMaterial, setSelectedQuestMaterial] = useState<QuestMaterialId | null>(null);
   const [selectedQuestReward, setSelectedQuestReward] = useState<QuestRewardId | null>(null);
@@ -84,7 +89,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.22.0';
+  const CURRENT_PATCH_VERSION = '0.23.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -481,6 +486,17 @@ function App() {
       } catch (err) {
         console.error('Failed to save new character to cloud:', err);
       }
+    }
+
+    // Update PostHog with character info for better user profiles
+    if (currentUser) {
+      posthog.identify(currentUser.id, {
+        email: currentUser.email,
+        provider: currentUser.app_metadata?.provider,
+        character_name: config.playerName,
+        character_class: config.faction === 'alliance' ? 'paladin' : 'shaman',
+        faction: config.faction
+      });
     }
 
     setGameInitialized(true);
@@ -1270,6 +1286,48 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.23.0 - Enchanting & Gear Inspection</h3>
+                  <span className="patch-date">December 1, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Enchanting System</h4>
+                  <ul>
+                    <li><strong>Buy Enchants</strong>: New Auction House to purchase enchants for your gear</li>
+                    <li><strong>Nexus Crystal Currency</strong>: Use Nexus Crystals from disenchanting to buy enchants</li>
+                    <li><strong>Apply to Gear</strong>: Enchant your weapons, chest, gloves, and more for bonus stats</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Quest Rewards</h4>
+                  <ul>
+                    <li><strong>Boss Quest Items</strong>: Defeat bosses to receive quest items like the Head of Onyxia</li>
+                    <li><strong>Turn In for Rewards</strong>: Exchange quest items for powerful gear rewards</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Gear Inspection Redesign</h4>
+                  <ul>
+                    <li><strong>Two-Column Layout</strong>: Wider inspection panel with equipment list and item details side-by-side</li>
+                    <li><strong>Clickable Items</strong>: Click any equipment slot to see full stat breakdown</li>
+                    <li><strong>Enchant Display</strong>: Enchants now show their full stats in green text</li>
+                    <li><strong>Accurate Bonus HPS</strong>: Now calculates actual healing power from gear + enchants instead of just gear score</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Authentic WoW Classic Icons</h4>
+                  <ul>
+                    <li><strong>100+ Icon Updates</strong>: All item icons now use their correct authentic WoW Classic icons</li>
+                    <li><strong>Tier Sets</strong>: T1 and T2 armor sets now display proper icons</li>
+                    <li><strong>Raid Loot</strong>: MC, Onyxia, and BWL weapons, armor, and accessories corrected</li>
+                    <li><strong>Relics & Trinkets</strong>: Librams, Totems, Idols, and class trinkets fixed</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.22.0 - Disenchanting & Smart Loot</h3>
                   <span className="patch-date">December 1, 2025</span>
                 </div>
@@ -1553,9 +1611,36 @@ function App() {
                 <span>{state.critChance.toFixed(1)}% Crit</span>
                 <span>{Math.floor(engine.computePlayerStats().totalMp5)} MP5</span>
               </div>
-              <div className="player-dkp">
-                <span className="dkp-label">DKP:</span>
-                <span className="dkp-value">{state.playerDKP.points}</span>
+              <div className="player-dkp-row">
+                <div className="player-dkp">
+                  <span className="dkp-label">DKP:</span>
+                  <span className="dkp-value">{state.playerDKP.points}</span>
+                </div>
+                {!state.isRunning && (
+                  <div className="player-utility-icons">
+                    <div
+                      className={`utility-mini-btn ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
+                      onClick={() => setShowInventory(true)}
+                      title="Open Bags (B)"
+                    >
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
+                      <span className="keybind-text">B</span>
+                      {state.legendaryMaterials.length > 0 && (
+                        <span className="mini-badge">{state.legendaryMaterials.length}</span>
+                      )}
+                    </div>
+                    <div
+                      className={`utility-mini-btn ${state.materialsBag.nexus_crystal > 0 ? 'has-crystals' : ''}`}
+                      onClick={() => engine.openAuctionHouse()}
+                      title="Auction House - Enchants"
+                    >
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg" alt="Enchants" />
+                      {state.materialsBag.nexus_crystal > 0 && (
+                        <span className="mini-badge crystal">{state.materialsBag.nexus_crystal}</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             {!state.isRunning && (
@@ -1612,6 +1697,7 @@ function App() {
                 {cloudSyncStatus === 'error' && '☁️ Sync failed'}
               </div>
             )}
+
           </div>
 
           {/* Phase Transition Alert */}
@@ -2043,6 +2129,19 @@ function App() {
                 >
                   Restore Raid (Drink/Eat)
                 </button>
+                {Object.values(state.defeatedBossesByRaid).some(bosses => bosses.length > 0) && (
+                  <button
+                    className="reset-lockout-btn"
+                    onClick={() => {
+                      if (window.confirm('Reset all raid lockouts? All boss progress will be cleared.')) {
+                        engine.resetRaidLockout();
+                      }
+                    }}
+                    title="Reset all raid lockouts - clear all defeated bosses"
+                  >
+                    Reset Lockouts
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -2209,20 +2308,6 @@ function App() {
               )}
             </div>
 
-            {/* Bag/Inventory Button */}
-            {!state.isRunning && (
-              <div
-                className={`spell-button bag-button ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
-                onClick={() => setShowInventory(true)}
-                title="Open Bags (B)"
-              >
-                <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
-                <div className="spell-keybind">B</div>
-                {state.legendaryMaterials.length > 0 && (
-                  <div className="bag-item-count">{state.legendaryMaterials.length}</div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Totem Bar - Only shown for Shaman */}
@@ -3371,78 +3456,165 @@ function App() {
       )}
 
       {/* Inspection Panel */}
-      {state.inspectedMember && (
-        <div className="modal-overlay" onClick={() => engine.closeInspection()}>
-          <div className="inspection-panel" onClick={e => e.stopPropagation()}>
-            <div className="inspection-header">
-              <h2 style={{ color: CLASS_COLORS[state.inspectedMember.class] }}>
-                {state.inspectedMember.name}
-              </h2>
-              <span className="inspection-class">{state.inspectedMember.class.charAt(0).toUpperCase() + state.inspectedMember.class.slice(1)}</span>
-              <span className="inspection-role">{state.inspectedMember.role}</span>
-              <button className="close-inspection" onClick={() => engine.closeInspection()}>X</button>
-            </div>
-            <div className="inspection-gear-score">
-              Gear Score: {state.inspectedMember.gearScore}
-            </div>
-            <div className="inspection-equipment">
-              {(() => {
-                // Build dynamic slot list based on class - now with all 17 WoW Classic slots
-                const memberClass = state.inspectedMember!.class;
-                // Armor slots
-                const armorSlots: EquipmentSlot[] = ['head', 'neck', 'shoulders', 'back', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet'];
-                // Accessory slots
-                const accessorySlots: EquipmentSlot[] = ['ring1', 'ring2', 'trinket1', 'trinket2'];
-                // Weapon slots (class-dependent)
-                const weaponSlots: EquipmentSlot[] = ['weapon'];
-                // Warriors and Rogues can dual wield (offhand), casters use offhand too
-                if (memberClass === 'warrior' || memberClass === 'rogue' || memberClass === 'paladin' || memberClass === 'shaman' ||
-                    memberClass === 'priest' || memberClass === 'mage' || memberClass === 'warlock' || memberClass === 'druid') {
-                  weaponSlots.push('offhand');
+      {state.inspectedMember && (() => {
+        // Build dynamic slot list based on class
+        const memberClass = state.inspectedMember.class;
+        const armorSlots: EquipmentSlot[] = ['head', 'neck', 'shoulders', 'back', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet'];
+        const accessorySlots: EquipmentSlot[] = ['ring1', 'ring2', 'trinket1', 'trinket2'];
+        const weaponSlots: EquipmentSlot[] = ['weapon'];
+        if (['warrior', 'rogue', 'paladin', 'shaman', 'priest', 'mage', 'warlock', 'druid'].includes(memberClass)) {
+          weaponSlots.push('offhand');
+        }
+        weaponSlots.push('ranged');
+        const allSlots = [...armorSlots, ...accessorySlots, ...weaponSlots];
+
+        const formatSlotName = (slot: string) => {
+          if (slot === 'ring1') return 'Ring 1';
+          if (slot === 'ring2') return 'Ring 2';
+          if (slot === 'trinket1') return 'Trinket 1';
+          if (slot === 'trinket2') return 'Trinket 2';
+          return slot.charAt(0).toUpperCase() + slot.slice(1);
+        };
+
+        // Calculate actual healing power from gear + enchants
+        const calculateMemberHealingPower = (equipment: Equipment): number => {
+          let healingPower = 0;
+          Object.values(equipment).forEach(item => {
+            if (item) {
+              healingPower += (item.stats.healingPower || 0) + (item.stats.spellPower || 0);
+              if (item.enchantId) {
+                const enchant = ENCHANTS[item.enchantId as EnchantId];
+                if (enchant?.stats) {
+                  healingPower += (enchant.stats.healingPower || 0) + (enchant.stats.spellPower || 0);
                 }
-                // All classes get ranged slot (hunters=bows, healers=wands/relics)
-                weaponSlots.push('ranged');
+              }
+            }
+          });
+          return healingPower;
+        };
 
-                const allSlots = [...armorSlots, ...accessorySlots, ...weaponSlots];
+        const selectedItem = selectedInspectSlot ? state.inspectedMember.equipment[selectedInspectSlot] : null;
+        const selectedEnchant = selectedItem?.enchantId ? ENCHANTS[selectedItem.enchantId as EnchantId] : null;
 
-                // Format slot name for display
-                const formatSlotName = (slot: string) => {
-                  if (slot === 'ring1') return 'Ring 1';
-                  if (slot === 'ring2') return 'Ring 2';
-                  if (slot === 'trinket1') return 'Trinket 1';
-                  if (slot === 'trinket2') return 'Trinket 2';
-                  return slot.charAt(0).toUpperCase() + slot.slice(1);
-                };
+        return (
+          <div className="modal-overlay" onClick={() => { engine.closeInspection(); setSelectedInspectSlot(null); }}>
+            <div className="inspection-panel" onClick={e => e.stopPropagation()}>
+              <div className="inspection-header">
+                <h2 style={{ color: CLASS_COLORS[state.inspectedMember.class] }}>
+                  {state.inspectedMember.name}
+                </h2>
+                <span className="inspection-class">{state.inspectedMember.class.charAt(0).toUpperCase() + state.inspectedMember.class.slice(1)}</span>
+                <span className="inspection-role">{state.inspectedMember.role}</span>
+                <button className="close-inspection" onClick={() => { engine.closeInspection(); setSelectedInspectSlot(null); }}>X</button>
+              </div>
+              <div className="inspection-gear-score">
+                Gear Score: {state.inspectedMember.gearScore}
+              </div>
 
-                return allSlots.map(slot => {
-                  const item = state.inspectedMember!.equipment[slot];
-                  return (
-                    <div key={slot} className="equipment-slot">
-                      <span className="slot-name">{formatSlotName(slot)}:</span>
-                      {item ? (
-                        <span className="slot-item" style={{ color: RARITY_COLORS[item.rarity] }}>
-                          {item.name}
+              <div className="inspection-content">
+                {/* Left: Equipment List */}
+                <div className="equipment-list">
+                  {allSlots.map(slot => {
+                    const item = state.inspectedMember!.equipment[slot];
+                    const hasEnchant = item?.enchantId;
+                    return (
+                      <div
+                        key={slot}
+                        className={`equipment-slot clickable ${selectedInspectSlot === slot ? 'selected' : ''}`}
+                        onClick={() => setSelectedInspectSlot(slot)}
+                      >
+                        {item ? (
+                          <img src={item.icon} className="slot-icon" alt="" />
+                        ) : (
+                          <div className="slot-icon empty" />
+                        )}
+                        <span className="slot-name">{formatSlotName(slot)}:</span>
+                        <span className="slot-item" style={{ color: item ? RARITY_COLORS[item.rarity] : '#666' }}>
+                          {item?.name || 'Empty'}
                         </span>
-                      ) : (
-                        <span className="slot-empty">Empty</span>
+                        {hasEnchant && <span className="enchant-indicator">✦</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Right: Item Details */}
+                <div className="item-detail-panel">
+                  {selectedItem ? (
+                    <>
+                      <div className="detail-header">
+                        <img src={selectedItem.icon} className="detail-icon" alt="" />
+                        <div>
+                          <div className="detail-name" style={{ color: RARITY_COLORS[selectedItem.rarity] }}>
+                            {selectedItem.name}
+                          </div>
+                          <div className="detail-meta">
+                            {selectedItem.rarity.charAt(0).toUpperCase() + selectedItem.rarity.slice(1)} - Item Level {selectedItem.itemLevel}
+                          </div>
+                          <div className="detail-slot">{formatSlotName(selectedInspectSlot!)}</div>
+                        </div>
+                      </div>
+
+                      <div className="detail-stats">
+                        {selectedItem.stats.armor && <div>+{selectedItem.stats.armor} Armor</div>}
+                        {selectedItem.stats.stamina && <div>+{selectedItem.stats.stamina} Stamina</div>}
+                        {selectedItem.stats.intellect && <div>+{selectedItem.stats.intellect} Intellect</div>}
+                        {selectedItem.stats.spirit && <div>+{selectedItem.stats.spirit} Spirit</div>}
+                        {selectedItem.stats.strength && <div>+{selectedItem.stats.strength} Strength</div>}
+                        {selectedItem.stats.agility && <div>+{selectedItem.stats.agility} Agility</div>}
+                        {selectedItem.stats.healingPower && <div className="stat-healing">+{selectedItem.stats.healingPower} Healing</div>}
+                        {selectedItem.stats.spellPower && <div className="stat-healing">+{selectedItem.stats.spellPower} Spell Power</div>}
+                        {selectedItem.stats.attackPower && <div className="stat-attack">+{selectedItem.stats.attackPower} Attack Power</div>}
+                        {selectedItem.stats.mp5 && <div className="stat-mana">+{selectedItem.stats.mp5} MP5</div>}
+                        {selectedItem.stats.critChance && <div className="stat-crit">+{selectedItem.stats.critChance}% Crit</div>}
+                        {selectedItem.stats.hitChance && <div className="stat-hit">+{selectedItem.stats.hitChance}% Hit</div>}
+                        {selectedItem.stats.defense && <div className="stat-defense">+{selectedItem.stats.defense} Defense</div>}
+                        {selectedItem.stats.dodge && <div className="stat-dodge">+{selectedItem.stats.dodge}% Dodge</div>}
+                        {selectedItem.stats.fireResistance && <div className="stat-fire">+{selectedItem.stats.fireResistance} Fire Resistance</div>}
+                        {selectedItem.stats.frostResistance && <div className="stat-frost">+{selectedItem.stats.frostResistance} Frost Resistance</div>}
+                        {selectedItem.stats.shadowResistance && <div className="stat-shadow">+{selectedItem.stats.shadowResistance} Shadow Resistance</div>}
+                        {selectedItem.stats.natureResistance && <div className="stat-nature">+{selectedItem.stats.natureResistance} Nature Resistance</div>}
+                        {selectedItem.stats.arcaneResistance && <div className="stat-arcane">+{selectedItem.stats.arcaneResistance} Arcane Resistance</div>}
+                        {selectedItem.stats.allResistance && <div className="stat-resist-all">+{selectedItem.stats.allResistance} All Resistances</div>}
+                      </div>
+
+                      {selectedEnchant && (
+                        <div className="detail-enchant">
+                          <div className="enchant-divider" />
+                          <div className="enchant-label">Enchanted:</div>
+                          <div className="enchant-name">{selectedEnchant.name}</div>
+                          <div className="enchant-stats">
+                            {selectedEnchant.stats.healingPower && <div>+{selectedEnchant.stats.healingPower} Healing</div>}
+                            {selectedEnchant.stats.spellPower && <div>+{selectedEnchant.stats.spellPower} Spell Power</div>}
+                            {selectedEnchant.stats.intellect && <div>+{selectedEnchant.stats.intellect} Intellect</div>}
+                            {selectedEnchant.stats.stamina && <div>+{selectedEnchant.stats.stamina} Stamina</div>}
+                            {selectedEnchant.stats.mp5 && <div>+{selectedEnchant.stats.mp5} MP5</div>}
+                            {selectedEnchant.stats.critChance && <div>+{selectedEnchant.stats.critChance}% Crit</div>}
+                            {selectedEnchant.stats.agility && <div>+{selectedEnchant.stats.agility} Agility</div>}
+                            {selectedEnchant.stats.strength && <div>+{selectedEnchant.stats.strength} Strength</div>}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  );
-                });
-              })()}
-            </div>
-            {state.inspectedMember.role === 'healer' && (
-              <div className="inspection-stats">
-                <h3>Healer Stats</h3>
-                <div className="stat-row">
-                  <span>Bonus HPS from Gear:</span>
-                  <span>+{(state.inspectedMember.gearScore * 0.5).toFixed(1)}</span>
+                    </>
+                  ) : (
+                    <div className="no-selection">Select an item to view details</div>
+                  )}
                 </div>
               </div>
-            )}
+
+              {state.inspectedMember.role === 'healer' && (
+                <div className="inspection-stats">
+                  <h3>Healer Stats</h3>
+                  <div className="stat-row">
+                    <span>Bonus Healing from Gear:</span>
+                    <span className="stat-value">+{calculateMemberHealingPower(state.inspectedMember.equipment)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Save Modal */}
       {showSaveModal && (
@@ -5291,33 +5463,39 @@ function App() {
                   <>
                     <div className="bag-grid">
                       {/* Filled slots with gear items */}
-                      {state.playerBag.map((item, index) => (
-                        <div
-                          key={`gear-${item.id}-${index}`}
-                          className={`bag-slot filled gear rarity-${item.rarity}`}
-                          onClick={() => engine.equipFromBag(index)}
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            setBagContextMenu({ x: e.clientX, y: e.clientY, index });
-                          }}
-                          title={`Click to equip • Right-click to disenchant`}
-                        >
-                          <img src={item.icon} alt={item.name} />
-                          <div className="slot-tooltip">
-                            <div className="tooltip-name" style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</div>
-                            <div className="tooltip-slot">{item.slot.charAt(0).toUpperCase() + item.slot.slice(1)} - iLvl {item.itemLevel}</div>
-                            <div className="tooltip-stats">
-                              {item.stats.intellect && <div>+{item.stats.intellect} Intellect</div>}
-                              {item.stats.stamina && <div>+{item.stats.stamina} Stamina</div>}
-                              {item.stats.spellPower && <div>+{item.stats.spellPower} Spell Power</div>}
-                              {item.stats.healingPower && <div>+{item.stats.healingPower} Healing</div>}
-                              {item.stats.mp5 && <div>+{item.stats.mp5} MP5</div>}
-                              {item.stats.critChance && <div>+{item.stats.critChance}% Crit</div>}
+                      {state.playerBag.map((item, index) => {
+                        const itemEnchant = item.enchantId ? ENCHANTS[item.enchantId] : null;
+                        return (
+                          <div
+                            key={`gear-${item.id}-${index}`}
+                            className={`bag-slot filled gear rarity-${item.rarity} ${item.enchantId ? 'enchanted' : ''}`}
+                            onClick={() => engine.equipFromBag(index)}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setBagContextMenu({ x: e.clientX, y: e.clientY, index });
+                            }}
+                            title={`Click to equip • Right-click to disenchant`}
+                          >
+                            <img src={item.icon} alt={item.name} />
+                            <div className="slot-tooltip">
+                              <div className="tooltip-name" style={{ color: RARITY_COLORS[item.rarity] }}>{item.name}</div>
+                              {itemEnchant && (
+                                <div className="tooltip-enchant" style={{ color: '#1eff00' }}>{itemEnchant.name}</div>
+                              )}
+                              <div className="tooltip-slot">{item.slot.charAt(0).toUpperCase() + item.slot.slice(1)} - iLvl {item.itemLevel}</div>
+                              <div className="tooltip-stats">
+                                {item.stats.intellect && <div>+{item.stats.intellect} Intellect</div>}
+                                {item.stats.stamina && <div>+{item.stats.stamina} Stamina</div>}
+                                {item.stats.spellPower && <div>+{item.stats.spellPower} Spell Power</div>}
+                                {item.stats.healingPower && <div>+{item.stats.healingPower} Healing</div>}
+                                {item.stats.mp5 && <div>+{item.stats.mp5} MP5</div>}
+                                {item.stats.critChance && <div>+{item.stats.critChance}% Crit</div>}
+                              </div>
+                              <div className="tooltip-action">Left-click: Equip • Right-click: Disenchant</div>
                             </div>
-                            <div className="tooltip-action">Left-click: Equip • Right-click: Disenchant</div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       {/* Empty slots to fill the grid */}
                       {Array.from({ length: Math.max(0, 16 - state.playerBag.length) }).map((_, idx) => (
                         <div key={`gear-empty-${idx}`} className="bag-slot empty" />
@@ -5729,6 +5907,168 @@ function App() {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Auction House Modal */}
+      {state.showAuctionHouse && (
+        <div className="modal-overlay" onClick={() => engine.closeAuctionHouse()}>
+          <div className="auction-house-modal" onClick={e => e.stopPropagation()}>
+            <div className="ah-header">
+              <div className="ah-title">
+                <img
+                  src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg"
+                  alt="AH"
+                  className="ah-title-icon"
+                />
+                <h2>Auction House - Enchants</h2>
+              </div>
+              <div className="ah-currency">
+                <img src={ENCHANTING_MATERIALS.nexus_crystal.icon} alt="Nexus Crystal" />
+                <span>{state.materialsBag.nexus_crystal}</span>
+              </div>
+              <button className="ah-close-btn" onClick={() => engine.closeAuctionHouse()}>×</button>
+            </div>
+
+            <div className="ah-member-selector">
+              <label>Enchanting gear for:</label>
+              <select
+                value={ahSelectedMember || 'player'}
+                onChange={e => {
+                  setAhSelectedMember(e.target.value);
+                  setAhSelectedSlot(null);
+                }}
+              >
+                <option value="player">{state.playerName} (You)</option>
+                {state.raid.filter(m => m.id !== 'player').map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.class}) - {m.role}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ah-content">
+              {/* Left: Equipment Slots */}
+              <div className="ah-equipment">
+                <h3>Equipment</h3>
+                <div className="ah-equipment-grid">
+                  {(() => {
+                    // Get equipment based on selected member
+                    const equipment: Equipment = ahSelectedMember === 'player' || !ahSelectedMember
+                      ? state.playerEquipment
+                      : (state.raid.find(m => m.id === ahSelectedMember)?.equipment || {}) as Equipment;
+
+                    const slots: EquipmentSlot[] = ['head', 'shoulders', 'back', 'chest', 'wrist', 'hands', 'legs', 'feet', 'weapon', 'offhand'];
+
+                    return slots.map(slot => {
+                      const item = equipment[slot];
+                      const hasEnchant = item?.enchantId;
+                      const enchant = hasEnchant && item?.enchantId ? ENCHANTS[item.enchantId] : null;
+
+                      return (
+                        <div
+                          key={slot}
+                          className={`ah-equipment-slot ${item ? 'filled' : 'empty'} ${ahSelectedSlot === slot ? 'selected' : ''} ${hasEnchant ? 'enchanted' : ''}`}
+                          onClick={() => item && setAhSelectedSlot(slot)}
+                          title={item ? `${item.name}${enchant ? `\n${enchant.name}` : ''}` : `No ${slot} equipped`}
+                        >
+                          {item ? (
+                            <>
+                              <img src={item.icon} alt={item.name} className={`rarity-${item.rarity}-border`} />
+                              <span className="ah-slot-label">{slot}</span>
+                              {hasEnchant && <div className="enchant-indicator" />}
+                            </>
+                          ) : (
+                            <span className="ah-slot-empty">{slot}</span>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                {ahSelectedSlot && (() => {
+                  const equipment: Equipment = ahSelectedMember === 'player' || !ahSelectedMember
+                    ? state.playerEquipment
+                    : (state.raid.find(m => m.id === ahSelectedMember)?.equipment || {}) as Equipment;
+                  const item = equipment[ahSelectedSlot];
+                  if (!item) return null;
+                  const enchant = item.enchantId ? ENCHANTS[item.enchantId] : null;
+
+                  return (
+                    <div className="ah-selected-item">
+                      <div className="ah-item-header">
+                        <img src={item.icon} alt={item.name} />
+                        <div className="ah-item-info">
+                          <span className={`ah-item-name rarity-${item.rarity}-text`}>{item.name}</span>
+                          <span className="ah-item-slot">{ahSelectedSlot} - iLvl {item.itemLevel}</span>
+                        </div>
+                      </div>
+                      {enchant && (
+                        <div className="ah-current-enchant">
+                          Current: <span className="enchant-text">{enchant.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Right: Available Enchants */}
+              <div className="ah-enchants">
+                <h3>Available Enchants</h3>
+                {ahSelectedSlot ? (
+                  <div className="ah-enchants-list">
+                    {getEnchantsForSlot(ahSelectedSlot as EnchantSlot).map(enchant => {
+                      const canAfford = state.materialsBag.nexus_crystal >= enchant.cost;
+                      return (
+                        <div
+                          key={enchant.id}
+                          className={`ah-enchant-card ${canAfford ? '' : 'cannot-afford'}`}
+                        >
+                          <div className="ah-enchant-header">
+                            <img src={enchant.icon} alt={enchant.name} />
+                            <div className="ah-enchant-info">
+                              <span className="ah-enchant-name">{enchant.name}</span>
+                              <span className="ah-enchant-desc">{enchant.description}</span>
+                            </div>
+                          </div>
+                          <div className="ah-enchant-footer">
+                            <div className="ah-enchant-cost">
+                              <img src={ENCHANTING_MATERIALS.nexus_crystal.icon} alt="Cost" />
+                              <span className={canAfford ? '' : 'not-enough'}>{enchant.cost}</span>
+                            </div>
+                            <button
+                              className="ah-buy-btn"
+                              disabled={!canAfford}
+                              onClick={() => {
+                                if (ahSelectedMember === 'player' || !ahSelectedMember) {
+                                  engine.purchaseEnchant(enchant.id, ahSelectedSlot);
+                                } else {
+                                  engine.purchaseEnchantForMember(enchant.id, ahSelectedSlot, ahSelectedMember);
+                                }
+                              }}
+                            >
+                              {canAfford ? 'Buy' : 'Need More'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {getEnchantsForSlot(ahSelectedSlot as EnchantSlot).length === 0 && (
+                      <div className="ah-no-enchants">
+                        No enchants available for this slot.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="ah-select-hint">
+                    Select an equipment slot to view available enchants.
+                  </div>
+                )}
               </div>
             </div>
           </div>

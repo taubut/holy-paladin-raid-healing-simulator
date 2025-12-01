@@ -6,8 +6,8 @@ import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
-import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial, QuestMaterialId, QuestRewardId } from './items';
-import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS } from './items';
+import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial, QuestMaterialId, QuestRewardId, EnchantId, EnchantSlot } from './items';
+import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTS } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
 import posthog from 'posthog-js';
@@ -407,6 +407,7 @@ export class GameEngine {
       playerDKP: { points: 50, earnedThisRaid: 0 },
       pendingLoot: [],
       showLootModal: false,
+      showAuctionHouse: false,
       inspectedMember: null,
       // Multiplayer loot bidding
       lootBids: {},
@@ -1509,11 +1510,12 @@ export class GameEngine {
     this.notify();
   }
 
-  // Reset raid lockout - clears defeated bosses for current raid, allowing player to start fresh
+  // Reset raid lockout - clears defeated bosses for ALL raids, allowing player to start fresh
   resetRaidLockout() {
-    // Reset per-raid defeated bosses for current raid
-    const currentRaidId = this.state.selectedRaidId;
-    this.state.defeatedBossesByRaid[currentRaidId] = [];
+    // Reset per-raid defeated bosses for ALL raids
+    for (const raidId of Object.keys(this.state.defeatedBossesByRaid)) {
+      this.state.defeatedBossesByRaid[raidId] = [];
+    }
 
     // Legacy field
     this.state.defeatedBosses = [];
@@ -1528,9 +1530,7 @@ export class GameEngine {
     });
     this.state.playerMana = this.state.maxMana;
 
-    const raid = this.getCurrentRaid();
-    const raidName = raid?.name || 'Raid';
-    this.addCombatLogEntry({ message: `${raidName} lockout reset! All bosses are available again.`, type: 'system' });
+    this.addCombatLogEntry({ message: `All raid lockouts reset! All bosses are available again.`, type: 'system' });
     this.notify();
   }
 
@@ -3420,10 +3420,22 @@ export class GameEngine {
 
     Object.values(this.state.playerEquipment).forEach(item => {
       if (item) {
+        // Base item stats
         spellPower += (item.stats.spellPower || 0) + (item.stats.healingPower || 0);
         mana += (item.stats.mana || 0) + (item.stats.intellect || 0) * 15;
         crit += item.stats.critChance || 0;
         mp5 += item.stats.mp5 || 0;
+
+        // Enchant stats
+        if (item.enchantId) {
+          const enchant = ENCHANTS[item.enchantId as EnchantId];
+          if (enchant && enchant.stats) {
+            spellPower += (enchant.stats.spellPower || 0) + (enchant.stats.healingPower || 0);
+            mana += (enchant.stats.intellect || 0) * 15;
+            crit += enchant.stats.critChance || 0;
+            mp5 += enchant.stats.mp5 || 0;
+          }
+        }
       }
     });
 
@@ -3723,6 +3735,127 @@ export class GameEngine {
   // Get DKP cost for an item
   getItemDKPCost(item: GearItem): number {
     return calculateDKPCost(item);
+  }
+
+  // =========================================================================
+  // AUCTION HOUSE - ENCHANTING SYSTEM
+  // =========================================================================
+
+  // Open the Auction House (only available between encounters)
+  openAuctionHouse(): void {
+    if (this.state.isRunning) {
+      this.addCombatLogEntry({ message: 'Auction House is not available during combat', type: 'system' });
+      return;
+    }
+    this.state.showAuctionHouse = true;
+    this.notify();
+  }
+
+  // Close the Auction House
+  closeAuctionHouse(): void {
+    this.state.showAuctionHouse = false;
+    this.notify();
+  }
+
+  // Purchase and apply an enchant to player's equipment
+  purchaseEnchant(enchantId: EnchantId, slot: EquipmentSlot): boolean {
+    const enchant = ENCHANTS[enchantId];
+    if (!enchant) {
+      this.addCombatLogEntry({ message: 'Invalid enchant', type: 'system' });
+      return false;
+    }
+
+    // Check if player has enough Nexus Crystals
+    if (this.state.materialsBag.nexus_crystal < enchant.cost) {
+      this.addCombatLogEntry({
+        message: `Not enough Nexus Crystals! Need ${enchant.cost}, have ${this.state.materialsBag.nexus_crystal}`,
+        type: 'system'
+      });
+      return false;
+    }
+
+    // Check if slot has an item equipped
+    const item = this.state.playerEquipment[slot];
+    if (!item) {
+      this.addCombatLogEntry({ message: `No item equipped in ${slot} slot`, type: 'system' });
+      return false;
+    }
+
+    // Check if enchant is valid for this slot
+    if (!enchant.slots.includes(slot as EnchantSlot)) {
+      this.addCombatLogEntry({ message: `${enchant.name} cannot be applied to ${slot}`, type: 'system' });
+      return false;
+    }
+
+    // Deduct cost and apply enchant
+    this.state.materialsBag.nexus_crystal -= enchant.cost;
+    item.enchantId = enchantId;
+
+    // Recalculate player stats to include enchant bonuses
+    const stats = this.computePlayerStats();
+    this.state.spellPower = stats.totalSpellPower;
+    this.state.maxMana = stats.totalMaxMana;
+    this.state.critChance = stats.totalCritChance;
+
+    this.addCombatLogEntry({
+      message: `Applied ${enchant.name} to ${item.name}`,
+      type: 'buff'
+    });
+
+    this.requestCloudSave();
+    this.notify();
+    return true;
+  }
+
+  // Purchase and apply an enchant to a raid member's equipment
+  purchaseEnchantForMember(enchantId: EnchantId, slot: EquipmentSlot, memberId: string): boolean {
+    const enchant = ENCHANTS[enchantId];
+    if (!enchant) {
+      this.addCombatLogEntry({ message: 'Invalid enchant', type: 'system' });
+      return false;
+    }
+
+    // Find the raid member
+    const member = this.state.raid.find((m: RaidMember) => m.id === memberId);
+    if (!member) {
+      this.addCombatLogEntry({ message: 'Raid member not found', type: 'system' });
+      return false;
+    }
+
+    // Check if player has enough Nexus Crystals
+    if (this.state.materialsBag.nexus_crystal < enchant.cost) {
+      this.addCombatLogEntry({
+        message: `Not enough Nexus Crystals! Need ${enchant.cost}, have ${this.state.materialsBag.nexus_crystal}`,
+        type: 'system'
+      });
+      return false;
+    }
+
+    // Check if slot has an item equipped
+    const item = member.equipment[slot];
+    if (!item) {
+      this.addCombatLogEntry({ message: `${member.name} has no item in ${slot} slot`, type: 'system' });
+      return false;
+    }
+
+    // Check if enchant is valid for this slot
+    if (!enchant.slots.includes(slot as EnchantSlot)) {
+      this.addCombatLogEntry({ message: `${enchant.name} cannot be applied to ${slot}`, type: 'system' });
+      return false;
+    }
+
+    // Deduct cost and apply enchant
+    this.state.materialsBag.nexus_crystal -= enchant.cost;
+    item.enchantId = enchantId;
+
+    this.addCombatLogEntry({
+      message: `Applied ${enchant.name} to ${member.name}'s ${item.name}`,
+      type: 'buff'
+    });
+
+    this.requestCloudSave();
+    this.notify();
+    return true;
   }
 
   // =========================================================================
@@ -4262,15 +4395,33 @@ export class GameEngine {
   }
 
   // Migrate equipment from old save format to new format with all 17 slots
+  // Also refreshes item stats from ALL_ITEMS to pick up any hotfixes
   private migrateEquipment(equipment: Partial<Equipment> | undefined): Equipment {
     const emptyEquipment = createEmptyEquipment();
     if (!equipment) return emptyEquipment;
 
-    // Merge old equipment with empty equipment template (ensures all 17 slots exist)
-    return {
-      ...emptyEquipment,
-      ...equipment,
-    };
+    // Create refreshed equipment by looking up each item from ALL_ITEMS
+    // This ensures players always get the latest item stats when loading saves
+    const refreshedEquipment: Equipment = { ...emptyEquipment };
+
+    for (const [slot, item] of Object.entries(equipment)) {
+      if (item && item.id) {
+        // Look up the fresh item data from ALL_ITEMS
+        const freshItem = ALL_ITEMS[item.id];
+        if (freshItem) {
+          // Use the fresh item data but preserve the enchantId from the save
+          refreshedEquipment[slot as EquipmentSlot] = {
+            ...freshItem,
+            enchantId: item.enchantId, // Preserve player's enchant
+          };
+        } else {
+          // Item no longer exists in ALL_ITEMS, keep the saved version
+          refreshedEquipment[slot as EquipmentSlot] = item;
+        }
+      }
+    }
+
+    return refreshedEquipment;
   }
 
   // Import game state from JSON (for cloud saves)
@@ -4370,6 +4521,13 @@ export class GameEngine {
       // Update max paladin blessings
       const raidSize = saveData.raidSize || this.state.raid.length;
       this.state.maxPaladinBlessings = raidSize >= 40 ? 4 : 2;
+
+      // Sync player's raid member equipment with playerEquipment to ensure same reference
+      const player = this.getPlayerMember();
+      if (player) {
+        player.equipment = this.state.playerEquipment;
+        player.gearScore = this.calculateGearScore(this.state.playerEquipment);
+      }
 
       // Update player stats
       const stats = this.computePlayerStats();
