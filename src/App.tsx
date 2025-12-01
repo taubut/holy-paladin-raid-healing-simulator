@@ -120,8 +120,6 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'keybinds' | 'interface'>('keybinds');
   const [recordingKeybind, setRecordingKeybind] = useState<string | null>(null);
-  // Utility menu dropdown state
-  const [showUtilityMenu, setShowUtilityMenu] = useState(false);
 
   // Auth state for cloud saves
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -313,21 +311,6 @@ function App() {
       }, 100);
     }
   };
-
-  // Close utility menu when clicking outside
-  useEffect(() => {
-    if (!showUtilityMenu) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest('.utility-dropdown')) {
-        setShowUtilityMenu(false);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, [showUtilityMenu]);
 
   // Handle keybind recording
   useEffect(() => {
@@ -1619,10 +1602,10 @@ function App() {
                 {!state.isRunning && (
                   <div className="player-utility-icons">
                     <div
-                      className={`utility-mini-btn ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
+                      className={`utility-mini-btn has-tooltip ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
                       onClick={() => setShowInventory(true)}
-                      title="Open Bags (B)"
                     >
+                      <span className="icon-tooltip">Bags (B)</span>
                       <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
                       <span className="keybind-text">B</span>
                       {state.legendaryMaterials.length > 0 && (
@@ -1630,64 +1613,59 @@ function App() {
                       )}
                     </div>
                     <div
-                      className={`utility-mini-btn ${state.materialsBag.nexus_crystal > 0 ? 'has-crystals' : ''}`}
+                      className={`utility-mini-btn has-tooltip ${state.materialsBag.nexus_crystal > 0 ? 'has-crystals' : ''}`}
                       onClick={() => engine.openAuctionHouse()}
-                      title="Auction House - Enchants"
                     >
+                      <span className="icon-tooltip">Auction House</span>
                       <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg" alt="Enchants" />
                       {state.materialsBag.nexus_crystal > 0 && (
                         <span className="mini-badge crystal">{state.materialsBag.nexus_crystal}</span>
                       )}
                     </div>
+                    <div className="utility-icon-separator" />
+                    <div
+                      className="utility-mini-btn has-tooltip"
+                      onClick={() => setShowSaveModal(true)}
+                    >
+                      <span className="icon-tooltip">Save</span>
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_note_01.jpg" alt="Save" />
+                    </div>
+                    <div
+                      className="utility-mini-btn has-tooltip"
+                      onClick={() => setShowLoadModal(true)}
+                    >
+                      <span className="icon-tooltip">Load</span>
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_book_09.jpg" alt="Load" />
+                    </div>
+                    <div
+                      className="utility-mini-btn has-tooltip"
+                      onClick={() => setShowSettings(true)}
+                    >
+                      <span className="icon-tooltip">Settings</span>
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/trade_engineering.jpg" alt="Settings" />
+                    </div>
+                    <div
+                      className="utility-mini-btn has-tooltip"
+                      onClick={() => {
+                        setSelectedAdminMemberId(state.playerId);
+                        setShowAdminPanel(true);
+                      }}
+                    >
+                      <span className="icon-tooltip">Admin</span>
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_key_03.jpg" alt="Admin" />
+                    </div>
+                    <div
+                      className={`utility-mini-btn has-tooltip ${currentUser ? 'logged-in' : ''}`}
+                      onClick={() => setShowAuthModal(true)}
+                    >
+                      <span className="icon-tooltip">{currentUser ? currentUser.email?.split('@')[0] || 'Account' : 'Sign In'}</span>
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_human_01.jpg" alt="Account" />
+                      {currentUser && <span className="logged-in-indicator">✓</span>}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
-            {!state.isRunning && (
-              <div className="utility-dropdown">
-                <button
-                  className="utility-menu-btn"
-                  onClick={() => setShowUtilityMenu(!showUtilityMenu)}
-                >
-                  Menu {showUtilityMenu ? '▲' : '▼'}
-                </button>
-                {showUtilityMenu && (
-                  <div className="utility-menu">
-                    <button onClick={() => {
-                      setShowSaveModal(true);
-                      setShowUtilityMenu(false);
-                    }}>
-                      Save
-                    </button>
-                    <button onClick={() => {
-                      setShowLoadModal(true);
-                      setShowUtilityMenu(false);
-                    }}>
-                      Load
-                    </button>
-                    <button onClick={() => {
-                      setShowSettings(true);
-                      setShowUtilityMenu(false);
-                    }}>
-                      Settings
-                    </button>
-                    <button onClick={() => {
-                      setSelectedAdminMemberId(state.playerId);
-                      setShowAdminPanel(true);
-                      setShowUtilityMenu(false);
-                    }}>
-                      Admin
-                    </button>
-                    <button onClick={() => {
-                      setShowAuthModal(true);
-                      setShowUtilityMenu(false);
-                    }} className={currentUser ? 'auth-logged-in' : ''}>
-                      {authLoading ? '...' : currentUser ? `${currentUser.email?.split('@')[0] || 'Account'}` : 'Sign In'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
             {/* Cloud sync indicator */}
             {currentUser && cloudSyncStatus && (
               <div className={`cloud-sync-indicator ${cloudSyncStatus === 'saved' || cloudSyncStatus === 'loaded' ? 'synced' : cloudSyncStatus}`}>
