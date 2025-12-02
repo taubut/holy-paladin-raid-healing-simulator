@@ -570,6 +570,7 @@ export interface GearItem {
   itemCategory?: ItemCategory;  // For spec-aware loot filtering
   relicType?: RelicType;  // For ranged slot items: libram, totem, idol, wand, bow, etc.
   enchantId?: EnchantId;  // Applied enchant (if any)
+  isPreRaidBis?: boolean;  // Pre-raid BiS items cannot be disenchanted, only destroyed
 }
 
 const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
@@ -1127,6 +1128,21 @@ export const MAGMA_TEMPERED_BOOTS: GearItem = { id: 'magma_tempered_boots', name
 export const FLAMEGUARD_GAUNTLETS: GearItem = { id: 'flameguard_gauntlets', name: 'Flameguard Gauntlets', slot: 'hands', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 16, stamina: 16, critChance: 1 }, icon: `${ICON_BASE}/inv_gauntlets_26.jpg`, itemCategory: 'melee' };
 
 export const FLAMEWAKER_LEGPLATES: GearItem = { id: 'flamewaker_legplates', name: 'Flamewaker Legplates', slot: 'legs', rarity: 'epic', itemLevel: 66, classes: ['warrior', 'paladin'], stats: { strength: 26, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_pants_04.jpg`, itemCategory: 'melee' };
+
+// Deep Earth Spaulders - Magmadar (Elemental Shaman shoulders)
+export const DEEP_EARTH_SPAULDERS: GearItem = { id: 'deep_earth_spaulders', name: 'Deep Earth Spaulders', slot: 'shoulders', rarity: 'epic', itemLevel: 71, classes: ['shaman'], stats: { armor: 399, stamina: 11, intellect: 12, spirit: 7, spellPower: 40 }, icon: `${ICON_BASE}/inv_shoulder_04.jpg`, itemCategory: 'caster' };
+
+// Wristguards of True Flight - Majordomo (Hunter/Enhancement bracers)
+export const WRISTGUARDS_OF_TRUE_FLIGHT: GearItem = { id: 'wristguards_of_true_flight', name: 'Wristguards of True Flight', slot: 'wrist', rarity: 'epic', itemLevel: 71, classes: ['hunter', 'shaman'], stats: { armor: 198, agility: 19, stamina: 11, intellect: 6, hitChance: 1 }, icon: `${ICON_BASE}/inv_bracer_02.jpg`, itemCategory: 'physical_ranged' };
+
+// Core Forged Greaves - Majordomo (Tank boots)
+export const CORE_FORGED_GREAVES: GearItem = { id: 'core_forged_greaves', name: 'Core Forged Greaves', slot: 'feet', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'paladin'], stats: { armor: 724, stamina: 28, defense: 4, fireResistance: 12, shadowResistance: 8 }, icon: `${ICON_BASE}/inv_boots_plate_09.jpg`, itemCategory: 'melee' };
+
+// Helm of the Lifegiver - Sulfuron Harbinger (Healer mail helm)
+export const HELM_OF_THE_LIFEGIVER: GearItem = { id: 'helm_of_the_lifegiver', name: 'Helm of the Lifegiver', slot: 'head', rarity: 'epic', itemLevel: 62, classes: ['shaman', 'paladin'], stats: { armor: 324, stamina: 14, intellect: 30, spirit: 9, healingPower: 42, mp5: 6 }, icon: `${ICON_BASE}/inv_helmet_18.jpg`, itemCategory: 'healer' };
+
+// Shard of the Flame - Ragnaros (Health regen trinket)
+export const SHARD_OF_THE_FLAME: GearItem = { id: 'shard_of_the_flame', name: 'Shard of the Flame', slot: 'trinket1', rarity: 'epic', itemLevel: 74, classes: ['warrior', 'paladin', 'hunter', 'rogue', 'priest', 'shaman', 'mage', 'warlock', 'druid'], stats: {}, icon: `${ICON_BASE}/inv_misc_orb_05.jpg`, itemCategory: 'universal' };
 
 // =============================================================================
 // MOLTEN CORE - T2 LEGS (Ragnaros drops)
@@ -2312,6 +2328,11 @@ export const CLAW_OF_THE_BLACK_DRAKE: GearItem = { id: 'claw_of_the_black_drake'
 export const HERALD_OF_WOE: GearItem = { id: 'herald_of_woe', name: 'Herald of Woe', slot: 'weapon', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'paladin', 'shaman'], stats: { strength: 25, stamina: 18, critChance: 1 }, icon: `${ICON_BASE}/inv_mace_05.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
 export const SPINESHATTER: GearItem = { id: 'spineshatter', name: 'Spineshatter', slot: 'weapon', rarity: 'epic', itemLevel: 72, classes: ['warrior', 'paladin', 'shaman'], stats: { strength: 12, stamina: 15, spirit: 8 }, icon: `${ICON_BASE}/inv_mace_06.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
 
+// BWL Missing Weapons - Ebonroc
+export const DRACONIC_AVENGER: GearItem = { id: 'draconic_avenger', name: 'Draconic Avenger', slot: 'weapon', rarity: 'epic', itemLevel: 71, classes: ['warrior', 'paladin'], stats: { strength: 21, stamina: 18 }, icon: `${ICON_BASE}/inv_axe_09.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const DRACONIC_MAUL: GearItem = { id: 'draconic_maul', name: 'Draconic Maul', slot: 'weapon', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'paladin', 'shaman', 'druid'], stats: { strength: 27, stamina: 19, critChance: 2 }, icon: `${ICON_BASE}/inv_mace_15.jpg`, weaponType: 'two_hand', itemCategory: 'melee' };
+export const DOOMS_EDGE: GearItem = { id: 'dooms_edge', name: "Doom's Edge", slot: 'weapon', rarity: 'epic', itemLevel: 70, classes: ['warrior', 'rogue', 'hunter', 'shaman'], stats: { strength: 9, agility: 16, stamina: 7 }, icon: `${ICON_BASE}/inv_axe_17.jpg`, weaponType: 'one_hand', itemCategory: 'melee' };
+
 // BWL Missing Weapons - Wand
 export const DRAGONS_TOUCH: GearItem = { id: 'dragons_touch', name: "Dragon's Touch", slot: 'ranged', rarity: 'epic', itemLevel: 77, classes: ['mage', 'warlock', 'priest'], stats: { intellect: 7, stamina: 6, spellPower: 26 }, icon: `${ICON_BASE}/inv_wand_11.jpg`, weaponType: 'ranged', relicType: 'wand', itemCategory: 'caster' };
 
@@ -2338,6 +2359,7 @@ export const BAND_OF_FORCED_CONCENTRATION: GearItem = { id: 'band_of_forced_conc
 export const CIRCLE_OF_APPLIED_FORCE: GearItem = { id: 'circle_of_applied_force', name: 'Circle of Applied Force', slot: 'ring1', rarity: 'epic', itemLevel: 77, classes: ['all'], stats: { strength: 12, agility: 22, stamina: 9 }, icon: `${ICON_BASE}/inv_jewelry_ring_37.jpg`, itemCategory: 'melee' };
 export const PURE_ELEMENTIUM_BAND: GearItem = { id: 'pure_elementium_band', name: 'Pure Elementium Band', slot: 'ring1', rarity: 'epic', itemLevel: 81, classes: ['all'], stats: { intellect: 14, stamina: 10, spellPower: 27 }, icon: `${ICON_BASE}/inv_jewelry_ring_42.jpg`, itemCategory: 'caster' };
 export const ARCHIMTIROS_RING_OF_RECKONING: GearItem = { id: 'archimtiros_ring_of_reckoning', name: "Archimtiros' Ring of Reckoning", slot: 'ring1', rarity: 'epic', itemLevel: 81, classes: ['warrior', 'paladin'], stats: { stamina: 16, strength: 14 }, icon: `${ICON_BASE}/inv_jewelry_ring_40.jpg`, itemCategory: 'melee' };
+export const BAND_OF_DARK_DOMINION: GearItem = { id: 'band_of_dark_dominion', name: 'Band of Dark Dominion', slot: 'ring1', rarity: 'epic', itemLevel: 70, classes: ['warlock', 'priest'], stats: { stamina: 12, intellect: 6, spellPower: 33 }, icon: `${ICON_BASE}/inv_jewelry_ring_18.jpg`, itemCategory: 'caster' };
 
 // BWL Trinkets - All Class
 export const DRAKE_FANG_TALISMAN: GearItem = { id: 'drake_fang_talisman', name: 'Drake Fang Talisman', slot: 'trinket1', rarity: 'epic', itemLevel: 77, classes: ['warrior', 'rogue', 'hunter', 'paladin'], stats: { hitChance: 2 }, icon: `${ICON_BASE}/inv_misc_bone_06.jpg`, itemCategory: 'melee' };
@@ -2593,6 +2615,11 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   magma_tempered_boots: MAGMA_TEMPERED_BOOTS,
   flameguard_gauntlets: FLAMEGUARD_GAUNTLETS,
   flamewaker_legplates: FLAMEWAKER_LEGPLATES,
+  deep_earth_spaulders: DEEP_EARTH_SPAULDERS,
+  wristguards_of_true_flight: WRISTGUARDS_OF_TRUE_FLIGHT,
+  core_forged_greaves: CORE_FORGED_GREAVES,
+  helm_of_the_lifegiver: HELM_OF_THE_LIFEGIVER,
+  shard_of_the_flame: SHARD_OF_THE_FLAME,
 
   // MC T2 Legs (Ragnaros)
   leggings_of_transcendence: LEGGINGS_OF_TRANSCENDENCE,
@@ -2740,6 +2767,9 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   claw_of_the_black_drake: CLAW_OF_THE_BLACK_DRAKE,
   herald_of_woe: HERALD_OF_WOE,
   spineshatter: SPINESHATTER,
+  draconic_avenger: DRACONIC_AVENGER,
+  draconic_maul: DRACONIC_MAUL,
+  dooms_edge: DOOMS_EDGE,
 
   // BWL Missing Weapons - Wand
   dragons_touch: DRAGONS_TOUCH,
@@ -2763,6 +2793,7 @@ export const ALL_ITEMS: Record<string, GearItem> = {
   circle_of_applied_force: CIRCLE_OF_APPLIED_FORCE,
   pure_elementium_band: PURE_ELEMENTIUM_BAND,
   archimtiros_ring_of_reckoning: ARCHIMTIROS_RING_OF_RECKONING,
+  band_of_dark_dominion: BAND_OF_DARK_DOMINION,
 
   // BWL Accessories - Trinkets (All Class)
   drake_fang_talisman: DRAKE_FANG_TALISMAN,
@@ -2929,6 +2960,580 @@ export const NEFARIAN_QUEST_REWARDS: Record<NefarianQuestRewardId, GearItem> = {
 export const ALL_QUEST_REWARDS: Record<QuestRewardId, GearItem> = {
   ...ONYXIA_QUEST_REWARDS,
   ...NEFARIAN_QUEST_REWARDS,
+};
+
+// =============================================================================
+// PRE-RAID BIS ITEMS - Starting gear for all class/specs
+// These items cannot be disenchanted, only destroyed
+// =============================================================================
+
+// --- PHYSICAL DPS SHARED ---
+export const LIONHEART_HELM_PREBIS: GearItem = {
+  id: 'lionheart_helm_prebis', name: 'Lionheart Helm', slot: 'head', rarity: 'epic', itemLevel: 62,
+  classes: ['warrior', 'paladin'], stats: { armor: 624, strength: 18, stamina: 12, critChance: 2, hitChance: 2 },
+  icon: `${ICON_BASE}/inv_helmet_36.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const MARK_OF_FORDRING_PREBIS: GearItem = {
+  id: 'mark_of_fordring_prebis', name: 'Mark of Fordring', slot: 'neck', rarity: 'rare', itemLevel: 57,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { strength: 8, agility: 8, stamina: 4 },
+  icon: `${ICON_BASE}/inv_jewelry_necklace_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const TRUESTRIKE_SHOULDERS_PREBIS: GearItem = {
+  id: 'truestrike_shoulders_prebis', name: 'Truestrike Shoulders', slot: 'shoulders', rarity: 'rare', itemLevel: 62,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { armor: 188, agility: 12, stamina: 5, hitChance: 2 },
+  icon: `${ICON_BASE}/inv_shoulder_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const CAPE_OF_THE_BLACK_BARON_PREBIS: GearItem = {
+  id: 'cape_of_black_baron_prebis', name: 'Cape of the Black Baron', slot: 'back', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { armor: 42, agility: 15, stamina: 8, attackPower: 20 },
+  icon: `${ICON_BASE}/inv_misc_cape_18.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const SAVAGE_GLADIATOR_CHAIN_PREBIS: GearItem = {
+  id: 'savage_gladiator_chain_prebis', name: 'Savage Gladiator Chain', slot: 'chest', rarity: 'rare', itemLevel: 54,
+  classes: ['warrior', 'paladin', 'hunter', 'shaman'], stats: { armor: 403, agility: 13, stamina: 14, critChance: 2 },
+  icon: `${ICON_BASE}/inv_chest_chain_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BATTLEBORN_ARMBRACES_PREBIS: GearItem = {
+  id: 'battleborn_armbraces_prebis', name: 'Battleborn Armbraces', slot: 'wrist', rarity: 'rare', itemLevel: 63,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { armor: 146, strength: 9, agility: 9, stamina: 5 },
+  icon: `${ICON_BASE}/inv_bracer_19.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEVILSAUR_GAUNTLETS_PREBIS: GearItem = {
+  id: 'devilsaur_gauntlets_prebis', name: 'Devilsaur Gauntlets', slot: 'hands', rarity: 'rare', itemLevel: 58,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { armor: 145, attackPower: 28, critChance: 1, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_gauntlets_26.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BRIGAM_GIRDLE_PREBIS: GearItem = {
+  id: 'brigam_girdle_prebis', name: 'Brigam Girdle', slot: 'waist', rarity: 'rare', itemLevel: 62,
+  classes: ['warrior', 'paladin', 'hunter', 'shaman'], stats: { armor: 306, strength: 15, stamina: 5, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_belt_13.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEVILSAUR_LEGGINGS_PREBIS: GearItem = {
+  id: 'devilsaur_leggings_prebis', name: 'Devilsaur Leggings', slot: 'legs', rarity: 'rare', itemLevel: 58,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { armor: 194, attackPower: 46, critChance: 1, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_pants_wolf.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BLOODMAIL_BOOTS_PREBIS: GearItem = {
+  id: 'bloodmail_boots_prebis', name: 'Bloodmail Boots', slot: 'feet', rarity: 'rare', itemLevel: 61,
+  classes: ['warrior', 'paladin', 'hunter', 'shaman'], stats: { armor: 320, agility: 12, stamina: 19, intellect: 8 },
+  icon: `${ICON_BASE}/inv_boots_plate_09.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DON_JULIOS_BAND_PREBIS: GearItem = {
+  id: 'don_julios_band_prebis', name: "Don Julio's Band", slot: 'ring1', rarity: 'epic', itemLevel: 65,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { stamina: 6, critChance: 1, hitChance: 1, attackPower: 16 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_33.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BLACKSTONE_RING_PREBIS: GearItem = {
+  id: 'blackstone_ring_prebis', name: 'Blackstone Ring', slot: 'ring2', rarity: 'epic', itemLevel: 62,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { stamina: 9, hitChance: 1, attackPower: 20 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_29.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const HAND_OF_JUSTICE_PREBIS: GearItem = {
+  id: 'hand_of_justice_prebis', name: 'Hand of Justice', slot: 'trinket1', rarity: 'epic', itemLevel: 59,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { attackPower: 20 },
+  icon: `${ICON_BASE}/inv_jewelry_talisman_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BLACKHANDS_BREADTH_PREBIS: GearItem = {
+  id: 'blackhands_breadth_prebis', name: "Blackhand's Breadth", slot: 'trinket2', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'paladin', 'rogue', 'hunter', 'shaman', 'druid'], stats: { critChance: 2 },
+  icon: `${ICON_BASE}/inv_jewelry_necklace_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DALRENDS_SACRED_CHARGE_PREBIS: GearItem = {
+  id: 'dalrends_sacred_charge_prebis', name: "Dal'Rend's Sacred Charge", slot: 'weapon', rarity: 'rare', itemLevel: 63,
+  classes: ['warrior', 'rogue', 'hunter', 'shaman'], stats: { strength: 4, stamina: 10, critChance: 1 },
+  icon: `${ICON_BASE}/inv_sword_46.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DALRENDS_TRIBAL_GUARDIAN_PREBIS: GearItem = {
+  id: 'dalrends_tribal_guardian_prebis', name: "Dal'Rend's Tribal Guardian", slot: 'offhand', rarity: 'rare', itemLevel: 63,
+  classes: ['warrior', 'rogue', 'hunter', 'shaman'], stats: { strength: 4, stamina: 4, attackPower: 50 },
+  icon: `${ICON_BASE}/inv_sword_45.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const SATYRS_BOW_PREBIS: GearItem = {
+  id: 'satyrs_bow_prebis', name: "Satyr's Bow", slot: 'ranged', rarity: 'rare', itemLevel: 62,
+  classes: ['warrior', 'rogue', 'hunter'], stats: { agility: 3, stamina: 5, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_weapon_bow_08.jpg`, relicType: 'bow', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const ARCANITE_REAPER_PREBIS: GearItem = {
+  id: 'arcanite_reaper_prebis', name: 'Arcanite Reaper', slot: 'weapon', rarity: 'epic', itemLevel: 61,
+  classes: ['warrior', 'paladin', 'hunter', 'shaman'], stats: { stamina: 11, strength: 13 },
+  icon: `${ICON_BASE}/inv_axe_09.jpg`, weaponType: 'two_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- TANK GEAR ---
+export const HELM_OF_THE_HOLY_AVENGER_PREBIS: GearItem = {
+  id: 'helm_of_holy_avenger_prebis', name: 'Helm of the Holy Avenger', slot: 'head', rarity: 'rare', itemLevel: 62,
+  classes: ['warrior', 'paladin'], stats: { armor: 609, strength: 15, stamina: 15, defense: 10 },
+  icon: `${ICON_BASE}/inv_helmet_10.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const MEDALLION_OF_GRAND_MARSHAL_PREBIS: GearItem = {
+  id: 'medallion_grand_marshal_prebis', name: 'Medallion of Grand Marshal Morris', slot: 'neck', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'paladin', 'druid'], stats: { stamina: 12, defense: 5, dodge: 1 },
+  icon: `${ICON_BASE}/inv_jewelry_amulet_04.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const STOCKADE_PAULDRONS_PREBIS: GearItem = {
+  id: 'stockade_pauldrons_prebis', name: 'Stockade Pauldrons', slot: 'shoulders', rarity: 'rare', itemLevel: 61,
+  classes: ['warrior', 'paladin'], stats: { armor: 514, strength: 12, stamina: 12, defense: 7 },
+  icon: `${ICON_BASE}/inv_shoulder_15.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const STONESKIN_GARGOYLE_CAPE_PREBIS: GearItem = {
+  id: 'stoneskin_gargoyle_cape_prebis', name: 'Stoneskin Gargoyle Cape', slot: 'back', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'paladin', 'druid'], stats: { armor: 45, stamina: 13, defense: 7, fireResistance: 10 },
+  icon: `${ICON_BASE}/inv_misc_cape_17.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEATHBONE_CHESTPLATE_PREBIS: GearItem = {
+  id: 'deathbone_chestplate_prebis', name: 'Deathbone Chestplate', slot: 'chest', rarity: 'rare', itemLevel: 62,
+  classes: ['warrior', 'paladin'], stats: { armor: 668, stamina: 18, defense: 8 },
+  icon: `${ICON_BASE}/inv_chest_plate08.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const VAMBRACES_OF_THE_SADIST_PREBIS: GearItem = {
+  id: 'vambraces_of_sadist_prebis', name: 'Vambraces of the Sadist', slot: 'wrist', rarity: 'rare', itemLevel: 57,
+  classes: ['warrior', 'paladin'], stats: { armor: 280, strength: 9, stamina: 9, defense: 5 },
+  icon: `${ICON_BASE}/inv_bracer_17.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const STONEGRIP_GAUNTLETS_PREBIS: GearItem = {
+  id: 'stonegrip_gauntlets_prebis', name: 'Stonegrip Gauntlets', slot: 'hands', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'paladin'], stats: { armor: 450, strength: 10, stamina: 10, defense: 6 },
+  icon: `${ICON_BASE}/inv_gauntlets_11.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEATHBONE_GIRDLE_PREBIS: GearItem = {
+  id: 'deathbone_girdle_prebis', name: 'Deathbone Girdle', slot: 'waist', rarity: 'rare', itemLevel: 59,
+  classes: ['warrior', 'paladin'], stats: { armor: 356, stamina: 15, defense: 6 },
+  icon: `${ICON_BASE}/inv_belt_13.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEATHBONE_LEGGUARDS_PREBIS: GearItem = {
+  id: 'deathbone_legguards_prebis', name: 'Deathbone Legguards', slot: 'legs', rarity: 'rare', itemLevel: 61,
+  classes: ['warrior', 'paladin'], stats: { armor: 576, stamina: 20, defense: 8 },
+  icon: `${ICON_BASE}/inv_pants_03.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEATHBONE_SABATONS_PREBIS: GearItem = {
+  id: 'deathbone_sabatons_prebis', name: 'Deathbone Sabatons', slot: 'feet', rarity: 'rare', itemLevel: 59,
+  classes: ['warrior', 'paladin'], stats: { armor: 445, stamina: 14, defense: 6 },
+  icon: `${ICON_BASE}/inv_boots_plate_06.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const NAGLERING_PREBIS: GearItem = {
+  id: 'naglering_prebis', name: 'Naglering', slot: 'ring1', rarity: 'rare', itemLevel: 55,
+  classes: ['warrior', 'paladin', 'druid'], stats: { stamina: 10, defense: 4, dodge: 1 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_41.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const MARK_OF_TYRANNY_PREBIS: GearItem = {
+  id: 'mark_of_tyranny_prebis', name: 'Mark of Tyranny', slot: 'trinket1', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'paladin', 'druid'], stats: { armor: 180, dodge: 1 },
+  icon: `${ICON_BASE}/inv_misc_armorkit_04.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const FORCE_OF_WILL_PREBIS: GearItem = {
+  id: 'force_of_will_prebis', name: 'Force of Will', slot: 'trinket2', rarity: 'epic', itemLevel: 59,
+  classes: ['warrior', 'paladin', 'druid'], stats: { stamina: 12, armor: 120 },
+  icon: `${ICON_BASE}/inv_jewelry_talisman_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const SKULLFORGE_REAVER_PREBIS: GearItem = {
+  id: 'skullforge_reaver_prebis', name: 'Skullforge Reaver', slot: 'weapon', rarity: 'epic', itemLevel: 62,
+  classes: ['warrior', 'paladin'], stats: { strength: 10, stamina: 8 },
+  icon: `${ICON_BASE}/inv_sword_35.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DRACONIAN_DEFLECTOR_PREBIS: GearItem = {
+  id: 'draconian_deflector_prebis', name: 'Draconian Deflector', slot: 'offhand', rarity: 'rare', itemLevel: 62,
+  classes: ['warrior', 'paladin', 'shaman'], stats: { armor: 2479, stamina: 10, fireResistance: 15 },
+  icon: `${ICON_BASE}/inv_shield_17.jpg`, weaponType: 'offhand_only', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BLACKCROW_PREBIS: GearItem = {
+  id: 'blackcrow_prebis', name: 'Blackcrow', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['warrior', 'rogue', 'hunter'], stats: { agility: 8, stamina: 6 },
+  icon: `${ICON_BASE}/inv_weapon_crossbow_04.jpg`, relicType: 'bow', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- CASTER DPS GEAR ---
+export const CRIMSON_FELT_HAT_PREBIS: GearItem = {
+  id: 'crimson_felt_hat_prebis', name: 'Crimson Felt Hat', slot: 'head', rarity: 'rare', itemLevel: 62,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 71, stamina: 17, intellect: 22, spellPower: 32 },
+  icon: `${ICON_BASE}/inv_helmet_47.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const CHOKER_OF_THE_FIRE_LORD_PREBIS: GearItem = {
+  id: 'choker_fire_lord_prebis', name: 'Choker of the Fire Lord', slot: 'neck', rarity: 'epic', itemLevel: 71,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid'], stats: { stamina: 7, intellect: 7, spellPower: 34 },
+  icon: `${ICON_BASE}/inv_jewelry_necklace_21.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const KENTIC_AMICE_PREBIS: GearItem = {
+  id: 'kentic_amice_prebis', name: 'Kentic Amice', slot: 'shoulders', rarity: 'rare', itemLevel: 63,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 64, stamina: 12, intellect: 15, spellPower: 21 },
+  icon: `${ICON_BASE}/inv_shoulder_02.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const ARCHIVIST_CAPE_PREBIS: GearItem = {
+  id: 'archivist_cape_prebis', name: 'Archivist Cape', slot: 'back', rarity: 'rare', itemLevel: 60,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid', 'paladin'], stats: { armor: 42, intellect: 11, spellPower: 14 },
+  icon: `${ICON_BASE}/inv_misc_cape_19.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const ROBE_OF_WINTER_NIGHT_PREBIS: GearItem = {
+  id: 'robe_winter_night_prebis', name: 'Robe of Winter Night', slot: 'chest', rarity: 'rare', itemLevel: 59,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 85, stamina: 7, intellect: 16, spellPower: 36, frostResistance: 9 },
+  icon: `${ICON_BASE}/inv_chest_cloth_17.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const ROBE_OF_THE_VOID_PREBIS: GearItem = {
+  id: 'robe_of_void_prebis', name: 'Robe of the Void', slot: 'chest', rarity: 'epic', itemLevel: 61,
+  classes: ['warlock'], stats: { armor: 85, stamina: 13, intellect: 13, spellPower: 46, shadowResistance: 10 },
+  icon: `${ICON_BASE}/inv_chest_cloth_43.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const ROBE_OF_THE_ARCHMAGE_PREBIS: GearItem = {
+  id: 'robe_of_archmage_prebis', name: 'Robe of the Archmage', slot: 'chest', rarity: 'epic', itemLevel: 61,
+  classes: ['mage'], stats: { armor: 85, stamina: 8, intellect: 19, spellPower: 43, spirit: 10 },
+  icon: `${ICON_BASE}/inv_chest_cloth_10.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const SUBLIME_WRISTGUARDS_PREBIS: GearItem = {
+  id: 'sublime_wristguards_prebis', name: 'Sublime Wristguards', slot: 'wrist', rarity: 'rare', itemLevel: 60,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 37, intellect: 10, spellPower: 15 },
+  icon: `${ICON_BASE}/inv_bracer_09.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const HANDS_OF_POWER_PREBIS: GearItem = {
+  id: 'hands_of_power_prebis', name: 'Hands of Power', slot: 'hands', rarity: 'rare', itemLevel: 60,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 56, stamina: 10, intellect: 11, spellPower: 20, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_gauntlets_19.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const BANTHOK_SASH_PREBIS: GearItem = {
+  id: 'banthok_sash_prebis', name: "Ban'thok Sash", slot: 'waist', rarity: 'rare', itemLevel: 57,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 43, stamina: 11, intellect: 8, spellPower: 23 },
+  icon: `${ICON_BASE}/inv_belt_03.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const SKYSHROUD_LEGGINGS_PREBIS: GearItem = {
+  id: 'skyshroud_leggings_prebis', name: 'Skyshroud Leggings', slot: 'legs', rarity: 'rare', itemLevel: 60,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 74, stamina: 20, intellect: 14, spellPower: 39 },
+  icon: `${ICON_BASE}/inv_pants_cloth_15.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const OMNICAST_BOOTS_PREBIS: GearItem = {
+  id: 'omnicast_boots_prebis', name: 'Omnicast Boots', slot: 'feet', rarity: 'rare', itemLevel: 62,
+  classes: ['mage', 'warlock', 'priest'], stats: { armor: 56, stamina: 10, intellect: 13, spellPower: 19, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_boots_cloth_03.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const FREEZING_BAND_PREBIS: GearItem = {
+  id: 'freezing_band_prebis', name: 'Freezing Band', slot: 'ring1', rarity: 'rare', itemLevel: 53,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid', 'paladin'], stats: { stamina: 7, intellect: 6, spellPower: 21 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_14.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const RING_OF_SPELL_POWER_PREBIS: GearItem = {
+  id: 'ring_of_spell_power_prebis', name: 'Ring of Spell Power', slot: 'ring2', rarity: 'epic', itemLevel: 62,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid', 'paladin'], stats: { spellPower: 33 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_46.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const BRIARWOOD_REED_PREBIS: GearItem = {
+  id: 'briarwood_reed_prebis', name: 'Briarwood Reed', slot: 'trinket1', rarity: 'rare', itemLevel: 63,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid', 'paladin'], stats: { spellPower: 29 },
+  icon: `${ICON_BASE}/inv_jewelry_talisman_12.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const EYE_OF_THE_BEAST_PREBIS: GearItem = {
+  id: 'eye_of_beast_prebis', name: 'Eye of the Beast', slot: 'trinket2', rarity: 'rare', itemLevel: 60,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid', 'paladin'], stats: { spellPower: 22, hitChance: 2 },
+  icon: `${ICON_BASE}/inv_misc_eye_01.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const WITCHBLADE_PREBIS: GearItem = {
+  id: 'witchblade_prebis', name: 'Witchblade', slot: 'weapon', rarity: 'rare', itemLevel: 62,
+  classes: ['mage', 'warlock', 'priest'], stats: { stamina: 5, intellect: 6, spellPower: 30 },
+  icon: `${ICON_BASE}/inv_sword_28.jpg`, weaponType: 'one_hand', itemCategory: 'caster', isPreRaidBis: true,
+};
+export const SPIRIT_OF_AQUEMENTAS_PREBIS: GearItem = {
+  id: 'spirit_of_aquementas_prebis', name: 'Spirit of Aquementas', slot: 'offhand', rarity: 'rare', itemLevel: 54,
+  classes: ['mage', 'warlock', 'priest', 'shaman', 'druid', 'paladin'], stats: { stamina: 12, intellect: 6, spirit: 5, spellPower: 18 },
+  icon: `${ICON_BASE}/inv_misc_orb_03.jpg`, weaponType: 'offhand_only', itemCategory: 'caster', isPreRaidBis: true,
+};
+export const BONECREEPER_STYLUS_PREBIS: GearItem = {
+  id: 'bonecreeper_stylus_prebis', name: 'Bonecreeper Stylus', slot: 'ranged', rarity: 'rare', itemLevel: 62,
+  classes: ['mage', 'warlock', 'priest'], stats: { stamina: 5, intellect: 4, spellPower: 11 },
+  icon: `${ICON_BASE}/inv_wand_11.jpg`, relicType: 'wand', itemCategory: 'caster', isPreRaidBis: true,
+};
+
+// --- HEALER GEAR ---
+export const CASSANDRAS_GRACE_PREBIS: GearItem = {
+  id: 'cassandras_grace_prebis', name: "Cassandra's Grace", slot: 'head', rarity: 'rare', itemLevel: 61,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 69, stamina: 12, intellect: 24, spirit: 9, spellPower: 18 },
+  icon: `${ICON_BASE}/inv_crown_01.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const ANIMATED_CHAIN_NECKLACE_PREBIS: GearItem = {
+  id: 'animated_chain_necklace_prebis', name: 'Animated Chain Necklace', slot: 'neck', rarity: 'rare', itemLevel: 59,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { stamina: 7, intellect: 9, spellPower: 22 },
+  icon: `${ICON_BASE}/inv_jewelry_necklace_09.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const LIVING_SHOULDERS_PREBIS: GearItem = {
+  id: 'living_shoulders_prebis', name: 'Living Shoulders', slot: 'shoulders', rarity: 'rare', itemLevel: 62,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 63, stamina: 13, intellect: 11, spirit: 12, spellPower: 18 },
+  icon: `${ICON_BASE}/inv_shoulder_08.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const HIDE_OF_THE_WILD_PREBIS: GearItem = {
+  id: 'hide_of_wild_prebis', name: 'Hide of the Wild', slot: 'back', rarity: 'epic', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 45, stamina: 10, intellect: 6, spellPower: 44 },
+  icon: `${ICON_BASE}/inv_misc_cape_18.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const TRUEFAITH_VESTMENTS_PREBIS: GearItem = {
+  id: 'truefaith_vestments_prebis', name: 'Truefaith Vestments', slot: 'chest', rarity: 'epic', itemLevel: 61,
+  classes: ['priest'], stats: { armor: 95, stamina: 9, intellect: 14, spirit: 18, spellPower: 73 },
+  icon: `${ICON_BASE}/inv_chest_cloth_46.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const ROBES_OF_THE_EXALTED_PREBIS: GearItem = {
+  id: 'robes_of_exalted_prebis', name: 'Robes of the Exalted', slot: 'chest', rarity: 'rare', itemLevel: 61,
+  classes: ['paladin', 'shaman', 'druid'], stats: { armor: 85, stamina: 11, intellect: 20, spirit: 10, spellPower: 35 },
+  icon: `${ICON_BASE}/inv_chest_cloth_35.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const LOOMGUARD_ARMBRACES_PREBIS: GearItem = {
+  id: 'loomguard_armbraces_prebis', name: 'Loomguard Armbraces', slot: 'wrist', rarity: 'rare', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 37, stamina: 6, intellect: 10, spirit: 9, spellPower: 15 },
+  icon: `${ICON_BASE}/inv_bracer_07.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const HARMONIOUS_GAUNTLETS_PREBIS: GearItem = {
+  id: 'harmonious_gauntlets_prebis', name: 'Harmonious Gauntlets', slot: 'hands', rarity: 'rare', itemLevel: 61,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 56, stamina: 13, intellect: 15, spellPower: 22 },
+  icon: `${ICON_BASE}/inv_gauntlets_28.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const WHIPVINE_CORD_PREBIS: GearItem = {
+  id: 'whipvine_cord_prebis', name: 'Whipvine Cord', slot: 'waist', rarity: 'rare', itemLevel: 61,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 50, stamina: 9, intellect: 15, spirit: 11, spellPower: 20 },
+  icon: `${ICON_BASE}/inv_belt_05.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const PADRES_TROUSERS_PREBIS: GearItem = {
+  id: 'padres_trousers_prebis', name: "Padre's Trousers", slot: 'legs', rarity: 'rare', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 76, stamina: 15, intellect: 12, spirit: 20, spellPower: 33 },
+  icon: `${ICON_BASE}/inv_pants_cloth_13.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const BOOTS_OF_THE_FULL_MOON_PREBIS: GearItem = {
+  id: 'boots_full_moon_prebis', name: 'Boots of the Full Moon', slot: 'feet', rarity: 'rare', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { armor: 52, stamina: 10, intellect: 14, spirit: 10, spellPower: 23 },
+  icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const FORDRINGS_SEAL_PREBIS: GearItem = {
+  id: 'fordrings_seal_prebis', name: "Fordring's Seal", slot: 'ring1', rarity: 'epic', itemLevel: 63,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { stamina: 8, intellect: 6, spellPower: 33 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_46.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const ROSEWINE_CIRCLE_PREBIS: GearItem = {
+  id: 'rosewine_circle_prebis', name: 'Rosewine Circle', slot: 'ring2', rarity: 'rare', itemLevel: 57,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { stamina: 12, intellect: 4, spirit: 6, spellPower: 20 },
+  icon: `${ICON_BASE}/inv_jewelry_ring_33.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const SECOND_WIND_PREBIS: GearItem = {
+  id: 'second_wind_prebis', name: 'Second Wind', slot: 'trinket1', rarity: 'rare', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { mp5: 12 },
+  icon: `${ICON_BASE}/spell_nature_sleep.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const MINDTAP_TALISMAN_PREBIS: GearItem = {
+  id: 'mindtap_talisman_prebis', name: 'Mindtap Talisman', slot: 'trinket2', rarity: 'rare', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { intellect: 5, mp5: 8, spellPower: 12 },
+  icon: `${ICON_BASE}/inv_misc_armorkit_04.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const HAMMER_OF_GRACE_PREBIS: GearItem = {
+  id: 'hammer_of_grace_prebis', name: 'Hammer of Grace', slot: 'weapon', rarity: 'rare', itemLevel: 62,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { stamina: 10, intellect: 11, spirit: 9, spellPower: 35 },
+  icon: `${ICON_BASE}/inv_hammer_08.jpg`, weaponType: 'one_hand', itemCategory: 'healer', isPreRaidBis: true,
+};
+export const DRAKESTONE_OF_HEALING_PREBIS: GearItem = {
+  id: 'drakestone_healing_prebis', name: 'Drakestone of Healing', slot: 'offhand', rarity: 'rare', itemLevel: 60,
+  classes: ['priest', 'paladin', 'shaman', 'druid'], stats: { stamina: 8, intellect: 4, spirit: 4, spellPower: 24 },
+  icon: `${ICON_BASE}/inv_misc_orb_03.jpg`, weaponType: 'offhand_only', itemCategory: 'healer', isPreRaidBis: true,
+};
+
+// --- ROGUE-SPECIFIC ---
+export const MASK_OF_THE_UNFORGIVEN_PREBIS: GearItem = {
+  id: 'mask_unforgiven_prebis', name: 'Mask of the Unforgiven', slot: 'head', rarity: 'rare', itemLevel: 60,
+  classes: ['rogue'], stats: { armor: 155, agility: 23, stamina: 13, critChance: 2 },
+  icon: `${ICON_BASE}/inv_helmet_47.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const CADAVEROUS_ARMOR_PREBIS: GearItem = {
+  id: 'cadaverous_armor_prebis', name: 'Cadaverous Armor', slot: 'chest', rarity: 'rare', itemLevel: 61,
+  classes: ['rogue', 'druid'], stats: { armor: 194, agility: 8, stamina: 12, attackPower: 60 },
+  icon: `${ICON_BASE}/inv_chest_leather_01.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BRACERS_OF_THE_ECLIPSE_PREBIS: GearItem = {
+  id: 'bracers_eclipse_prebis', name: 'Bracers of the Eclipse', slot: 'wrist', rarity: 'rare', itemLevel: 59,
+  classes: ['rogue', 'druid'], stats: { armor: 83, agility: 17, stamina: 4, attackPower: 12 },
+  icon: `${ICON_BASE}/inv_bracer_07.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const MUGGERS_BELT_PREBIS: GearItem = {
+  id: 'muggers_belt_prebis', name: "Mugger's Belt", slot: 'waist', rarity: 'rare', itemLevel: 62,
+  classes: ['rogue', 'druid'], stats: { armor: 91, agility: 20, stamina: 6, attackPower: 18 },
+  icon: `${ICON_BASE}/inv_belt_03.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const PADS_OF_DREAD_WOLF_PREBIS: GearItem = {
+  id: 'pads_dread_wolf_prebis', name: 'Pads of the Dread Wolf', slot: 'feet', rarity: 'rare', itemLevel: 62,
+  classes: ['rogue', 'druid'], stats: { armor: 129, agility: 21, stamina: 11, attackPower: 20 },
+  icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const THRASH_BLADE_PREBIS: GearItem = {
+  id: 'thrash_blade_prebis', name: 'Thrash Blade', slot: 'weapon', rarity: 'rare', itemLevel: 52,
+  classes: ['warrior', 'rogue', 'hunter', 'paladin', 'shaman'], stats: { strength: 3, agility: 7, stamina: 4 },
+  icon: `${ICON_BASE}/inv_sword_05.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const MIRAHS_SONG_PREBIS: GearItem = {
+  id: 'mirahs_song_prebis', name: "Mirah's Song", slot: 'offhand', rarity: 'rare', itemLevel: 59,
+  classes: ['warrior', 'rogue', 'hunter'], stats: { strength: 5, agility: 9, stamina: 5 },
+  icon: `${ICON_BASE}/inv_sword_48.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const FELSTRIKER_PREBIS: GearItem = {
+  id: 'felstriker_prebis', name: 'Felstriker', slot: 'weapon', rarity: 'epic', itemLevel: 59,
+  classes: ['warrior', 'rogue', 'hunter', 'shaman'], stats: { critChance: 1, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_weapon_shortblade_25.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DISTRACTING_DAGGER_PREBIS: GearItem = {
+  id: 'distracting_dagger_prebis', name: 'Distracting Dagger', slot: 'offhand', rarity: 'rare', itemLevel: 61,
+  classes: ['rogue'], stats: { agility: 8, stamina: 6, attackPower: 10 },
+  icon: `${ICON_BASE}/inv_weapon_shortblade_05.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- HUNTER-SPECIFIC ---
+export const BEASTSTALKERS_BINDINGS_PREBIS: GearItem = {
+  id: 'beaststalkers_bindings_prebis', name: "Beaststalker's Bindings", slot: 'wrist', rarity: 'rare', itemLevel: 57,
+  classes: ['hunter'], stats: { armor: 149, agility: 14, stamina: 9, intellect: 4, attackPower: 10 },
+  icon: `${ICON_BASE}/inv_bracer_12.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const WARPWOOD_BINDING_PREBIS: GearItem = {
+  id: 'warpwood_binding_prebis', name: 'Warpwood Binding', slot: 'waist', rarity: 'rare', itemLevel: 60,
+  classes: ['hunter'], stats: { armor: 147, agility: 16, stamina: 8, intellect: 5, attackPower: 24 },
+  icon: `${ICON_BASE}/inv_belt_11.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const WINDREAVER_GREAVES_PREBIS: GearItem = {
+  id: 'windreaver_greaves_prebis', name: 'Windreaver Greaves', slot: 'feet', rarity: 'rare', itemLevel: 60,
+  classes: ['hunter'], stats: { armor: 216, agility: 15, stamina: 15, attackPower: 24 },
+  icon: `${ICON_BASE}/inv_boots_wolf.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const DEVILSAUR_EYE_PREBIS: GearItem = {
+  id: 'devilsaur_eye_prebis', name: 'Devilsaur Eye', slot: 'trinket2', rarity: 'epic', itemLevel: 60,
+  classes: ['hunter'], stats: { hitChance: 2, attackPower: 28 },
+  icon: `${ICON_BASE}/inv_misc_eye_01.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const BARBAROUS_BLADE_PREBIS: GearItem = {
+  id: 'barbarous_blade_prebis', name: 'Barbarous Blade', slot: 'weapon', rarity: 'rare', itemLevel: 63,
+  classes: ['hunter', 'warrior', 'paladin', 'shaman'], stats: { strength: 22, agility: 8, stamina: 13, critChance: 1 },
+  icon: `${ICON_BASE}/inv_sword_35.jpg`, weaponType: 'two_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const CARAPACE_SPINE_CROSSBOW_PREBIS: GearItem = {
+  id: 'carapace_spine_crossbow_prebis', name: 'Carapace Spine Crossbow', slot: 'ranged', rarity: 'rare', itemLevel: 56,
+  classes: ['warrior', 'rogue', 'hunter'], stats: { agility: 9, stamina: 4, attackPower: 8 },
+  icon: `${ICON_BASE}/inv_weapon_crossbow_04.jpg`, relicType: 'bow', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- SHAMAN-SPECIFIC ---
+export const BLOODVINE_VEST_PREBIS: GearItem = {
+  id: 'bloodvine_vest_prebis', name: 'Bloodvine Vest', slot: 'chest', rarity: 'rare', itemLevel: 62,
+  classes: ['shaman', 'mage', 'warlock', 'priest'], stats: { armor: 88, stamina: 11, intellect: 14, spellPower: 27, hitChance: 2 },
+  icon: `${ICON_BASE}/inv_chest_cloth_07.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const BLOODVINE_LEGGINGS_PREBIS: GearItem = {
+  id: 'bloodvine_leggings_prebis', name: 'Bloodvine Leggings', slot: 'legs', rarity: 'rare', itemLevel: 62,
+  classes: ['shaman', 'mage', 'warlock', 'priest'], stats: { armor: 75, stamina: 10, intellect: 12, spellPower: 31, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_pants_cloth_14.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const BLOODVINE_BOOTS_PREBIS: GearItem = {
+  id: 'bloodvine_boots_prebis', name: 'Bloodvine Boots', slot: 'feet', rarity: 'rare', itemLevel: 62,
+  classes: ['shaman', 'mage', 'warlock', 'priest'], stats: { armor: 60, stamina: 8, intellect: 10, spellPower: 21, hitChance: 1 },
+  icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+export const FLURRY_AXE_PREBIS: GearItem = {
+  id: 'flurry_axe_prebis', name: 'Flurry Axe', slot: 'weapon', rarity: 'epic', itemLevel: 44,
+  classes: ['shaman', 'warrior', 'hunter'], stats: { agility: 5, stamina: 5 },
+  icon: `${ICON_BASE}/inv_axe_17.jpg`, weaponType: 'one_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const TOTEM_OF_THE_STORM_PREBIS: GearItem = {
+  id: 'totem_of_storm_prebis', name: 'Totem of the Storm', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['shaman'], stats: { spellPower: 20 },
+  icon: `${ICON_BASE}/inv_misc_totem_05.jpg`, relicType: 'totem', itemCategory: 'caster', isPreRaidBis: true,
+};
+export const TOTEM_OF_LIFE_PREBIS: GearItem = {
+  id: 'totem_of_life_prebis', name: 'Totem of Life', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['shaman'], stats: { spellPower: 25, mp5: 4 },
+  icon: `${ICON_BASE}/inv_misc_totem_05.jpg`, relicType: 'totem', itemCategory: 'healer', isPreRaidBis: true,
+};
+export const TOTEM_OF_RAGE_PREBIS: GearItem = {
+  id: 'totem_of_rage_prebis', name: 'Totem of Rage', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['shaman'], stats: { attackPower: 20, critChance: 1 },
+  icon: `${ICON_BASE}/inv_misc_totem_05.jpg`, relicType: 'totem', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- DRUID-SPECIFIC ---
+export const MANUAL_CROWD_PUMMELER_PREBIS: GearItem = {
+  id: 'manual_crowd_pummeler_prebis', name: 'Manual Crowd Pummeler', slot: 'weapon', rarity: 'uncommon', itemLevel: 34,
+  classes: ['druid'], stats: { strength: 6, stamina: 5, attackPower: 12 },
+  icon: `${ICON_BASE}/inv_mace_14.jpg`, weaponType: 'two_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const IDOL_OF_THE_MOON_PREBIS: GearItem = {
+  id: 'idol_of_moon_prebis', name: 'Idol of the Moon', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['druid'], stats: { spellPower: 17 },
+  icon: `${ICON_BASE}/inv_relics_idolofferocity.jpg`, relicType: 'idol', itemCategory: 'caster', isPreRaidBis: true,
+};
+export const IDOL_OF_FEROCITY_PREBIS: GearItem = {
+  id: 'idol_of_ferocity_prebis', name: 'Idol of Ferocity', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['druid'], stats: { attackPower: 12, critChance: 1 },
+  icon: `${ICON_BASE}/inv_relics_idolofferocity.jpg`, relicType: 'idol', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const IDOL_OF_BRUTALITY_PREBIS: GearItem = {
+  id: 'idol_of_brutality_prebis', name: 'Idol of Brutality', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['druid'], stats: { armor: 60, stamina: 10, dodge: 1 },
+  icon: `${ICON_BASE}/inv_relics_idolofferocity.jpg`, relicType: 'idol', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const IDOL_OF_REJUVENATION_PREBIS: GearItem = {
+  id: 'idol_of_rejuvenation_prebis', name: 'Idol of Rejuvenation', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['druid'], stats: { spellPower: 22, mp5: 3 },
+  icon: `${ICON_BASE}/inv_relics_idolofferocity.jpg`, relicType: 'idol', itemCategory: 'healer', isPreRaidBis: true,
+};
+export const WOLFSHEAD_HELM_PREBIS: GearItem = {
+  id: 'wolfshead_helm_prebis', name: 'Wolfshead Helm', slot: 'head', rarity: 'rare', itemLevel: 40,
+  classes: ['druid'], stats: { armor: 121, agility: 14, stamina: 10, intellect: 8 },
+  icon: `${ICON_BASE}/inv_helmet_04.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const WARDEN_STAFF_PREBIS: GearItem = {
+  id: 'warden_staff_prebis', name: 'Warden Staff', slot: 'weapon', rarity: 'rare', itemLevel: 60,
+  classes: ['druid'], stats: { stamina: 35, defense: 15, dodge: 2 },
+  icon: `${ICON_BASE}/inv_staff_27.jpg`, weaponType: 'two_hand', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- PALADIN-SPECIFIC ---
+export const GAUNTLETS_OF_VALOR_PREBIS: GearItem = {
+  id: 'gauntlets_valor_prebis', name: 'Gauntlets of Valor', slot: 'hands', rarity: 'rare', itemLevel: 58,
+  classes: ['paladin', 'warrior'], stats: { armor: 400, strength: 8, stamina: 13, intellect: 5, spirit: 5 },
+  icon: `${ICON_BASE}/inv_gauntlets_10.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const LEGPLATES_CHROMATIC_PREBIS: GearItem = {
+  id: 'legplates_chromatic_prebis', name: 'Legplates of the Chromatic Defier', slot: 'legs', rarity: 'epic', itemLevel: 63,
+  classes: ['paladin', 'warrior'], stats: { armor: 648, strength: 18, stamina: 22, defense: 8, fireResistance: 6, natureResistance: 6, frostResistance: 6, shadowResistance: 6, arcaneResistance: 6 },
+  icon: `${ICON_BASE}/inv_pants_plate_17.jpg`, itemCategory: 'melee', isPreRaidBis: true,
+};
+export const LIBRAM_OF_TRUTH_PREBIS: GearItem = {
+  id: 'libram_of_truth_prebis', name: 'Libram of Truth', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['paladin'], stats: { stamina: 8, defense: 6 },
+  icon: `${ICON_BASE}/inv_relics_libramoftruth.jpg`, relicType: 'libram', itemCategory: 'melee', isPreRaidBis: true,
+};
+export const LIBRAM_OF_HOPE_PREBIS: GearItem = {
+  id: 'libram_of_hope_prebis', name: 'Libram of Hope', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['paladin'], stats: { spellPower: 29, mp5: 5 },
+  icon: `${ICON_BASE}/inv_relics_libramoftruth.jpg`, relicType: 'libram', itemCategory: 'healer', isPreRaidBis: true,
+};
+export const LIBRAM_OF_FERVOR_PREBIS: GearItem = {
+  id: 'libram_of_fervor_prebis', name: 'Libram of Fervor', slot: 'ranged', rarity: 'rare', itemLevel: 60,
+  classes: ['paladin'], stats: { strength: 10, attackPower: 24, critChance: 1 },
+  icon: `${ICON_BASE}/inv_relics_libramoftruth.jpg`, relicType: 'libram', itemCategory: 'melee', isPreRaidBis: true,
+};
+
+// --- PRIEST-SPECIFIC ---
+export const DEVOUT_MANTLE_PREBIS: GearItem = {
+  id: 'devout_mantle_prebis', name: 'Devout Mantle', slot: 'shoulders', rarity: 'rare', itemLevel: 58,
+  classes: ['priest'], stats: { armor: 61, stamina: 12, intellect: 16, spirit: 14, spellPower: 12 },
+  icon: `${ICON_BASE}/inv_shoulder_02.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const WHITEMEND_PANTS_PREBIS: GearItem = {
+  id: 'whitemend_pants_prebis', name: 'Whitemend Pants', slot: 'legs', rarity: 'epic', itemLevel: 65,
+  classes: ['priest', 'mage', 'warlock'], stats: { armor: 92, stamina: 18, intellect: 25, spellPower: 53 },
+  icon: `${ICON_BASE}/inv_pants_cloth_16.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+export const DEVOUT_SANDALS_PREBIS: GearItem = {
+  id: 'devout_sandals_prebis', name: 'Devout Sandals', slot: 'feet', rarity: 'rare', itemLevel: 58,
+  classes: ['priest'], stats: { armor: 52, stamina: 11, intellect: 16, spirit: 12, spellPower: 15 },
+  icon: `${ICON_BASE}/inv_boots_cloth_05.jpg`, itemCategory: 'healer', isPreRaidBis: true,
+};
+
+// --- MAGE-SPECIFIC ---
+export const MAGE_SHOULDERS_PREBIS: GearItem = {
+  id: 'mage_shoulders_prebis', name: 'Sorcerous Mantle', slot: 'shoulders', rarity: 'rare', itemLevel: 59,
+  classes: ['mage'], stats: { armor: 57, stamina: 10, intellect: 17, spellPower: 24 },
+  icon: `${ICON_BASE}/inv_shoulder_02.jpg`, itemCategory: 'caster', isPreRaidBis: true,
+};
+
+// --- WARLOCK-SPECIFIC ---
+export const FELCLOTH_SHOULDERS_PREBIS: GearItem = {
+  id: 'felcloth_shoulders_prebis', name: 'Felcloth Shoulders', slot: 'shoulders', rarity: 'rare', itemLevel: 56,
+  classes: ['warlock'], stats: { armor: 55, stamina: 8, intellect: 16, spellPower: 23, shadowResistance: 5 },
+  icon: `${ICON_BASE}/inv_shoulder_06.jpg`, itemCategory: 'caster', isPreRaidBis: true,
 };
 
 // Rarity colors for UI

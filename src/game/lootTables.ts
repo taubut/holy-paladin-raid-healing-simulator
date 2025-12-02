@@ -175,6 +175,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'medallion_of_steadfast_might', // Tank neck
       'quick_strike_ring',      // Melee ring
       'talisman_of_ephemeral_power', // Caster trinket
+      'deep_earth_spaulders',   // Ele Shaman shoulders
     ],
     dropCount: 2,
     dkpReward: 10,
@@ -338,6 +339,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       'fireguard_shoulders',    // Leather shoulders
       'wild_growth_spaulders',  // Healer shoulders
       'flamewaker_legplates',   // Plate legs
+      'helm_of_the_lifegiver',  // Healer mail helm
       // Accessories
       'ring_of_spell_power',    // Caster ring
       'heavy_dark_iron_ring',   // Tank ring
@@ -405,6 +407,8 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Accessories
       'cauterizing_band',       // Healer ring
       'fireproof_cloak',        // Fire resist cloak
+      'wristguards_of_true_flight', // Hunter/Enhancement bracers
+      'core_forged_greaves',    // Tank boots
       // Class Relics
       'libram_of_grace',        // Paladin
       'totem_of_sustaining',    // Shaman
@@ -635,6 +639,9 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Non-set weapons
       'shadow_wing_focus_staff',    // Caster staff
       'dragonbreath_hand_cannon',   // Hunter gun
+      'draconic_avenger',           // 2H Axe
+      'draconic_maul',              // 2H Mace
+      'dooms_edge',                 // 1H Axe
       // Non-set armor
       'malfurions_blessed_bulwark', // Druid chest
       'shroud_of_pure_thought',     // Healer cloak
@@ -680,6 +687,7 @@ export const BOSS_LOOT_TABLES: Record<string, BossLootTable> = {
       // Accessories
       'ring_of_blackrock',          // Caster ring
       'circle_of_applied_force',    // Melee ring
+      'band_of_dark_dominion',      // Shadow caster ring
       'styleens_impeding_scarab',   // Tank trinket
       'rejuvenating_gem',           // Healer trinket
     ],

@@ -71,6 +71,15 @@ function App() {
   const [specialAlert, setSpecialAlert] = useState<string | null>(null);
   // Living Bomb raid warning
   const [livingBombWarning, setLivingBombWarning] = useState<string | null>(null);
+  // Custom confirmation dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    warningText?: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    onConfirm: () => void;
+  } | null>(null);
   const previousLivingBombTargetsRef = useRef<Set<string>>(new Set());
   const airhornRef = useRef<HTMLAudioElement | null>(null);
   // Raid management state
@@ -89,7 +98,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.23.0';
+  const CURRENT_PATCH_VERSION = '0.24.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -1269,6 +1278,35 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.24.0 - Loot & UI Polish</h3>
+                  <span className="patch-date">December 2, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Pre-Raid BiS Starting Gear</h4>
+                  <ul>
+                    <li><strong>New Characters</strong>: Players now start with full pre-raid Best in Slot gear for their class/spec</li>
+                    <li><strong>Ready to Raid</strong>: Jump straight into Molten Core without grinding dungeons first</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Loot Table Updates</h4>
+                  <ul>
+                    <li><strong>Molten Core</strong>: Added 5 missing items (Deep Earth Spaulders, Wristguards of True Flight, Core Forged Greaves, Helm of the Lifegiver, Shard of the Flame)</li>
+                    <li><strong>Blackwing Lair</strong>: Added 4 missing items (Draconic Avenger, Draconic Maul, Doom's Edge, Band of Dark Dominion)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>UI Improvements</h4>
+                  <ul>
+                    <li><strong>Styled Confirmation Dialogs</strong>: Native browser popups replaced with WoW-themed confirmation dialogs</li>
+                    <li><strong>Warning Highlights</strong>: Destructive actions now show clear yellow warning boxes</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.23.0 - Enchanting & Gear Inspection</h3>
                   <span className="patch-date">December 1, 2025</span>
                 </div>
@@ -2111,9 +2149,13 @@ function App() {
                   <button
                     className="reset-lockout-btn"
                     onClick={() => {
-                      if (window.confirm('Reset all raid lockouts? All boss progress will be cleared.')) {
-                        engine.resetRaidLockout();
-                      }
+                      setConfirmDialog({
+                        title: 'Reset Raid Lockouts',
+                        message: 'All boss progress will be cleared and you can re-run the raids.',
+                        warningText: 'This will reset all defeated bosses!',
+                        confirmLabel: 'Reset',
+                        onConfirm: () => engine.resetRaidLockout()
+                      });
                     }}
                     title="Reset all raid lockouts - clear all defeated bosses"
                   >
@@ -3502,7 +3544,7 @@ function App() {
                         onClick={() => setSelectedInspectSlot(slot)}
                       >
                         {item ? (
-                          <img src={item.icon} className="slot-icon" alt="" />
+                          <img src={item.icon} className={`slot-icon ${item.isPreRaidBis ? 'pre-raid-bis' : ''}`} alt="" />
                         ) : (
                           <div className="slot-icon empty" />
                         )}
@@ -3700,6 +3742,41 @@ function App() {
                 setImportExportStatus(null);
               }}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Dialog */}
+      {confirmDialog && (
+        <div className="modal-overlay" onClick={() => setConfirmDialog(null)}>
+          <div className="confirm-dialog" onClick={e => e.stopPropagation()}>
+            <div className="confirm-dialog-header">
+              <h2>{confirmDialog.title}</h2>
+              <button className="close-inspection" onClick={() => setConfirmDialog(null)}>X</button>
+            </div>
+            <div className="confirm-dialog-content">
+              {confirmDialog.warningText && (
+                <p className="confirm-warning">{confirmDialog.warningText}</p>
+              )}
+              <p className="confirm-message">{confirmDialog.message}</p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                className="confirm-btn-cancel"
+                onClick={() => setConfirmDialog(null)}
+              >
+                {confirmDialog.cancelLabel || 'Cancel'}
+              </button>
+              <button
+                className="confirm-btn-confirm"
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(null);
+                }}
+              >
+                {confirmDialog.confirmLabel || 'Confirm'}
               </button>
             </div>
           </div>
@@ -4107,6 +4184,35 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.24.0 - Loot & UI Polish</h3>
+                <span className="patch-date">December 2, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Pre-Raid BiS Starting Gear</h4>
+                <ul>
+                  <li><strong>New Characters</strong>: Players now start with full pre-raid Best in Slot gear for their class/spec</li>
+                  <li><strong>Ready to Raid</strong>: Jump straight into Molten Core without grinding dungeons first</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Loot Table Updates</h4>
+                <ul>
+                  <li><strong>Molten Core</strong>: Added 5 missing items (Deep Earth Spaulders, Wristguards of True Flight, Core Forged Greaves, Helm of the Lifegiver, Shard of the Flame)</li>
+                  <li><strong>Blackwing Lair</strong>: Added 4 missing items (Draconic Avenger, Draconic Maul, Doom's Edge, Band of Dark Dominion)</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>UI Improvements</h4>
+                <ul>
+                  <li><strong>Styled Confirmation Dialogs</strong>: Native browser popups replaced with WoW-themed confirmation dialogs</li>
+                  <li><strong>Warning Highlights</strong>: Destructive actions now show clear yellow warning boxes</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.18.0 - Landing Page Update</h3>
                 <span className="patch-date">November 30, 2025</span>
               </div>
@@ -5421,15 +5527,33 @@ function App() {
                   {activeBagTab === 'equipment' ? (
                     <>
                       <span className="bag-slots">{state.playerBag.length} / 16</span>
-                      {state.playerBag.length > 0 && (
-                        <button
-                          className="disenchant-all-btn"
-                          onClick={() => engine.disenchantAll()}
-                          title="Disenchant all items into Nexus Crystals"
-                        >
-                          Disenchant All
-                        </button>
-                      )}
+                      {state.playerBag.length > 0 && (() => {
+                        const preRaidCount = state.playerBag.filter(i => i.isPreRaidBis).length;
+                        const disenchantableCount = state.playerBag.length - preRaidCount;
+                        return (
+                          <button
+                            className="disenchant-all-btn"
+                            onClick={() => {
+                              if (preRaidCount > 0) {
+                                setConfirmDialog({
+                                  title: 'Disenchant All Items',
+                                  warningText: `${preRaidCount} pre-raid BiS item${preRaidCount > 1 ? 's' : ''} will be DESTROYED (no materials).`,
+                                  message: `${disenchantableCount} item${disenchantableCount !== 1 ? 's' : ''} will be disenchanted for Nexus Crystals.`,
+                                  confirmLabel: 'Disenchant',
+                                  onConfirm: () => engine.disenchantAll()
+                                });
+                              } else {
+                                engine.disenchantAll();
+                              }
+                            }}
+                            title={preRaidCount > 0
+                              ? `Disenchant ${disenchantableCount} items, destroy ${preRaidCount} pre-raid items`
+                              : "Disenchant all items into Nexus Crystals"}
+                          >
+                            Disenchant All
+                          </button>
+                        );
+                      })()}
                     </>
                   ) : (
                     <span className="bag-slots">{state.materialsBag.nexus_crystal} crystals</span>
@@ -5446,13 +5570,13 @@ function App() {
                         return (
                           <div
                             key={`gear-${item.id}-${index}`}
-                            className={`bag-slot filled gear rarity-${item.rarity} ${item.enchantId ? 'enchanted' : ''}`}
+                            className={`bag-slot filled gear rarity-${item.rarity} ${item.enchantId ? 'enchanted' : ''} ${item.isPreRaidBis ? 'pre-raid-bis' : ''}`}
                             onClick={() => engine.equipFromBag(index)}
                             onContextMenu={(e) => {
                               e.preventDefault();
                               setBagContextMenu({ x: e.clientX, y: e.clientY, index });
                             }}
-                            title={`Click to equip • Right-click to disenchant`}
+                            title={item.isPreRaidBis ? 'Click to equip • Right-click to destroy (pre-raid)' : 'Click to equip • Right-click to disenchant'}
                           >
                             <img src={item.icon} alt={item.name} />
                             <div className="slot-tooltip">
@@ -5469,7 +5593,8 @@ function App() {
                                 {item.stats.mp5 && <div>+{item.stats.mp5} MP5</div>}
                                 {item.stats.critChance && <div>+{item.stats.critChance}% Crit</div>}
                               </div>
-                              <div className="tooltip-action">Left-click: Equip • Right-click: Disenchant</div>
+                              <div className="tooltip-action">Left-click: Equip • Right-click: {item.isPreRaidBis ? 'Destroy' : 'Disenchant'}</div>
+                              {item.isPreRaidBis && <div className="pre-raid-destroy-warning">Pre-raid items cannot be disenchanted</div>}
                             </div>
                           </div>
                         );
@@ -5521,23 +5646,28 @@ function App() {
               </div>
 
               {/* Context Menu for Disenchanting */}
-              {bagContextMenu && (
-                <div
-                  className="bag-context-menu"
-                  style={{ left: bagContextMenu.x, top: bagContextMenu.y }}
-                  onClick={() => setBagContextMenu(null)}
-                >
-                  <button
-                    onClick={() => {
-                      engine.disenchantItem(bagContextMenu.index);
-                      setBagContextMenu(null);
-                    }}
+              {bagContextMenu && (() => {
+                const contextItem = state.playerBag[bagContextMenu.index];
+                const isPreRaid = contextItem?.isPreRaidBis;
+                return (
+                  <div
+                    className="bag-context-menu"
+                    style={{ left: bagContextMenu.x, top: bagContextMenu.y }}
+                    onClick={() => setBagContextMenu(null)}
                   >
-                    Disenchant
-                  </button>
-                  <button onClick={() => setBagContextMenu(null)}>Cancel</button>
-                </div>
-              )}
+                    <button
+                      onClick={() => {
+                        engine.disenchantItem(bagContextMenu.index);
+                        setBagContextMenu(null);
+                      }}
+                    >
+                      {isPreRaid ? 'Destroy' : 'Disenchant'}
+                    </button>
+                    {isPreRaid && <div className="pre-raid-destroy-warning">Cannot be disenchanted</div>}
+                    <button onClick={() => setBagContextMenu(null)}>Cancel</button>
+                  </div>
+                );
+              })()}
 
               {/* Quest Materials Section (Dragon Heads) */}
               <div className="bag-section">

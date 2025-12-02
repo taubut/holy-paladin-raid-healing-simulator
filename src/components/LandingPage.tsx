@@ -372,7 +372,7 @@ export function LandingPage({
           {/* Footer */}
           <div className="landing-footer">
             <p>A raiding simulator for World of Warcraft Classic</p>
-            <p className="version">v0.19.0</p>
+            <p className="version">v0.24.0</p>
             <a
               href="https://github.com/taubut/holy-paladin-raid-healing-simulator"
               target="_blank"

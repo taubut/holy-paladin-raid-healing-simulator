@@ -10,6 +10,7 @@ import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, Legen
 import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTS } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
+import { getPreRaidBisForSpec } from './preRaidBisSets';
 import posthog from 'posthog-js';
 
 const GCD_DURATION = 1.5;
@@ -403,7 +404,7 @@ export class GameEngine {
       otherHealersEnabled: true,
       otherHealersHealing: 0,
       // Loot and gear system
-      playerEquipment: createEmptyEquipment(),
+      playerEquipment: getPreRaidBisForSpec('holy_paladin'),  // Default to Holy Paladin pre-raid BiS
       playerDKP: { points: 50, earnedThisRaid: 0 },
       pendingLoot: [],
       showLootModal: false,
@@ -464,10 +465,10 @@ export class GameEngine {
       naturesSwiftnessActive: false,
       naturesSwiftnessCooldown: 0,
       // Faction-specific progress (each faction maintains separate gear/bag/DKP)
-      allianceEquipment: createEmptyEquipment(),
+      allianceEquipment: getPreRaidBisForSpec('holy_paladin'),
       allianceBag: [],
       allianceDKP: { points: 0, earnedThisRaid: 0 },
-      hordeEquipment: createEmptyEquipment(),
+      hordeEquipment: getPreRaidBisForSpec('restoration_shaman'),
       hordeBag: [],
       hordeDKP: { points: 0, earnedThisRaid: 0 },
       // Hidden boss unlocks
@@ -548,8 +549,16 @@ export class GameEngine {
       return isTank ? Math.floor(base * 1.4) : base;
     };
 
+    // Get pre-raid BiS gear and calculate gear score for a spec
+    const getPreRaidGearAndScore = (spec: WoWSpec): { equipment: Equipment; gearScore: number } => {
+      const equipment = getPreRaidBisForSpec(spec);
+      const gearScore = this.calculateGearScore(equipment);
+      return { equipment, gearScore };
+    };
+
     // Add player as first healer (paladin/shaman based on faction) - will be assigned group at end
     usedNames.add(playerName);
+    const playerGear = getPreRaidGearAndScore(healerSpec);
     raid.push({
       id: PLAYER_ID,
       name: playerName,
@@ -563,14 +572,15 @@ export class GameEngine {
       isAlive: true,
       dps: 0,
       group: 1, // Will be reassigned
-      equipment: createEmptyEquipment(),
-      gearScore: 0,
+      equipment: playerGear.equipment,
+      gearScore: playerGear.gearScore,
       positionZone: 'ranged',  // Healers are in ranged zone
     });
 
     // Tanks
     for (let i = 0; i < composition.tanks; i++) {
       const maxHealth = getRandomHealth('warrior', true);
+      const tankGear = getPreRaidGearAndScore('protection_warrior');
       raid.push({
         id: `member_${id++}`,
         name: getRandomName('warrior'),
@@ -584,8 +594,8 @@ export class GameEngine {
         isAlive: true,
         dps: 150,
         group: 1, // Will be reassigned
-        equipment: createEmptyEquipment(),
-        gearScore: 0,
+        equipment: tankGear.equipment,
+        gearScore: tankGear.gearScore,
         positionZone: 'tank',  // Tanks are in their own zone
       });
     }
@@ -595,6 +605,7 @@ export class GameEngine {
     // Horde: these provide totems and chain heal support
     for (let i = 0; i < composition.factionHealers; i++) {
       const maxHealth = getRandomHealth(healerClass, false);
+      const factionHealerGear = getPreRaidGearAndScore(healerSpec);
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(healerClass),
@@ -608,8 +619,8 @@ export class GameEngine {
         isAlive: true,
         dps: 0,
         group: 1, // Will be reassigned
-        equipment: createEmptyEquipment(),
-        gearScore: 0,
+        equipment: factionHealerGear.equipment,
+        gearScore: factionHealerGear.gearScore,
         positionZone: 'ranged',  // Healers are in ranged zone
       });
     }
@@ -621,7 +632,8 @@ export class GameEngine {
       const wowClass = otherHealerClasses[i % otherHealerClasses.length];
       const maxHealth = getRandomHealth(wowClass, false);
       // Assign appropriate healer spec
-      const spec = wowClass === 'priest' ? 'holy_priest' : 'restoration';
+      const spec: WoWSpec = wowClass === 'priest' ? 'holy_priest' : 'restoration';
+      const otherHealerGear = getPreRaidGearAndScore(spec);
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(wowClass),
@@ -635,8 +647,8 @@ export class GameEngine {
         isAlive: true,
         dps: 0,
         group: 1, // Will be reassigned
-        equipment: createEmptyEquipment(),
-        gearScore: 0,
+        equipment: otherHealerGear.equipment,
+        gearScore: otherHealerGear.gearScore,
         positionZone: 'ranged',  // Healers are in ranged zone
       });
     }
@@ -659,6 +671,7 @@ export class GameEngine {
       const wowClass = dpsClasses[i % dpsClasses.length];
       const maxHealth = getRandomHealth(wowClass, false);
       const spec = dpsSpecs[wowClass];
+      const dpsGear = getPreRaidGearAndScore(spec);
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(wowClass),
@@ -672,8 +685,8 @@ export class GameEngine {
         isAlive: true,
         dps: 400 + Math.floor(Math.random() * 200),
         group: 1, // Will be reassigned
-        equipment: createEmptyEquipment(),
-        gearScore: 0,
+        equipment: dpsGear.equipment,
+        gearScore: dpsGear.gearScore,
         positionZone: this.getPositionZone(wowClass, spec, 'dps'),
       });
     }
@@ -3574,12 +3587,28 @@ export class GameEngine {
   }
 
   // Disenchant a single item from the bag (by index)
-  disenchantItem(bagIndex: number): boolean {
+  // Returns: 'disenchanted' | 'destroyed' | false
+  disenchantItem(bagIndex: number): 'disenchanted' | 'destroyed' | false {
     if (bagIndex < 0 || bagIndex >= this.state.playerBag.length) {
       return false;
     }
 
     const item = this.state.playerBag[bagIndex];
+
+    // Pre-raid BiS items cannot be disenchanted - they get destroyed instead
+    if (item.isPreRaidBis) {
+      // Remove item from bag (destroy it)
+      this.state.playerBag.splice(bagIndex, 1);
+
+      this.addCombatLogEntry({
+        message: `${item.name} destroyed (pre-raid items cannot be disenchanted)`,
+        type: 'system',
+      });
+
+      this.requestCloudSave();
+      this.notify();
+      return 'destroyed';
+    }
 
     // Remove item from bag
     this.state.playerBag.splice(bagIndex, 1);
@@ -3594,33 +3623,48 @@ export class GameEngine {
 
     this.requestCloudSave();
     this.notify();
-    return true;
+    return 'disenchanted';
   }
 
   // Disenchant all items in the player's bag
-  disenchantAll(): number {
+  // Returns: { disenchanted: number, destroyed: number }
+  disenchantAll(): { disenchanted: number; destroyed: number } {
     const itemCount = this.state.playerBag.length;
     if (itemCount === 0) {
       this.addCombatLogEntry({ message: 'No items to disenchant!', type: 'system' });
       this.notify();
-      return 0;
+      return { disenchanted: 0, destroyed: 0 };
     }
 
-    // Get item names for the log
-    const itemNames = this.state.playerBag.map(i => i.name);
+    // Separate pre-raid BiS items from disenchantable items
+    const preRaidItems = this.state.playerBag.filter(i => i.isPreRaidBis);
+    const disenchantableItems = this.state.playerBag.filter(i => !i.isPreRaidBis);
 
-    // Clear the bag and add nexus crystals
+    // Clear the bag
     this.state.playerBag = [];
-    this.state.materialsBag.nexus_crystal += itemCount;
 
-    this.addCombatLogEntry({
-      message: `Disenchanted ${itemCount} items into ${itemCount} Nexus Crystal${itemCount > 1 ? 's' : ''}: ${itemNames.join(', ')}`,
-      type: 'system',
-    });
+    // Add nexus crystals only for disenchantable items
+    this.state.materialsBag.nexus_crystal += disenchantableItems.length;
+
+    // Log pre-raid items being destroyed
+    if (preRaidItems.length > 0) {
+      this.addCombatLogEntry({
+        message: `Destroyed ${preRaidItems.length} pre-raid item${preRaidItems.length > 1 ? 's' : ''} (cannot be disenchanted): ${preRaidItems.map(i => i.name).join(', ')}`,
+        type: 'system',
+      });
+    }
+
+    // Log disenchanted items
+    if (disenchantableItems.length > 0) {
+      this.addCombatLogEntry({
+        message: `Disenchanted ${disenchantableItems.length} item${disenchantableItems.length > 1 ? 's' : ''} into ${disenchantableItems.length} Nexus Crystal${disenchantableItems.length > 1 ? 's' : ''}: ${disenchantableItems.map(i => i.name).join(', ')}`,
+        type: 'system',
+      });
+    }
 
     this.requestCloudSave();
     this.notify();
-    return itemCount;
+    return { disenchanted: disenchantableItems.length, destroyed: preRaidItems.length };
   }
 
   // Equip an item on a raid member (only if it's an upgrade)
