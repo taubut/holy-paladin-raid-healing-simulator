@@ -1,24 +1,73 @@
 import type { RaidMember, WoWClass } from '../types/game';
 
-// Classic WoW style names
-const WARRIOR_NAMES = ['Thunderfury', 'Shieldwall', 'Ironfoe', 'Grommash', 'Lothar'];
-const PALADIN_NAMES = ['Uther', 'Tirion', 'Bolvar', 'Turalyon', 'Mograine'];
-const HUNTER_NAMES = ['Rexxar', 'Alleria', 'Hemet', 'Nathanos', 'Sylvanas'];
-const ROGUE_NAMES = ['Garona', 'Mathias', 'Valeera', 'Edwin', 'Ravenholdt'];
-const PRIEST_NAMES = ['Benedictus', 'Moira', 'Anduin', 'Velen', 'Whitemane'];
-const MAGE_NAMES = ['Jaina', 'Khadgar', 'Antonidas', 'Rhonin', 'Medivh'];
-const WARLOCK_NAMES = ['Guldan', 'Wilfred', 'Kanrethad', 'Helcular', 'Dreadmist'];
-const DRUID_NAMES = ['Malfurion', 'Hamuul', 'Cenarius', 'Staghelm', 'Remulos'];
-
+// Classic WoW style names - extensive lists to avoid duplicates
+// Note: This file uses the limited WoWClass type from types/game.ts (no shaman)
 const CLASS_NAMES: Record<WoWClass, string[]> = {
-  warrior: WARRIOR_NAMES,
-  paladin: PALADIN_NAMES,
-  hunter: HUNTER_NAMES,
-  rogue: ROGUE_NAMES,
-  priest: PRIEST_NAMES,
-  mage: MAGE_NAMES,
-  warlock: WARLOCK_NAMES,
-  druid: DRUID_NAMES,
+  warrior: [
+    'Thunderfury', 'Shieldwall', 'Ironfoe', 'Grommash', 'Lothar', 'Saurfang', 'Nazgrel', 'Broxigar',
+    'Varok', 'Garrosh', 'Durotan', 'Orgrim', 'Blackhand', 'Kilrogg', 'Kargath', 'Eitrigg', 'Thoras',
+    'Trollbane', 'Danath', 'Kurdran', 'Muradin', 'Magni', 'Falstad', 'Gelbin', 'Varian', 'Llane',
+    'Anduin', 'Bolvar', 'Alexandros', 'Renault', 'Taelan', 'Tirion', 'Maxwell', 'Abbendis', 'Dathrohan',
+    'Isillien', 'Herod', 'Mograine', 'Ravencrest', 'Jarod', 'Shandris', 'Huln', 'Maiev', 'Naisha',
+    'Akama', 'Khadgar', 'Cairne', 'Baine', 'Rokhan', 'Nazgrim', 'Malkorok', 'Zaela', 'Thura'
+  ],
+  paladin: [
+    'Uther', 'Tirion', 'Bolvar', 'Turalyon', 'Mograine', 'Fordring', 'Lightbringer', 'Ashbringer',
+    'Fairbanks', 'Abbendis', 'Dathrohan', 'Isillien', 'Valdelmar', 'Halford', 'Eligor', 'Taelan',
+    'Maxwell', 'Mardenholde', 'Gavinrad', 'Saidan', 'Ballador', 'Maraad', 'Vindicator', 'Yrel',
+    'Nobundo', 'Arator', 'Liadrin', 'Galvarad', 'Harthal', 'Aurius', 'Raleigh', 'Davil', 'Corder',
+    'Pureheart', 'Trueheart', 'Greyson', 'Milton', 'Duthorian', 'Katherine', 'Dawnbringer', 'Sunwalker',
+    'Dezco', 'Aponi', 'Sunstrider', 'Lorthemar', 'Rommath', 'Halduron', 'Brightwing', 'Silvermoon'
+  ],
+  hunter: [
+    'Rexxar', 'Alleria', 'Hemet', 'Nathanos', 'Sylvanas', 'Vereesa', 'Shandris', 'Halduron',
+    'Humar', 'Brokentoe', 'Nesingwary', 'Ajeck', 'Barnil', 'Sergra', 'Jorn', 'Mahren', 'Tethik',
+    'Swiftarrow', 'Tracker', 'Pathfinder', 'Windrunner', 'Farstrider', 'Wildmane', 'Deadeye',
+    'Quickshot', 'Eagleye', 'Hawkeye', 'Sniper', 'Stalker', 'Trapper', 'Beastmaster', 'Surviver',
+    'Skullsplitter', 'Bloodhawk', 'Shadowhunter', 'Darkspear', 'Zulian', 'Vilebranch', 'Sharpbeak',
+    'Swiftwind', 'Stormpike', 'Frostwolf', 'Thunderlord', 'Warsong', 'Bleedinghallow', 'Bonechewer',
+    'Dragonmaw', 'Blackrock', 'Shadowmoon', 'Twilight', 'Stormreaver', 'Laughingskull'
+  ],
+  rogue: [
+    'Garona', 'Mathias', 'Valeera', 'Edwin', 'Ravenholdt', 'Vanessa', 'Jorach', 'Tethys', 'Fleet',
+    'Fahrad', 'Elling', 'Renzik', 'Anara', 'Lilian', 'Voss', 'Taoshi', 'Shokia', 'Kiryn', 'Suna',
+    'Shadowblade', 'Nightslayer', 'Bloodfang', 'Deathmantle', 'Slayer', 'Netherblade', 'Bonescythe',
+    'Shadowstep', 'Ambush', 'Eviscerate', 'Backstab', 'Sap', 'Pickpocket', 'Stealth', 'Vanish',
+    'Shiv', 'Gouge', 'Sinister', 'Deadly', 'Mutilate', 'Envenom', 'Rupture', 'Garrote', 'Cheapshot',
+    'Kidney', 'Blind', 'Sprint', 'Evasion', 'Blade', 'Flurry', 'Thistle', 'Defias', 'Syndicate'
+  ],
+  priest: [
+    'Benedictus', 'Moira', 'Anduin', 'Velen', 'Whitemane', 'Tyrande', 'Alonsus', 'Faol', 'Calia',
+    'Menethil', 'Natalie', 'Seline', 'Zabra', 'Hexx', 'Rohan', 'Talanji', 'Zolani', 'Zul',
+    'Shadowmend', 'Holyfire', 'Lightwell', 'Renew', 'Serenity', 'Sanctuary', 'Prayer', 'Penance',
+    'Absolution', 'Discipline', 'Devout', 'Vestment', 'Transcendence', 'Avatar', 'Confessor',
+    'Inquisitor', 'Bishop', 'Archbishop', 'Cardinal', 'Pontiff', 'Oracle', 'Prophet', 'Seer',
+    'Absolver', 'Penitent', 'Faithful', 'Devoted', 'Pious', 'Sacred', 'Divine', 'Holy', 'Radiant'
+  ],
+  mage: [
+    'Jaina', 'Khadgar', 'Antonidas', 'Rhonin', 'Medivh', 'Aegwynn', 'Nielas', 'Modgud', 'Azshara',
+    'Kelthuzad', 'Arugal', 'Thalnos', 'Atiesh', 'Aran', 'Millhouse', 'Kalec', 'Vargoth', 'Modera',
+    'Frostfire', 'Arcane', 'Netherwind', 'Manaweave', 'Spellfire', 'Sorcerer', 'Arcanist', 'Magister',
+    'Conjurer', 'Invoker', 'Warmage', 'Battlemage', 'Archmage', 'Highborne', 'Sunreaver', 'Kirin',
+    'Dalaran', 'Silvermoon', 'Queldorei', 'Sindorei', 'Shendralar', 'Illidari', 'Nightborne',
+    'Frostbolt', 'Fireball', 'Pyroblast', 'Blizzard', 'Flamestrike', 'Polymorph', 'Blink', 'Evocation'
+  ],
+  warlock: [
+    'Guldan', 'Wilfred', 'Kanrethad', 'Helcular', 'Dreadmist', 'Nerzhul', 'Teron', 'Gorefiend',
+    'Chogall', 'Darkness', 'Shadow', 'Void', 'Fel', 'Demonic', 'Infernal', 'Doomguard', 'Darkweaver',
+    'Felhunter', 'Succubus', 'Voidwalker', 'Imp', 'Demonology', 'Affliction', 'Destruction', 'Bane',
+    'Curse', 'Corruption', 'Agony', 'Doom', 'Haunt', 'Unstable', 'Drain', 'Siphon', 'Hellfire',
+    'Soulstone', 'Healthstone', 'Soulwell', 'Demonologist', 'Summoner', 'Shadowcaster', 'Necrolyte',
+    'Cultist', 'Acolyte', 'Twilight', 'Burning', 'Council', 'Cabal', 'Coven', 'Shadowflame', 'Nether'
+  ],
+  druid: [
+    'Malfurion', 'Hamuul', 'Cenarius', 'Staghelm', 'Remulos', 'Tyrande', 'Illidan', 'Broll', 'Bearmantle',
+    'Fandral', 'Naralex', 'Keeper', 'Archdruid', 'Dreamweaver', 'Moonglade', 'Cenarion', 'Dreamgrove',
+    'Moonkin', 'Treant', 'Wildkin', 'Nightsaber', 'Stormcrow', 'Seaform', 'Treebark', 'Lifebloom',
+    'Regrowth', 'Rejuvenation', 'Swiftmend', 'Wild', 'Nature', 'Starfall', 'Moonfire', 'Sunfire',
+    'Wrath', 'Starfire', 'Hurricane', 'Typhoon', 'Entangle', 'Thorns', 'Barkskin', 'Tranquility',
+    'Innervate', 'Rebirth', 'Dreamwalk', 'Moonshadow', 'Starweaver', 'Nightwing', 'Dawnfeather'
+  ],
 };
 
 // Health pools based on Classic WoW (pre-AQ gear)
@@ -36,12 +85,17 @@ const CLASS_HEALTH: Record<WoWClass, { min: number; max: number }> = {
 function getRandomName(wowClass: WoWClass, usedNames: Set<string>): string {
   const names = CLASS_NAMES[wowClass];
   const available = names.filter(n => !usedNames.has(n));
-  if (available.length === 0) {
-    // Generate a random suffix if all names are used
-    const baseName = names[Math.floor(Math.random() * names.length)];
-    return `${baseName}${Math.floor(Math.random() * 99)}`;
+  if (available.length > 0) {
+    return available[Math.floor(Math.random() * available.length)];
   }
-  return available[Math.floor(Math.random() * available.length)];
+  // If class names exhausted, try names from ALL classes
+  const allNames = Object.values(CLASS_NAMES).flat();
+  const allAvailable = allNames.filter(n => !usedNames.has(n));
+  if (allAvailable.length > 0) {
+    return allAvailable[Math.floor(Math.random() * allAvailable.length)];
+  }
+  // Last resort: should never happen with 400+ names
+  return `Adventurer${Date.now() % 1000}`;
 }
 
 function getRandomHealth(wowClass: WoWClass, isTank: boolean): number {

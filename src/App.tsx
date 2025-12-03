@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, CONSUMABLES, WORLD_BUFFS } from './game/GameEngine';
-import { CLASS_COLORS, CLASS_SPECS, getSpecById } from './game/types';
+import { CLASS_COLORS, CLASS_SPECS, getSpecById, getGearCompatibleSpecs } from './game/types';
 import type { WoWClass, BuffEffect, Equipment } from './game/types';
 import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
@@ -95,6 +95,14 @@ function App() {
   const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
   const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
+  // Bench player state
+  const [raidManagerTab, setRaidManagerTab] = useState<'active' | 'bench'>('active');
+  const [selectedBenchPlayerForSwap, setSelectedBenchPlayerForSwap] = useState<string | null>(null);
+  const [selectedRaidMemberForSwap, setSelectedRaidMemberForSwap] = useState<string | null>(null);
+  const [showAddToBenchModal, setShowAddToBenchModal] = useState(false);
+  const [addToBenchSelectedClass, setAddToBenchSelectedClass] = useState<WoWClass | null>(null);
+  const [kickConfirmMember, setKickConfirmMember] = useState<{ id: string; name: string } | null>(null);
+  const [removeBenchConfirm, setRemoveBenchConfirm] = useState<{ id: string; name: string } | null>(null);
   // Mobile UI mode - auto-detect on load
   const [isMobileMode, setIsMobileMode] = useState(() => {
     // Check if device is mobile/tablet based on screen width and touch capability
@@ -104,7 +112,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.25.0';
+  const CURRENT_PATCH_VERSION = '0.26.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -1873,6 +1881,46 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.26.0 - Bench System Added</h3>
+                  <span className="patch-date">December 3, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bench System</h4>
+                  <ul>
+                    <li><strong>Swap Raiders for Bench Players</strong>: Add new classes or specs to your raid for boss encounters that require specific compositions</li>
+                    <li><strong>Persistent Gear</strong>: Bench players keep their own gear that persists between swaps</li>
+                    <li><strong>5/10 Bench Slots</strong>: 5 bench slots for 20-man raids, 10 for 40-man raids</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bench Tab Layout</h4>
+                  <ul>
+                    <li><strong>Two-Panel Design</strong>: Compact raid groups on the left, dedicated bench area on the right</li>
+                    <li><strong>Vertical Groups</strong>: All 8 groups visible at once (4 columns x 2 rows for 40-man raids)</li>
+                    <li><strong>Clean View</strong>: Shows just names and specs for easy roster management</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Drag & Drop</h4>
+                  <ul>
+                    <li><strong>Precise Targeting</strong>: Drag bench players directly onto specific raid members to swap</li>
+                    <li><strong>Empty Slot Support</strong>: Drag bench players to empty group slots to add without swapping</li>
+                    <li><strong>Visual Feedback</strong>: Green highlight shows exactly who you're about to swap with</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Click-to-Swap</h4>
+                  <ul>
+                    <li><strong>Both Directions</strong>: Click a bench player then a raider, OR click a raider then a bench player</li>
+                    <li><strong>Color-Coded Selection</strong>: Blue for selected bench players, orange for selected raiders</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.25.0 - Molten Core Boss Overhaul</h3>
                   <span className="patch-date">December 3, 2025</span>
                 </div>
@@ -4687,6 +4735,81 @@ function App() {
         </div>
       )}
 
+      {/* Kick Raid Member Confirmation Modal */}
+      {kickConfirmMember && (
+        <div className="modal-overlay" onClick={() => setKickConfirmMember(null)}>
+          <div className="confirm-dialog kick-confirm" onClick={e => e.stopPropagation()}>
+            <div className="confirm-dialog-header">
+              <h2>Kick {kickConfirmMember.name}?</h2>
+              <button className="close-inspection" onClick={() => setKickConfirmMember(null)}>X</button>
+            </div>
+            <div className="confirm-dialog-content">
+              <p className="confirm-warning kick-warning">⚠️ WARNING: This action cannot be undone!</p>
+              <p className="confirm-message">
+                Kicking {kickConfirmMember.name} will permanently remove them from your raid team.
+                <strong> All their gear will be lost forever.</strong>
+              </p>
+              <p className="confirm-hint">
+                Consider swapping them to the bench instead if you want to keep their gear.
+              </p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                className="confirm-btn-cancel"
+                onClick={() => setKickConfirmMember(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="confirm-btn-confirm kick-confirm-btn"
+                onClick={() => {
+                  engine.kickRaidMember(kickConfirmMember.id);
+                  setKickConfirmMember(null);
+                }}
+              >
+                Kick Player
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Bench Player Confirmation Modal */}
+      {removeBenchConfirm && (
+        <div className="modal-overlay" onClick={() => setRemoveBenchConfirm(null)}>
+          <div className="confirm-dialog kick-confirm" onClick={e => e.stopPropagation()}>
+            <div className="confirm-dialog-header">
+              <h2>Remove {removeBenchConfirm.name} from Bench?</h2>
+              <button className="close-inspection" onClick={() => setRemoveBenchConfirm(null)}>X</button>
+            </div>
+            <div className="confirm-dialog-content">
+              <p className="confirm-warning kick-warning">⚠️ WARNING: This action cannot be undone!</p>
+              <p className="confirm-message">
+                Removing {removeBenchConfirm.name} from the bench will permanently delete them.
+                <strong> All their gear will be lost forever.</strong>
+              </p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                className="confirm-btn-cancel"
+                onClick={() => setRemoveBenchConfirm(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="confirm-btn-confirm kick-confirm-btn"
+                onClick={() => {
+                  engine.removeBenchPlayer(removeBenchConfirm.id);
+                  setRemoveBenchConfirm(null);
+                }}
+              >
+                Remove Player
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Golemagg Tank Assignment Modal */}
       {showGolemaggTankModal && (
         <div className="modal-overlay" onClick={() => setShowGolemaggTankModal(false)}>
@@ -5068,14 +5191,31 @@ function App() {
 
       {/* Raid Group Manager Modal */}
       {showRaidGroupManager && (
-        <div className="modal-overlay" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); }}>
+        <div className="modal-overlay" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setShowAddToBenchModal(false); }}>
           <div className="raid-group-manager-modal" onClick={e => e.stopPropagation()}>
             <div className="rgm-header">
               <h2>Raid Group Manager</h2>
-              <p className="rgm-subtitle">Drag players between groups • Click paladins for auras • Right-click to change class/spec</p>
-              <button className="close-inspection" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); }}>X</button>
+              <div className="rgm-tabs">
+                <button
+                  className={`rgm-tab ${raidManagerTab === 'active' ? 'active' : ''}`}
+                  onClick={() => { setRaidManagerTab('active'); setSelectedBenchPlayerForSwap(null); setShowAddToBenchModal(false); }}
+                >
+                  Active Raid
+                </button>
+                <button
+                  className={`rgm-tab ${raidManagerTab === 'bench' ? 'active' : ''}`}
+                  onClick={() => { setRaidManagerTab('bench'); setSelectedPaladinForAura(null); setSelectedShamanForTotems(null); setSelectedMemberForClassSpec(null); }}
+                >
+                  Bench ({state.benchPlayers.length}/{engine.getMaxBenchSize()})
+                </button>
+              </div>
+              <button className="close-inspection" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setShowAddToBenchModal(false); }}>X</button>
             </div>
             <div className="rgm-content">
+              {/* Tab content */}
+              {raidManagerTab === 'active' && (
+                <>
+                  <p className="rgm-subtitle">Drag players between groups • Click paladins for auras • Right-click to change class/spec</p>
               {/* Groups Grid */}
               <div className="rgm-groups">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map(groupNum => {
@@ -5397,34 +5537,38 @@ function App() {
                 );
               })()}
 
-              {/* Class/Spec Selection Panel */}
-              {selectedMemberForClassSpec && (
-                <div className="rgm-class-spec-panel">
-                  <div className="rgm-class-spec-header">
-                    <h3>Change Class/Spec for {state.raid.find(m => m.id === selectedMemberForClassSpec)?.name}</h3>
-                    <button className="close-panel-btn" onClick={() => setSelectedMemberForClassSpec(null)}>×</button>
-                  </div>
-                  <div className="rgm-class-spec-content">
-                    {(Object.keys(CLASS_SPECS) as WoWClass[]).map(wowClass => {
-                      const specs = CLASS_SPECS[wowClass];
-                      const classColor = CLASS_COLORS[wowClass];
-                      const currentMember = state.raid.find(m => m.id === selectedMemberForClassSpec);
-                      const isCurrentClass = currentMember?.class === wowClass;
+              {/* Spec Change Panel - Only shows gear-compatible specs from same class */}
+              {selectedMemberForClassSpec && (() => {
+                const currentMember = state.raid.find(m => m.id === selectedMemberForClassSpec);
+                if (!currentMember) return null;
 
-                      return (
-                        <div key={wowClass} className={`rgm-class-section ${isCurrentClass ? 'current-class' : ''}`}>
-                          <div className="rgm-class-name" style={{ color: classColor }}>
-                            {wowClass.charAt(0).toUpperCase() + wowClass.slice(1)}
-                          </div>
+                const compatibleSpecIds = getGearCompatibleSpecs(currentMember.class, currentMember.spec);
+                const allClassSpecs = CLASS_SPECS[currentMember.class];
+                const compatibleSpecs = allClassSpecs.filter(s => compatibleSpecIds.includes(s.id));
+                const classColor = CLASS_COLORS[currentMember.class];
+                const hasMultipleOptions = compatibleSpecs.length > 1;
+
+                return (
+                  <div className="rgm-class-spec-panel">
+                    <div className="rgm-class-spec-header">
+                      <h3>Change Spec for {currentMember.name}</h3>
+                      <button className="close-panel-btn" onClick={() => setSelectedMemberForClassSpec(null)}>×</button>
+                    </div>
+                    <div className="rgm-class-spec-content">
+                      <div className="rgm-class-section current-class">
+                        <div className="rgm-class-name" style={{ color: classColor }}>
+                          {currentMember.class.charAt(0).toUpperCase() + currentMember.class.slice(1)}
+                        </div>
+                        {hasMultipleOptions ? (
                           <div className="rgm-spec-options">
-                            {specs.map(spec => {
-                              const isCurrentSpec = currentMember?.spec === spec.id;
+                            {compatibleSpecs.map(spec => {
+                              const isCurrentSpec = currentMember.spec === spec.id;
                               return (
                                 <button
                                   key={spec.id}
                                   className={`rgm-spec-option ${isCurrentSpec ? 'selected' : ''}`}
                                   onClick={() => {
-                                    engine.changeMemberClassAndSpec(selectedMemberForClassSpec, wowClass, spec.id);
+                                    engine.changeMemberClassAndSpec(selectedMemberForClassSpec, currentMember.class, spec.id);
                                   }}
                                 >
                                   <img src={spec.icon} alt={spec.name} className="rgm-spec-icon" />
@@ -5441,15 +5585,343 @@ function App() {
                               );
                             })}
                           </div>
-                        </div>
-                      );
-                    })}
+                        ) : (
+                          <div className="rgm-no-swap-info">
+                            <p>No gear-compatible specs available for this specialization.</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="rgm-bench-hint">
+                        <p>To change to a different class or incompatible spec, use the <strong>Bench</strong> tab to swap this character with a bench player.</p>
+                      </div>
+                    </div>
                   </div>
+                );
+              })()}
+                </>
+              )}
+
+              {/* Bench Tab Content - Two Panel Layout */}
+              {raidManagerTab === 'bench' && (
+                <div className="rgm-bench-layout">
+                  {/* Left Side: Compact Raid Groups */}
+                  <div className="rgm-raid-compact">
+                    <h4 className="rgm-raid-compact-title">Active Raid</h4>
+                    <p className="rgm-compact-hint">Drag players to bench or click to swap</p>
+                    <div className={`rgm-compact-groups ${state.raid.length > 20 ? 'size-40' : 'size-20'}`}>
+                      {Array.from({ length: state.raid.length > 20 ? 8 : 4 }, (_, groupIndex) => {
+                        const groupNumber = groupIndex + 1;
+                        const groupMembers = state.raid.filter(m => m.group === groupNumber);
+
+                        return (
+                          <div
+                            key={groupNumber}
+                            className="rgm-compact-group"
+                          >
+                            <div className="rgm-compact-group-header">Group {groupNumber}</div>
+                            <div className="rgm-compact-members">
+                              {groupMembers.map(member => {
+                                const classColor = CLASS_COLORS[member.class];
+                                const specDef = getSpecById(member.spec);
+                                const isPlayer = member.id === 'player';
+                                const isSwapTarget = selectedBenchPlayerForSwap && !isPlayer;
+                                const isSelectedRaider = selectedRaidMemberForSwap === member.id;
+
+                                return (
+                                  <div
+                                    key={member.id}
+                                    className={`rgm-compact-member ${isPlayer ? 'is-player' : ''} ${isSwapTarget ? 'swap-target' : ''} ${isSelectedRaider ? 'selected-raider' : ''}`}
+                                    draggable={!isPlayer}
+                                    onDragStart={(e) => {
+                                      if (!isPlayer) {
+                                        e.dataTransfer.setData('raidMemberId', member.id);
+                                      }
+                                    }}
+                                    onDragOver={(e) => {
+                                      if (!isPlayer) {
+                                        e.preventDefault();
+                                        e.currentTarget.classList.add('drag-over');
+                                      }
+                                    }}
+                                    onDragLeave={(e) => {
+                                      e.currentTarget.classList.remove('drag-over');
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      e.currentTarget.classList.remove('drag-over');
+                                      if (isPlayer) return;
+                                      const benchPlayerId = e.dataTransfer.getData('benchPlayerId');
+                                      if (benchPlayerId) {
+                                        engine.swapWithBench(member.id, benchPlayerId);
+                                      }
+                                    }}
+                                    onClick={() => {
+                                      if (isPlayer) return;
+                                      // If a bench player is selected, swap with them
+                                      if (selectedBenchPlayerForSwap) {
+                                        engine.swapWithBench(member.id, selectedBenchPlayerForSwap);
+                                        setSelectedBenchPlayerForSwap(null);
+                                        setSelectedRaidMemberForSwap(null);
+                                      } else {
+                                        // Toggle selection of this raid member
+                                        setSelectedRaidMemberForSwap(isSelectedRaider ? null : member.id);
+                                        setSelectedBenchPlayerForSwap(null);
+                                      }
+                                    }}
+                                  >
+                                    <div className="rgm-compact-class-bar" style={{ backgroundColor: classColor }} />
+                                    <div className="rgm-compact-info">
+                                      <span className="rgm-compact-name" style={{ color: classColor }}>
+                                        {member.name}
+                                        {isPlayer && ' (You)'}
+                                      </span>
+                                      <span className="rgm-compact-spec">
+                                        {specDef?.name || member.class}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {/* Fill empty slots - droppable and clickable */}
+                              {Array.from({ length: 5 - groupMembers.length }, (_, i) => (
+                                <div
+                                  key={`empty-${groupNumber}-${i}`}
+                                  className={`rgm-compact-member empty ${selectedBenchPlayerForSwap ? 'can-add' : ''}`}
+                                  onDragOver={(e) => {
+                                    e.preventDefault();
+                                    e.currentTarget.classList.add('drag-over');
+                                  }}
+                                  onDragLeave={(e) => {
+                                    e.currentTarget.classList.remove('drag-over');
+                                  }}
+                                  onDrop={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    e.currentTarget.classList.remove('drag-over');
+                                    const benchPlayerId = e.dataTransfer.getData('benchPlayerId');
+                                    if (benchPlayerId) {
+                                      engine.moveBenchPlayerToRaid(benchPlayerId, groupNumber);
+                                    }
+                                  }}
+                                  onClick={() => {
+                                    if (selectedBenchPlayerForSwap) {
+                                      engine.moveBenchPlayerToRaid(selectedBenchPlayerForSwap, groupNumber);
+                                      setSelectedBenchPlayerForSwap(null);
+                                    }
+                                  }}
+                                >
+                                  <span className="rgm-compact-empty-slot">
+                                    {selectedBenchPlayerForSwap ? '+ Add Here' : 'Empty'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Right Side: Bench Area */}
+                  <div
+                    className="rgm-bench-area"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const raidMemberId = e.dataTransfer.getData('raidMemberId');
+                      if (raidMemberId && state.benchPlayers.length < engine.getMaxBenchSize()) {
+                        // Move raid member to bench
+                        engine.moveRaidMemberToBench(raidMemberId);
+                      }
+                    }}
+                  >
+                    <h4 className="rgm-bench-title">
+                      Bench ({state.benchPlayers.length}/{engine.getMaxBenchSize()})
+                    </h4>
+                    <p className="rgm-bench-hint-text">Drag players here or click to select for swap</p>
+
+                    <div className="rgm-bench-players">
+                      {state.benchPlayers.length === 0 ? (
+                        <div className="rgm-bench-empty-area">
+                          <p>No players on bench</p>
+                          <p className="rgm-bench-empty-hint">Drag raid members here or add new players</p>
+                        </div>
+                      ) : (
+                        state.benchPlayers.map(benchPlayer => {
+                          const classColor = CLASS_COLORS[benchPlayer.class];
+                          const specDef = getSpecById(benchPlayer.spec);
+                          const isSelected = selectedBenchPlayerForSwap === benchPlayer.id;
+                          const isSwapTarget = selectedRaidMemberForSwap !== null;
+
+                          return (
+                            <div
+                              key={benchPlayer.id}
+                              className={`rgm-bench-player-card ${isSelected ? 'selected' : ''} ${isSwapTarget ? 'swap-target' : ''}`}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('benchPlayerId', benchPlayer.id);
+                              }}
+                              onClick={() => {
+                                // If a raid member is selected, swap with them
+                                if (selectedRaidMemberForSwap) {
+                                  engine.swapWithBench(selectedRaidMemberForSwap, benchPlayer.id);
+                                  setSelectedRaidMemberForSwap(null);
+                                  setSelectedBenchPlayerForSwap(null);
+                                } else {
+                                  // Toggle selection of this bench player
+                                  setSelectedBenchPlayerForSwap(isSelected ? null : benchPlayer.id);
+                                  setSelectedRaidMemberForSwap(null);
+                                }
+                              }}
+                            >
+                              <div className="rgm-bench-class-bar" style={{ backgroundColor: classColor }} />
+                              <div className="rgm-bench-card-info">
+                                <span className="rgm-bench-card-name" style={{ color: classColor }}>
+                                  {benchPlayer.name}
+                                </span>
+                                <span className="rgm-bench-card-spec">
+                                  {specDef?.name || benchPlayer.class}
+                                </span>
+                                <span className="rgm-bench-card-gs">GS: {benchPlayer.gearScore}</span>
+                              </div>
+                              <span className={`rgm-bench-role ${benchPlayer.role}`}>
+                                {benchPlayer.role === 'tank' ? 'Tank' : benchPlayer.role === 'healer' ? 'Healer' : 'DPS'}
+                              </span>
+                              <button
+                                className="rgm-bench-kick-btn"
+                                title="Remove from team permanently"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRemoveBenchConfirm({ id: benchPlayer.id, name: benchPlayer.name });
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Add to Bench Button */}
+                    {state.benchPlayers.length < engine.getMaxBenchSize() && (
+                      <button
+                        className="rgm-add-bench-btn"
+                        onClick={() => setShowAddToBenchModal(true)}
+                      >
+                        + Add New Player
+                      </button>
+                    )}
+
+                    {selectedBenchPlayerForSwap && (
+                      <div className="rgm-swap-instruction">
+                        Click a raid member on the left to swap with {state.benchPlayers.find(b => b.id === selectedBenchPlayerForSwap)?.name}
+                        <button
+                          className="rgm-cancel-swap"
+                          onClick={() => setSelectedBenchPlayerForSwap(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                    {selectedRaidMemberForSwap && (
+                      <div className="rgm-swap-instruction raider-selected">
+                        Click a bench player to swap with {state.raid.find(m => m.id === selectedRaidMemberForSwap)?.name}
+                        <button
+                          className="rgm-cancel-swap"
+                          onClick={() => setSelectedRaidMemberForSwap(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add to Bench Modal - Class/Spec Selection */}
+                  {showAddToBenchModal && (
+                    <div className="rgm-add-bench-modal">
+                      <div className="rgm-add-bench-header">
+                        <h3>Add Player to Bench</h3>
+                        <button className="close-panel-btn" onClick={() => { setShowAddToBenchModal(false); setAddToBenchSelectedClass(null); }}>×</button>
+                      </div>
+
+                      {!addToBenchSelectedClass ? (
+                        // Step 1: Class Selection
+                        <>
+                          <p className="rgm-add-bench-info">Select a class:</p>
+                          <div className="rgm-class-grid">
+                            {(Object.keys(CLASS_SPECS) as WoWClass[])
+                              .filter(wowClass => {
+                                // Alliance can't add Shaman, Horde can't add Paladin
+                                if (state.faction === 'alliance' && wowClass === 'shaman') return false;
+                                if (state.faction === 'horde' && wowClass === 'paladin') return false;
+                                return true;
+                              })
+                              .map(wowClass => {
+                                const classColor = CLASS_COLORS[wowClass];
+                                return (
+                                  <button
+                                    key={wowClass}
+                                    className="rgm-class-option"
+                                    style={{ borderColor: classColor }}
+                                    onClick={() => setAddToBenchSelectedClass(wowClass)}
+                                  >
+                                    <span style={{ color: classColor }}>
+                                      {wowClass.charAt(0).toUpperCase() + wowClass.slice(1)}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </>
+                      ) : (
+                        // Step 2: Spec Selection
+                        <>
+                          <p className="rgm-add-bench-info">
+                            Select spec for <span style={{ color: CLASS_COLORS[addToBenchSelectedClass] }}>
+                              {addToBenchSelectedClass.charAt(0).toUpperCase() + addToBenchSelectedClass.slice(1)}
+                            </span>:
+                          </p>
+                          <div className="rgm-spec-grid">
+                            {CLASS_SPECS[addToBenchSelectedClass].map(specDef => (
+                              <button
+                                key={specDef.id}
+                                className="rgm-spec-option"
+                                style={{ borderColor: CLASS_COLORS[addToBenchSelectedClass] }}
+                                onClick={() => {
+                                  engine.createBenchPlayer(addToBenchSelectedClass, specDef.id);
+                                  setShowAddToBenchModal(false);
+                                  setAddToBenchSelectedClass(null);
+                                }}
+                              >
+                                <img src={specDef.icon} alt={specDef.name} className="rgm-spec-icon" />
+                                <div className="rgm-spec-info">
+                                  <span className="rgm-spec-name" style={{ color: CLASS_COLORS[addToBenchSelectedClass] }}>
+                                    {specDef.name}
+                                  </span>
+                                  <span className="rgm-spec-role">
+                                    {specDef.role === 'tank' ? 'Tank' : specDef.role === 'healer' ? 'Healer' : 'DPS'}
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                          <button
+                            className="rgm-back-btn"
+                            onClick={() => setAddToBenchSelectedClass(null)}
+                          >
+                            Back to Classes
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             <div className="rgm-footer">
-              <button className="rgm-done-btn" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setSelectedMemberForClassSpec(null); }}>
+              <button className="rgm-done-btn" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setSelectedRaidMemberForSwap(null); setShowAddToBenchModal(false); }}>
                 Done
               </button>
             </div>
@@ -5467,70 +5939,40 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.26.0 - Bench System Added</h3>
+                <span className="patch-date">December 3, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Bench System</h4>
+                <ul>
+                  <li><strong>Swap Raiders for Bench Players</strong>: Add new classes or specs to your raid for boss encounters that require specific compositions</li>
+                  <li><strong>Persistent Gear</strong>: Bench players keep their own gear that persists between swaps</li>
+                  <li><strong>5/10 Bench Slots</strong>: 5 bench slots for 20-man raids, 10 for 40-man raids</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Bench Tab Layout</h4>
+                <ul>
+                  <li><strong>Two-Panel Design</strong>: Compact raid groups on the left, dedicated bench area on the right</li>
+                  <li><strong>Drag & Drop</strong>: Drag players between raid and bench with visual feedback</li>
+                  <li><strong>Click-to-Swap</strong>: Click raiders or bench players to swap them</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.25.0 - Molten Core Boss Overhaul</h3>
                 <span className="patch-date">December 3, 2025</span>
               </div>
 
               <div className="patch-section">
-                <h4>Ragnaros - The Firelord</h4>
+                <h4>Boss Mechanics</h4>
                 <ul>
-                  <li><strong>2-Tank Swap Mechanic</strong>: Wrath of Ragnaros knocks back the current tank, forcing a tank swap</li>
-                  <li><strong>Elemental Fire</strong>: Fire DoT on the tank dealing 300 damage per second</li>
-                  <li><strong>Lava Burst</strong>: Random ranged target takes splash damage that hits nearby players</li>
-                  <li><strong>Magma Blast</strong>: If both tanks die, Ragnaros wipes the raid</li>
-                  <li><strong>Submerge Phase</strong>: At 3 minutes, Ragnaros submerges and spawns 8 Sons of Flame</li>
-                  <li><strong>Sons of Flame</strong>: Must be killed within 90 seconds or Ragnaros re-emerges with them still alive</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Majordomo Executus</h4>
-                <ul>
-                  <li><strong>5-Tank Add Fight</strong>: Majordomo is immune - kill all 8 adds (4 Flamewaker Healers + 4 Elites) to win</li>
-                  <li><strong>Magic Reflection</strong>: Adds periodically reflect spells - stop DPS or take massive damage!</li>
-                  <li><strong>Teleport</strong>: Main tank gets teleported into the fire pit and takes DoT damage</li>
-                  <li><strong>Blast Wave</strong>: Healers channel AoE that damages nearby raid members</li>
-                  <li><strong>Dark Mending</strong>: Healer adds heal themselves and each other</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Sulfuron Harbinger</h4>
-                <ul>
-                  <li><strong>Flamewaker Priests</strong>: 4 priest adds that must die first before Sulfuron becomes vulnerable</li>
-                  <li><strong>Inspire</strong>: Priests buff Sulfuron with increased damage while alive</li>
-                  <li><strong>Dark Mending</strong>: Priests heal each other, making kill order important</li>
-                  <li><strong>Shadow Word: Pain</strong>: DoT on random raid members</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Golemagg the Incinerator</h4>
-                <ul>
-                  <li><strong>3-Tank Fight</strong>: 2 tanks swap on Golemagg, 1 tank handles both Core Ragers</li>
-                  <li><strong>Magma Splash</strong>: Stacking debuff on tank - must swap at high stacks</li>
-                  <li><strong>Core Ragers</strong>: Enrage at low health and heal if not killed quickly</li>
-                  <li><strong>Pyroblast</strong>: Random raid damage when Golemagg reaches low health</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Other Boss Updates</h4>
-                <ul>
-                  <li><strong>Shazzrah</strong>: Arcane Explosion, Blink, Magic Grounding (absorbs spells)</li>
-                  <li><strong>Baron Geddon</strong>: Living Bomb mechanic - drag bombed players to Safe Zone!</li>
-                  <li><strong>Garr</strong>: 8 Firesworn adds that explode on death</li>
-                  <li><strong>Gehennas</strong>: Rain of Fire and Gehennas' Curse (75% healing reduction)</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Quality of Life</h4>
-                <ul>
-                  <li><strong>Tank Assignment Modals</strong>: Assign specific tanks to each role before boss fights</li>
-                  <li><strong>Tank Swap Alerts</strong>: On-screen warnings when tank swaps are needed</li>
-                  <li><strong>Encounter Journal</strong>: View boss abilities and mechanics before pulling</li>
-                  <li><strong>Combat Log Polish</strong>: All numbers now display as clean integers (no decimals)</li>
+                  <li><strong>Ragnaros</strong>: 2-tank swap, Elemental Fire DoT, Submerge phase with Sons of Flame</li>
+                  <li><strong>Majordomo</strong>: 5-tank add fight, Magic Reflection, Teleport mechanic</li>
+                  <li><strong>Sulfuron</strong>: 4 Flamewaker Priests must die first</li>
+                  <li><strong>Golemagg</strong>: 3-tank fight with Magma Splash stacks</li>
                 </ul>
               </div>
 

@@ -8991,6 +8991,38 @@ body {
   margin-left: auto;
 }
 
+.rgm-no-swap-info {
+  padding: 12px;
+  background: rgba(100, 100, 100, 0.2);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.rgm-no-swap-info p {
+  margin: 0;
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.rgm-bench-hint {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px dashed rgba(255, 215, 0, 0.4);
+  border-radius: 6px;
+}
+
+.rgm-bench-hint p {
+  margin: 0;
+  color: #aaa;
+  font-size: 11px;
+}
+
+.rgm-bench-hint strong {
+  color: #ffd700;
+}
+
 /* Member selected states */
 .rgm-member.selected-for-aura {
   border-color: #f58cba;
@@ -9034,6 +9066,843 @@ body {
     width: 98vw;
     height: 95vh;
   }
+}
+
+/* ========================================
+   BENCH PLAYER SYSTEM STYLES
+   ======================================== */
+
+/* Tab navigation */
+.rgm-tabs {
+  display: flex;
+  gap: 8px;
+  margin-left: 20px;
+}
+
+.rgm-tab {
+  padding: 8px 16px;
+  background: rgba(30, 25, 45, 0.6);
+  border: 1px solid #3a2a5a;
+  border-radius: 4px 4px 0 0;
+  color: #8a7aaa;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rgm-tab:hover {
+  background: rgba(74, 58, 106, 0.4);
+  color: #c9b8e8;
+}
+
+.rgm-tab.active {
+  background: rgba(74, 58, 106, 0.6);
+  border-color: #ffd700;
+  color: #ffd700;
+  border-bottom-color: transparent;
+}
+
+/* Bench content area */
+.rgm-bench-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Bench players list */
+.rgm-bench-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.rgm-bench-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6a5a8a;
+}
+
+.rgm-bench-empty p {
+  margin: 0 0 8px 0;
+}
+
+.rgm-bench-empty-hint {
+  font-size: 12px;
+  color: #5a4a7a;
+}
+
+/* Individual bench player row */
+.rgm-bench-player {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 2px solid #3a2a5a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.rgm-bench-player:hover {
+  background: rgba(74, 58, 106, 0.4);
+  border-color: #5a4a8a;
+}
+
+.rgm-bench-player.selected {
+  border-color: #ffd700;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.rgm-bench-player-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rgm-bench-player-name {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.rgm-bench-player-spec {
+  font-size: 12px;
+  color: #8a7aaa;
+}
+
+.rgm-bench-remove-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(200, 60, 60, 0.3);
+  border: 1px solid #a04040;
+  color: #ff8888;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rgm-bench-remove-btn:hover {
+  background: rgba(200, 60, 60, 0.6);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+/* Add to bench button */
+.rgm-add-bench-btn {
+  padding: 12px 24px;
+  background: linear-gradient(180deg, #4a6a4a 0%, #3a5a3a 100%);
+  border: 2px solid #6a8a6a;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.rgm-add-bench-btn:hover {
+  background: linear-gradient(180deg, #5a7a5a 0%, #4a6a4a 100%);
+  border-color: #8aaa8a;
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(100, 200, 100, 0.3);
+}
+
+/* Swap selection panel */
+.rgm-swap-panel {
+  background: rgba(100, 180, 255, 0.1);
+  border: 2px solid #4a8ade;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.rgm-swap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rgm-swap-header h3 {
+  margin: 0;
+  color: #4a8ade;
+  font-size: 14px;
+}
+
+.rgm-swap-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.rgm-swap-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 1px solid #3a2a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #c9b8e8;
+  font-size: 13px;
+  text-align: left;
+}
+
+.rgm-swap-option:hover {
+  background: rgba(74, 58, 106, 0.5);
+  border-color: #5a4a8a;
+  transform: translateY(-1px);
+}
+
+.rgm-class-bar-small {
+  width: 4px;
+  height: 24px;
+  border-radius: 2px;
+}
+
+.rgm-swap-spec {
+  color: #888;
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.rgm-role-tag-small {
+  font-size: 9px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.rgm-role-tag-small.tank {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff8888;
+}
+
+.rgm-role-tag-small.healer {
+  background: rgba(100, 255, 100, 0.2);
+  color: #88ff88;
+}
+
+.rgm-role-tag-small.dps {
+  background: rgba(255, 200, 100, 0.2);
+  color: #ffcc88;
+}
+
+.rgm-swap-warning {
+  margin: 12px 0 0 0;
+  font-size: 11px;
+  color: #8a7aaa;
+  font-style: italic;
+}
+
+/* Kick section */
+.rgm-kick-section {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(150, 50, 50, 0.1);
+  border: 1px solid rgba(200, 100, 100, 0.3);
+  border-radius: 8px;
+}
+
+.rgm-kick-section h4 {
+  margin: 0 0 8px 0;
+  color: #cc8888;
+  font-size: 14px;
+}
+
+.rgm-kick-info {
+  margin: 0 0 12px 0;
+  font-size: 12px;
+  color: #8a7aaa;
+}
+
+.rgm-kick-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rgm-kick-option {
+  padding: 4px 10px;
+  background: rgba(100, 50, 50, 0.3);
+  border: 1px solid rgba(200, 100, 100, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 12px;
+}
+
+.rgm-kick-option:hover {
+  background: rgba(200, 50, 50, 0.4);
+  border-color: rgba(255, 100, 100, 0.6);
+}
+
+/* Add to bench modal */
+.rgm-add-bench-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 2px solid #4a3a6a;
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 320px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+  z-index: 100;
+}
+
+.rgm-add-bench-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.rgm-add-bench-header h3 {
+  margin: 0;
+  color: #ffd700;
+  font-size: 16px;
+}
+
+.rgm-add-bench-info {
+  margin: 0 0 16px 0;
+  font-size: 12px;
+  color: #8a7aaa;
+}
+
+.rgm-class-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.rgm-class-option {
+  padding: 12px 8px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 2px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.rgm-class-option:hover {
+  background: rgba(74, 58, 106, 0.6);
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.rgm-class-option span {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+/* Spec selection grid for bench players */
+.rgm-spec-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rgm-spec-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 2px solid;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.rgm-spec-option:hover {
+  background: rgba(74, 58, 106, 0.6);
+  transform: scale(1.02);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.rgm-spec-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.rgm-spec-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rgm-spec-name {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.rgm-spec-role {
+  font-size: 11px;
+  color: #aaa;
+}
+
+.rgm-back-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: rgba(60, 50, 80, 0.6);
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+
+.rgm-back-btn:hover {
+  background: rgba(80, 70, 100, 0.8);
+  color: #fff;
+}
+
+/* ========================================
+   NEW BENCH LAYOUT - TWO PANEL DESIGN
+   ======================================== */
+
+.rgm-bench-layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Left Side: Compact Raid Groups */
+.rgm-raid-compact {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.rgm-raid-compact-title {
+  margin: 0 0 4px 0;
+  color: #ffd700;
+  font-size: 14px;
+}
+
+.rgm-compact-hint {
+  margin: 0 0 12px 0;
+  color: #8a7aaa;
+  font-size: 11px;
+}
+
+.rgm-compact-groups {
+  display: grid;
+  gap: 10px;
+}
+
+.rgm-compact-groups.size-40 {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, auto);
+}
+
+.rgm-compact-groups.size-20 {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: auto;
+}
+
+.rgm-compact-group {
+  background: rgba(20, 15, 30, 0.8);
+  border: 1px solid #3a2a5a;
+  border-radius: 6px;
+  padding: 6px;
+  min-height: 140px;
+}
+
+.rgm-compact-group-header {
+  text-align: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: #8a7aaa;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #3a2a5a;
+  margin-bottom: 4px;
+}
+
+.rgm-compact-members {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rgm-compact-member {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: rgba(30, 25, 45, 0.6);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.rgm-compact-member:hover {
+  background: rgba(74, 58, 106, 0.4);
+  border-color: #5a4a8a;
+}
+
+.rgm-compact-member.is-player {
+  cursor: default;
+  border-color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+}
+
+.rgm-compact-member.swap-target {
+  cursor: pointer;
+  border-color: #4a8ade;
+  box-shadow: 0 0 8px rgba(100, 180, 255, 0.4);
+}
+
+.rgm-compact-member.swap-target:hover {
+  background: rgba(100, 180, 255, 0.2);
+}
+
+.rgm-compact-member.drag-over {
+  background: rgba(100, 255, 100, 0.25) !important;
+  border-color: #4ade4a !important;
+  box-shadow: 0 0 12px rgba(100, 255, 100, 0.5);
+  transform: scale(1.02);
+}
+
+.rgm-compact-member.empty {
+  background: rgba(10, 10, 15, 0.4);
+  border: 1px dashed #2a1a4a;
+  cursor: default;
+  justify-content: center;
+}
+
+.rgm-compact-member.empty.drag-over {
+  background: rgba(100, 255, 100, 0.2) !important;
+  border: 2px solid #4ade4a !important;
+  border-style: solid !important;
+}
+
+.rgm-compact-member.empty.can-add {
+  border-color: #4a8ade;
+  background: rgba(100, 180, 255, 0.1);
+  cursor: pointer;
+}
+
+.rgm-compact-member.empty.can-add:hover {
+  background: rgba(100, 180, 255, 0.25);
+  border-color: #6aa0ff;
+  border-style: solid;
+}
+
+.rgm-compact-member.empty.can-add .rgm-compact-empty-slot {
+  color: #6aa0ff;
+  font-weight: bold;
+}
+
+/* Selected raider waiting for bench player selection */
+.rgm-compact-member.selected-raider {
+  border-color: #f5a623 !important;
+  box-shadow: 0 0 12px rgba(245, 166, 35, 0.5);
+  background: rgba(245, 166, 35, 0.15) !important;
+}
+
+/* Bench player cards when a raider is selected */
+.rgm-bench-player-card.swap-target {
+  border-color: #f5a623;
+  cursor: pointer;
+}
+
+.rgm-bench-player-card.swap-target:hover {
+  background: rgba(245, 166, 35, 0.2);
+  box-shadow: 0 0 12px rgba(245, 166, 35, 0.4);
+}
+
+.rgm-swap-instruction.raider-selected {
+  background: rgba(245, 166, 35, 0.1);
+  border-color: #f5a623;
+  color: #f5a623;
+}
+
+.rgm-compact-empty-slot {
+  color: #3a2a5a;
+  font-size: 10px;
+  font-style: italic;
+}
+
+.rgm-compact-class-bar {
+  width: 3px;
+  height: 20px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.rgm-compact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.rgm-compact-name {
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rgm-compact-spec {
+  font-size: 9px;
+  color: #6a5a8a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right Side: Bench Area */
+.rgm-bench-area {
+  background: rgba(60, 40, 60, 0.3);
+  border: 2px solid #6a4a6a;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.rgm-bench-title {
+  margin: 0 0 4px 0;
+  color: #f58cba;
+  font-size: 14px;
+}
+
+.rgm-bench-hint-text {
+  margin: 0 0 12px 0;
+  color: #8a6a8a;
+  font-size: 11px;
+}
+
+.rgm-bench-players {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100px;
+}
+
+.rgm-bench-empty-area {
+  text-align: center;
+  padding: 30px 10px;
+  color: #6a4a6a;
+  background: rgba(100, 70, 100, 0.1);
+  border: 2px dashed #5a3a5a;
+  border-radius: 6px;
+}
+
+.rgm-bench-empty-area p {
+  margin: 0 0 8px 0;
+}
+
+.rgm-bench-player-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(40, 30, 50, 0.8);
+  border: 2px solid #5a3a6a;
+  border-radius: 6px;
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.rgm-bench-player-card:hover {
+  background: rgba(80, 50, 90, 0.5);
+  border-color: #8a6aaa;
+}
+
+.rgm-bench-player-card.selected {
+  border-color: #4a8ade;
+  box-shadow: 0 0 12px rgba(100, 180, 255, 0.4);
+  background: rgba(100, 180, 255, 0.1);
+}
+
+.rgm-bench-class-bar {
+  width: 4px;
+  height: 32px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.rgm-bench-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rgm-bench-card-name {
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rgm-bench-card-spec {
+  font-size: 11px;
+  color: #9a7aaa;
+}
+
+.rgm-bench-card-gs {
+  font-size: 10px;
+  color: #6a5a7a;
+}
+
+.rgm-bench-role {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.rgm-bench-role.tank {
+  background: rgba(255, 100, 100, 0.2);
+  color: #ff8888;
+}
+
+.rgm-bench-role.healer {
+  background: rgba(100, 255, 100, 0.2);
+  color: #88ff88;
+}
+
+.rgm-bench-role.dps {
+  background: rgba(255, 200, 100, 0.2);
+  color: #ffcc88;
+}
+
+.rgm-bench-kick-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(200, 60, 60, 0.3);
+  border: 1px solid #a04040;
+  color: #ff8888;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rgm-bench-kick-btn:hover {
+  background: rgba(200, 60, 60, 0.6);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.rgm-swap-instruction {
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(100, 180, 255, 0.1);
+  border: 1px solid #4a8ade;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #8ac;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.rgm-cancel-swap {
+  padding: 4px 12px;
+  background: rgba(60, 50, 80, 0.8);
+  border: 1px solid #555;
+  border-radius: 4px;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.rgm-cancel-swap:hover {
+  background: rgba(80, 70, 100, 0.8);
+  color: #fff;
+}
+
+/* Responsive adjustments for smaller modal */
+@media (max-width: 900px) {
+  .rgm-bench-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .rgm-compact-groups.size-40 {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, auto);
+  }
+
+  .rgm-compact-groups.size-20 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .rgm-bench-area {
+    max-height: 300px;
+  }
+}
+
+/* Kick confirmation modal overrides */
+.confirm-dialog.kick-confirm {
+  border-color: #a04040;
+}
+
+.kick-warning {
+  color: #ff6666 !important;
+  font-weight: bold !important;
+  font-size: 14px !important;
+  margin-bottom: 12px !important;
+}
+
+.confirm-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #88aa88;
+  font-style: italic;
+}
+
+.kick-confirm-btn {
+  background: linear-gradient(180deg, #8a3a3a 0%, #6a2a2a 100%) !important;
+  border-color: #aa4a4a !important;
+}
+
+.kick-confirm-btn:hover {
+  background: linear-gradient(180deg, #aa4a4a 0%, #8a3a3a 100%) !important;
+  border-color: #cc6a6a !important;
 }
 
 /* Empty member slots */

@@ -104,6 +104,52 @@ export const CLASS_SPECS: Record<WoWClass, SpecDefinition[]> = {
   ],
 };
 
+// Gear compatibility groups - specs in the same group can be swapped without losing gear effectiveness
+// Specs NOT in the same group require using the bench system for a full character swap
+export const GEAR_COMPATIBLE_SPECS: Record<WoWClass, WoWSpec[][]> = {
+  // Warriors: All plate DPS/tank stats are interchangeable enough
+  warrior: [['arms', 'fury', 'protection_warrior']],
+  // Paladins: Holy (healing), Prot (tank), Ret (DPS) all need different gear
+  paladin: [['holy_paladin'], ['protection_paladin'], ['retribution']],
+  // Hunters: All use agility/AP mail
+  hunter: [['beast_mastery', 'marksmanship', 'survival']],
+  // Rogues: All use agility leather
+  rogue: [['assassination', 'combat', 'subtlety']],
+  // Priests: All cloth caster specs can swap freely
+  priest: [['discipline', 'holy_priest', 'shadow']],
+  // Shamans: Ele/Resto share caster mail, Enhancement is melee
+  shaman: [['elemental', 'restoration_shaman'], ['enhancement']],
+  // Mages: All caster DPS cloth
+  mage: [['arcane', 'fire_mage', 'frost_mage']],
+  // Warlocks: All caster DPS cloth
+  warlock: [['affliction', 'demonology', 'destruction']],
+  // Druids: Balance/Resto share caster leather, Ferals share feral gear
+  druid: [['balance', 'restoration'], ['feral_tank', 'feral_dps']],
+};
+
+// Check if two specs are gear-compatible (can swap without bench)
+export function areSpecsGearCompatible(spec1: WoWSpec, spec2: WoWSpec): boolean {
+  for (const classGroups of Object.values(GEAR_COMPATIBLE_SPECS)) {
+    for (const group of classGroups) {
+      if (group.includes(spec1) && group.includes(spec2)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Get all gear-compatible specs for a given spec (same class only)
+export function getGearCompatibleSpecs(wowClass: WoWClass, currentSpec: WoWSpec): WoWSpec[] {
+  const groups = GEAR_COMPATIBLE_SPECS[wowClass];
+  for (const group of groups) {
+    if (group.includes(currentSpec)) {
+      return group;
+    }
+  }
+  return [currentSpec]; // Fallback: only compatible with itself
+}
+
 // Get default spec for a class/role combination
 export function getDefaultSpec(wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): WoWSpec {
   const specs = CLASS_SPECS[wowClass];
@@ -373,6 +419,18 @@ export interface RaidMember {
   gearScore: number;
   lastCritHealTime?: number; // Timestamp of last crit heal received (for animation)
   positionZone: PositionZone; // For Chain Heal bouncing (melee/ranged/tank)
+  wasInEncounter?: boolean; // Track if they participated in current boss fight (for loot eligibility)
+}
+
+// Bench player - sits out of active raid but persists with their own gear
+export interface BenchPlayer {
+  id: string;              // Unique ID like 'bench_warrior_1234'
+  name: string;            // Auto-generated name
+  class: WoWClass;
+  spec: WoWSpec;
+  role: 'tank' | 'healer' | 'dps';
+  equipment: Equipment;    // Their own gear, persisted
+  gearScore: number;
 }
 
 export interface Spell {
@@ -647,6 +705,8 @@ export interface GameState {
   pendingCloudSave: boolean;
   // Golemagg tank swap warning - displayed as raid warning
   tankSwapWarning: { message: string; type: 'swap' | 'late_swap' | 'stacks_high' } | null;
+  // Bench players - roster of players not in active raid
+  benchPlayers: BenchPlayer[]; // 5 for 20-man, 10 for 40-man
 }
 
 // Class colors matching Classic WoW

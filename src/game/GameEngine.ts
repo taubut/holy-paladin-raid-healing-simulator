@@ -1,4 +1,4 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff, BenchPlayer } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
 import { DEFAULT_SHAMAN_ACTION_BAR } from './shamanSpells';
@@ -17,17 +17,82 @@ const GCD_DURATION = 1.5;
 const MANA_POTION_COOLDOWN = 120;
 const MANA_POTION_RESTORE = 2000;
 
-// Classic WoW style names
+// Classic WoW style names - extensive lists to avoid duplicates
 const CLASS_NAMES: Record<WoWClass, string[]> = {
-  warrior: ['Thunderfury', 'Shieldwall', 'Ironfoe', 'Grommash', 'Lothar'],
-  paladin: ['Uther', 'Tirion', 'Bolvar', 'Turalyon', 'Mograine'],
-  hunter: ['Rexxar', 'Alleria', 'Hemet', 'Nathanos', 'Sylvanas'],
-  rogue: ['Garona', 'Mathias', 'Valeera', 'Edwin', 'Ravenholdt'],
-  priest: ['Benedictus', 'Moira', 'Anduin', 'Velen', 'Whitemane'],
-  shaman: ['Thrall', 'Drektar', 'Nobundo', 'Rehgar', 'Zuljin'],
-  mage: ['Jaina', 'Khadgar', 'Antonidas', 'Rhonin', 'Medivh'],
-  warlock: ['Guldan', 'Wilfred', 'Kanrethad', 'Helcular', 'Dreadmist'],
-  druid: ['Malfurion', 'Hamuul', 'Cenarius', 'Staghelm', 'Remulos'],
+  warrior: [
+    'Thunderfury', 'Shieldwall', 'Ironfoe', 'Grommash', 'Lothar', 'Saurfang', 'Nazgrel', 'Broxigar',
+    'Varok', 'Garrosh', 'Durotan', 'Orgrim', 'Blackhand', 'Kilrogg', 'Kargath', 'Eitrigg', 'Thoras',
+    'Trollbane', 'Danath', 'Kurdran', 'Muradin', 'Magni', 'Falstad', 'Gelbin', 'Varian', 'Llane',
+    'Anduin', 'Bolvar', 'Alexandros', 'Renault', 'Taelan', 'Tirion', 'Maxwell', 'Abbendis', 'Dathrohan',
+    'Isillien', 'Herod', 'Mograine', 'Ravencrest', 'Jarod', 'Shandris', 'Huln', 'Maiev', 'Naisha',
+    'Akama', 'Khadgar', 'Cairne', 'Baine', 'Rokhan', 'Nazgrim', 'Malkorok', 'Zaela', 'Thura'
+  ],
+  paladin: [
+    'Uther', 'Tirion', 'Bolvar', 'Turalyon', 'Mograine', 'Fordring', 'Lightbringer', 'Ashbringer',
+    'Fairbanks', 'Abbendis', 'Dathrohan', 'Isillien', 'Valdelmar', 'Halford', 'Eligor', 'Taelan',
+    'Maxwell', 'Mardenholde', 'Gavinrad', 'Saidan', 'Ballador', 'Maraad', 'Vindicator', 'Yrel',
+    'Nobundo', 'Arator', 'Liadrin', 'Galvarad', 'Harthal', 'Aurius', 'Raleigh', 'Davil', 'Corder',
+    'Pureheart', 'Trueheart', 'Greyson', 'Milton', 'Duthorian', 'Katherine', 'Dawnbringer', 'Sunwalker',
+    'Dezco', 'Aponi', 'Sunstrider', 'Lorthemar', 'Rommath', 'Halduron', 'Brightwing', 'Silvermoon'
+  ],
+  hunter: [
+    'Rexxar', 'Alleria', 'Hemet', 'Nathanos', 'Sylvanas', 'Vereesa', 'Shandris', 'Halduron',
+    'Humar', 'Brokentoe', 'Nesingwary', 'Ajeck', 'Barnil', 'Sergra', 'Jorn', 'Mahren', 'Tethik',
+    'Swiftarrow', 'Tracker', 'Pathfinder', 'Windrunner', 'Farstrider', 'Wildmane', 'Deadeye',
+    'Quickshot', 'Eagleye', 'Hawkeye', 'Sniper', 'Stalker', 'Trapper', 'Beastmaster', 'Surviver',
+    'Skullsplitter', 'Bloodhawk', 'Shadowhunter', 'Darkspear', 'Zulian', 'Vilebranch', 'Sharpbeak',
+    'Swiftwind', 'Stormpike', 'Frostwolf', 'Thunderlord', 'Warsong', 'Bleedinghallow', 'Bonechewer',
+    'Dragonmaw', 'Blackrock', 'Shadowmoon', 'Twilight', 'Stormreaver', 'Laughingskull'
+  ],
+  rogue: [
+    'Garona', 'Mathias', 'Valeera', 'Edwin', 'Ravenholdt', 'Vanessa', 'Jorach', 'Tethys', 'Fleet',
+    'Fahrad', 'Elling', 'Renzik', 'Anara', 'Lilian', 'Voss', 'Taoshi', 'Shokia', 'Kiryn', 'Suna',
+    'Shadowblade', 'Nightslayer', 'Bloodfang', 'Deathmantle', 'Slayer', 'Netherblade', 'Bonescythe',
+    'Shadowstep', 'Ambush', 'Eviscerate', 'Backstab', 'Sap', 'Pickpocket', 'Stealth', 'Vanish',
+    'Shiv', 'Gouge', 'Sinister', 'Deadly', 'Mutilate', 'Envenom', 'Rupture', 'Garrote', 'Cheap',
+    'Kidney', 'Blind', 'Sprint', 'Evasion', 'Blade', 'Flurry', 'Thistle', 'Defias', 'Syndicate'
+  ],
+  priest: [
+    'Benedictus', 'Moira', 'Anduin', 'Velen', 'Whitemane', 'Tyrande', 'Alonsus', 'Faol', 'Calia',
+    'Menethil', 'Natalie', 'Seline', 'Zabra', 'Hexx', 'Rohan', 'Talanji', 'Zolani', 'Zul',
+    'Shadowmend', 'Holyfire', 'Lightwell', 'Renew', 'Serenity', 'Sanctuary', 'Prayer', 'Penance',
+    'Absolution', 'Discipline', 'Devout', 'Vestment', 'Transcendence', 'Avatar', 'Confessor',
+    'Inquisitor', 'Bishop', 'Archbishop', 'Cardinal', 'Pontiff', 'Oracle', 'Prophet', 'Seer',
+    'Confessor', 'Absolver', 'Penitent', 'Faithful', 'Devoted', 'Pious', 'Sacred', 'Divine', 'Holy'
+  ],
+  shaman: [
+    'Thrall', 'Drektar', 'Nobundo', 'Rehgar', 'Zuljin', 'Zuni', 'Kazragore', 'Geyah', 'Aggra',
+    'Muln', 'Earthfury', 'Stormrage', 'Skybreaker', 'Thunderhorn', 'Farseer', 'Spiritwalker',
+    'Elementspeaker', 'Windseeker', 'Firelord', 'Wavecaller', 'Earthbinder', 'Totemmaster',
+    'Chainhealer', 'Stormcaller', 'Lavaburst', 'Earthshock', 'Windfury', 'Flametongue', 'Frostbrand',
+    'Rockbiter', 'Thunderstorm', 'Maelstrom', 'Shamanistic', 'Ancestral', 'Spirit', 'Elemental',
+    'Enhancement', 'Restoration', 'Totemic', 'Primal', 'Tribal', 'Warchief', 'Overlord', 'Chieftain',
+    'Spiritbinder', 'Soulwalker', 'Ghostwolf', 'Hexmaster', 'Voodoo', 'Thex', 'Witchdoctor'
+  ],
+  mage: [
+    'Jaina', 'Khadgar', 'Antonidas', 'Rhonin', 'Medivh', 'Aegwynn', 'Nielas', 'Modgud', 'Azshara',
+    'Kelthuzad', 'Arugal', 'Thalnos', 'Atiesh', 'Aran', 'Millhouse', 'Kalec', 'Vargoth', 'Modera',
+    'Frostfire', 'Arcane', 'Netherwind', 'Manaweave', 'Spellfire', 'Sorcerer', 'Arcanist', 'Magister',
+    'Conjurer', 'Invoker', 'Warmage', 'Battlemage', 'Archmage', 'Highborne', 'Sunreaver', 'Kirin',
+    'Dalaran', 'Silvermoon', 'Queldorei', 'Sindorei', 'Shendralar', 'Illidari', 'Nightborne',
+    'Frostbolt', 'Fireball', 'Pyroblast', 'Blizzard', 'Flamestrike', 'Polymorph', 'Blink', 'Evocation'
+  ],
+  warlock: [
+    'Guldan', 'Wilfred', 'Kanrethad', 'Helcular', 'Dreadmist', 'Nerzhul', 'Teron', 'Gorefiend',
+    'Chogall', 'Darkness', 'Shadow', 'Void', 'Fel', 'Demonic', 'Infernal', 'Doomguard', 'Darkweaver',
+    'Felhunter', 'Succubus', 'Voidwalker', 'Imp', 'Demonology', 'Affliction', 'Destruction', 'Bane',
+    'Curse', 'Corruption', 'Agony', 'Doom', 'Haunt', 'Unstable', 'Drain', 'Siphon', 'Hellfire',
+    'Soulstone', 'Healthstone', 'Soulwell', 'Demonologist', 'Summoner', 'Shadowcaster', 'Necrolyte',
+    'Cultist', 'Acolyte', 'Twilight', 'Burning', 'Council', 'Cabal', 'Coven', 'Shadowflame', 'Nether'
+  ],
+  druid: [
+    'Malfurion', 'Hamuul', 'Cenarius', 'Staghelm', 'Remulos', 'Tyrande', 'Illidan', 'Broll', 'Bearmantle',
+    'Fandral', 'Naralex', 'Keeper', 'Archdruid', 'Dreamweaver', 'Moonglade', 'Cenarion', 'Dreamgrove',
+    'Moonkin', 'Treant', 'Wildkin', 'Nightsaber', 'Stormcrow', 'Seaform', 'Treebark', 'Lifebloom',
+    'Regrowth', 'Rejuvenation', 'Swiftmend', 'Wild', 'Nature', 'Starfall', 'Moonfire', 'Sunfire',
+    'Wrath', 'Starfire', 'Hurricane', 'Typhoon', 'Entangle', 'Thorns', 'Barkskin', 'Tranquility',
+    'Innervate', 'Rebirth', 'Dreamwalk', 'Moonshadow', 'Starweaver', 'Nightwing', 'Dawnfeather'
+  ],
 };
 
 const CLASS_HEALTH: Record<WoWClass, { min: number; max: number }> = {
@@ -485,6 +550,8 @@ export class GameEngine {
       pendingCloudSave: false,
       // Tank swap warning
       tankSwapWarning: null,
+      // Bench players - roster of players not in active raid
+      benchPlayers: [],
     };
   }
 
@@ -1426,10 +1493,12 @@ export class GameEngine {
     }));
 
     // Reset raid health and debuffs but keep buffs
+    // Also mark all current raid members as participants for loot eligibility
     this.state.raid.forEach(member => {
       member.currentHealth = member.maxHealth;
       member.isAlive = true;
       member.debuffs = [];
+      member.wasInEncounter = true;  // Mark as participant for loot eligibility
       // Restore buffs
       const savedMember = savedBuffs.find(s => s.id === member.id);
       if (savedMember) {
@@ -1522,8 +1591,10 @@ export class GameEngine {
     }
 
     // Clear all debuffs from raid members when encounter ends
+    // Also reset encounter participation flags (no loot on wipes)
     this.state.raid.forEach(member => {
       member.debuffs = [];
+      member.wasInEncounter = false;
     });
 
     this.addCombatLogEntry({ message: 'Encounter ended.', type: 'system' });
@@ -1600,6 +1671,319 @@ export class GameEngine {
     this.addCombatLogEntry({ message: 'Raid restored to full health and mana.', type: 'system' });
     this.notify();
   }
+
+  // =========================================================================
+  // BENCH PLAYER SYSTEM
+  // =========================================================================
+
+  // Get maximum bench size based on current raid size
+  getMaxBenchSize(): number {
+    return this.state.raid.length === 40 ? 10 : 5;
+  }
+
+  // Get role for a spec
+  private getRoleForSpec(spec: WoWSpec): 'tank' | 'healer' | 'dps' {
+    for (const specs of Object.values(CLASS_SPECS)) {
+      const found = specs.find(s => s.id === spec);
+      if (found) return found.role;
+    }
+    return 'dps';
+  }
+
+  // Create a new bench player with specified class and spec
+  createBenchPlayer(wowClass: WoWClass, spec: WoWSpec): BenchPlayer | null {
+    if (this.state.isRunning) return null; // No changes during combat
+    if (this.state.benchPlayers.length >= this.getMaxBenchSize()) return null;
+
+    const role = this.getRoleForSpec(spec);
+
+    // Get random name for the class (avoid duplicates with existing raid and bench)
+    const usedNames = new Set<string>([
+      ...this.state.raid.map(m => m.name),
+      ...this.state.benchPlayers.map(b => b.name)
+    ]);
+    const names = CLASS_NAMES[wowClass];
+    const available = names.filter(n => !usedNames.has(n));
+    let name: string;
+    if (available.length > 0) {
+      name = available[Math.floor(Math.random() * available.length)];
+    } else {
+      // If class names exhausted, try names from ALL classes
+      const allNames = Object.values(CLASS_NAMES).flat();
+      const allAvailable = allNames.filter(n => !usedNames.has(n));
+      if (allAvailable.length > 0) {
+        name = allAvailable[Math.floor(Math.random() * allAvailable.length)];
+      } else {
+        // Last resort: should never happen with 400+ names
+        name = `Adventurer${Date.now() % 1000}`;
+      }
+    }
+
+    const equipment = getPreRaidBisForSpec(spec);
+    const gearScore = this.calculateGearScore(equipment);
+
+    const benchPlayer: BenchPlayer = {
+      id: `bench_${wowClass}_${Date.now()}`,
+      name,
+      class: wowClass,
+      spec,
+      role,
+      equipment,
+      gearScore,
+    };
+
+    this.state.benchPlayers.push(benchPlayer);
+    this.addCombatLogEntry({ message: `${name} (${wowClass}) added to bench.`, type: 'system' });
+    this.notify();
+    return benchPlayer;
+  }
+
+  // Remove a bench player
+  removeBenchPlayer(benchPlayerId: string): boolean {
+    if (this.state.isRunning) return false; // No changes during combat
+
+    const index = this.state.benchPlayers.findIndex(b => b.id === benchPlayerId);
+    if (index === -1) return false;
+
+    const removed = this.state.benchPlayers.splice(index, 1)[0];
+    this.addCombatLogEntry({ message: `${removed.name} removed from bench.`, type: 'system' });
+    this.notify();
+    return true;
+  }
+
+  // Kick a raid member (permanent removal with gear loss)
+  kickRaidMember(memberId: string): boolean {
+    if (this.state.isRunning) return false; // No changes during combat
+    if (memberId === PLAYER_ID) return false; // Can't kick the player
+
+    const memberIndex = this.state.raid.findIndex(m => m.id === memberId);
+    if (memberIndex === -1) return false;
+
+    const kicked = this.state.raid.splice(memberIndex, 1)[0];
+    this.addCombatLogEntry({ message: `${kicked.name} has been kicked from the raid. All their gear is lost.`, type: 'system' });
+
+    // Trigger cloud save since roster changed
+    this.state.pendingCloudSave = true;
+    this.notify();
+    return true;
+  }
+
+  // Swap a bench player with an active raid member
+  swapWithBench(activeRaiderId: string, benchPlayerId: string): boolean {
+    if (this.state.isRunning) return false; // No swaps during combat
+    if (activeRaiderId === PLAYER_ID) return false; // Can't bench the player
+
+    const activeIndex = this.state.raid.findIndex(m => m.id === activeRaiderId);
+    const benchIndex = this.state.benchPlayers.findIndex(b => b.id === benchPlayerId);
+
+    if (activeIndex === -1 || benchIndex === -1) return false;
+
+    const activePlayer = this.state.raid[activeIndex];
+    const benchPlayer = this.state.benchPlayers[benchIndex];
+
+    // Get max health for the bench player coming in
+    const healthRange = CLASS_HEALTH[benchPlayer.class];
+    const baseHealth = Math.floor((healthRange.min + healthRange.max) / 2);
+    const maxHealth = benchPlayer.role === 'tank' ? Math.floor(baseHealth * 1.4) : baseHealth;
+
+    // Get DPS based on spec
+    const dps = this.getDpsForSpec(benchPlayer.spec);
+
+    // Convert active player to bench player (preserve their gear)
+    const newBenchPlayer: BenchPlayer = {
+      id: activePlayer.id,
+      name: activePlayer.name,
+      class: activePlayer.class,
+      spec: activePlayer.spec,
+      role: activePlayer.role,
+      equipment: activePlayer.equipment,
+      gearScore: activePlayer.gearScore,
+    };
+
+    // Get position zone for the new raid member
+    const positionZone = this.getPositionZone(benchPlayer.class, benchPlayer.spec, benchPlayer.role);
+
+    // Convert bench player to active raid member
+    const newRaidMember: RaidMember = {
+      id: benchPlayer.id,
+      name: benchPlayer.name,
+      class: benchPlayer.class,
+      spec: benchPlayer.spec,
+      role: benchPlayer.role,
+      equipment: benchPlayer.equipment,
+      gearScore: benchPlayer.gearScore,
+      group: activePlayer.group,  // Inherit group slot
+      currentHealth: maxHealth,
+      maxHealth: maxHealth,
+      buffs: [],
+      debuffs: [],
+      isAlive: true,
+      dps,
+      positionZone,
+      wasInEncounter: false,  // They weren't in any boss fights yet
+    };
+
+    // Perform the swap
+    this.state.raid[activeIndex] = newRaidMember;
+    this.state.benchPlayers[benchIndex] = newBenchPlayer;
+
+    this.addCombatLogEntry({
+      message: `${benchPlayer.name} swapped in for ${activePlayer.name}.`,
+      type: 'system'
+    });
+
+    // Trigger cloud save since roster changed
+    this.state.pendingCloudSave = true;
+    this.notify();
+    return true;
+  }
+
+  // Move a raid member directly to the bench (without swapping)
+  moveRaidMemberToBench(raidMemberId: string): boolean {
+    if (this.state.isRunning) return false; // No changes during combat
+    if (raidMemberId === PLAYER_ID) return false; // Can't bench the player
+
+    const memberIndex = this.state.raid.findIndex(m => m.id === raidMemberId);
+    if (memberIndex === -1) return false;
+
+    // Check if bench has room
+    const maxBench = this.getMaxBenchSize();
+    if (this.state.benchPlayers.length >= maxBench) return false;
+
+    const member = this.state.raid[memberIndex];
+
+    // Convert to bench player
+    const benchPlayer: BenchPlayer = {
+      id: member.id,
+      name: member.name,
+      class: member.class,
+      spec: member.spec,
+      role: member.role,
+      equipment: member.equipment,
+      gearScore: member.gearScore,
+    };
+
+    // Add to bench
+    this.state.benchPlayers.push(benchPlayer);
+
+    // Remove from raid
+    this.state.raid.splice(memberIndex, 1);
+
+    this.addCombatLogEntry({
+      message: `${member.name} moved to the bench.`,
+      type: 'system'
+    });
+
+    // Trigger cloud save since roster changed
+    this.state.pendingCloudSave = true;
+    this.notify();
+    return true;
+  }
+
+  // Move a bench player directly into the raid (to an empty slot)
+  moveBenchPlayerToRaid(benchPlayerId: string, targetGroup: number): boolean {
+    if (this.state.isRunning) return false; // No changes during combat
+
+    const benchIndex = this.state.benchPlayers.findIndex(b => b.id === benchPlayerId);
+    if (benchIndex === -1) return false;
+
+    const benchPlayer = this.state.benchPlayers[benchIndex];
+
+    // Get max health for the bench player coming in
+    const healthRange = CLASS_HEALTH[benchPlayer.class];
+    const baseHealth = Math.floor((healthRange.min + healthRange.max) / 2);
+    const maxHealth = benchPlayer.role === 'tank' ? Math.floor(baseHealth * 1.4) : baseHealth;
+
+    // Get DPS based on spec
+    const dps = this.getDpsForSpec(benchPlayer.spec);
+
+    // Get position zone for the new raid member
+    const positionZone = this.getPositionZone(benchPlayer.class, benchPlayer.spec, benchPlayer.role);
+
+    // Convert bench player to active raid member
+    const newRaidMember: RaidMember = {
+      id: benchPlayer.id,
+      name: benchPlayer.name,
+      class: benchPlayer.class,
+      spec: benchPlayer.spec,
+      role: benchPlayer.role,
+      equipment: benchPlayer.equipment,
+      gearScore: benchPlayer.gearScore,
+      group: targetGroup,
+      currentHealth: maxHealth,
+      maxHealth: maxHealth,
+      buffs: [],
+      debuffs: [],
+      isAlive: true,
+      dps,
+      positionZone,
+      wasInEncounter: false,
+    };
+
+    // Add to raid
+    this.state.raid.push(newRaidMember);
+
+    // Remove from bench
+    this.state.benchPlayers.splice(benchIndex, 1);
+
+    this.addCombatLogEntry({
+      message: `${benchPlayer.name} joined the raid in group ${targetGroup}.`,
+      type: 'system'
+    });
+
+    // Trigger cloud save since roster changed
+    this.state.pendingCloudSave = true;
+    this.notify();
+    return true;
+  }
+
+  // Helper to get DPS for a spec
+  private getDpsForSpec(spec: WoWSpec): number {
+    // Base DPS values by role/spec
+    const dpsValues: Partial<Record<WoWSpec, number>> = {
+      // Tank specs - 0 DPS (they tank, not DPS)
+      'protection_warrior': 0,
+      'protection_paladin': 0,
+      'feral_tank': 0,
+      // Healer specs - 0 DPS (they heal)
+      'holy_paladin': 0,
+      'holy_priest': 0,
+      'discipline': 0,
+      'restoration_shaman': 0,
+      'restoration': 0,
+      // DPS specs
+      'arms': 450,
+      'fury': 500,
+      'retribution': 350,
+      'beast_mastery': 400,
+      'marksmanship': 450,
+      'survival': 380,
+      'assassination': 480,
+      'combat': 520,
+      'subtlety': 420,
+      'shadow': 400,
+      'elemental': 420,
+      'enhancement': 450,
+      'arcane': 450,
+      'fire_mage': 500,
+      'frost_mage': 420,
+      'affliction': 400,
+      'demonology': 380,
+      'destruction': 450,
+      'balance': 380,
+      'feral_dps': 470,
+    };
+    return dpsValues[spec] ?? 400; // Default DPS
+  }
+
+  // Get bench players
+  getBenchPlayers(): BenchPlayer[] {
+    return this.state.benchPlayers;
+  }
+
+  // =========================================================================
+  // END BENCH PLAYER SYSTEM
+  // =========================================================================
 
   // Get next available boss in progression order for current raid
   getNextBoss(): string | null {
@@ -5211,6 +5595,7 @@ export class GameEngine {
     }
 
     // Clear all debuffs from raid members after boss kill
+    // Note: wasInEncounter is preserved until loot is distributed, then cleared in closeLootModal
     this.state.raid.forEach(member => {
       member.debuffs = [];
     });
@@ -5671,9 +6056,11 @@ export class GameEngine {
 
     // Find eligible raid members (excluding player) who can use AND benefit from this item
     // Spec-aware: caster weapons won't go to warriors, melee weapons won't go to mages, etc.
+    // IMPORTANT: Only members who participated in the encounter can receive loot (bench protection)
     const eligibleMembers = this.state.raid.filter(m =>
       m.id !== 'player' && // Don't include player in pass distribution
       m.isAlive &&
+      m.wasInEncounter && // Must have participated in the boss fight (not benched)
       this.canEquip(m.class, item) &&
       this.canBenefitFrom(m, item) && // Check if spec can benefit from item category
       // Only members who don't have this slot filled yet, or have lower ilvl item
@@ -5703,6 +6090,10 @@ export class GameEngine {
     }
     this.state.showLootModal = false;
     this.state.boss = null;
+    // Reset encounter participation flags (after loot is distributed)
+    this.state.raid.forEach(member => {
+      member.wasInEncounter = false;
+    });
     // Request cloud save after loot distribution (items were won/passed)
     this.requestCloudSave();
     this.notify();
@@ -6367,6 +6758,15 @@ export class GameEngine {
       questMaterials: this.state.questMaterials,
       claimedQuestRewards: this.state.claimedQuestRewards,
       raidMemberQuestRewards: this.state.raidMemberQuestRewards,
+      benchPlayers: this.state.benchPlayers.map(b => ({
+        id: b.id,
+        name: b.name,
+        class: b.class,
+        spec: b.spec,
+        role: b.role,
+        equipment: b.equipment,
+        gearScore: b.gearScore,
+      })),
     };
   }
 
@@ -6492,6 +6892,29 @@ export class GameEngine {
       }
       if (saveData.firstKills) {
         this.state.firstKills = saveData.firstKills;
+      }
+
+      // Restore bench players
+      if (saveData.benchPlayers && Array.isArray(saveData.benchPlayers)) {
+        this.state.benchPlayers = saveData.benchPlayers.map((saved: {
+          id: string;
+          name: string;
+          class: WoWClass;
+          spec: WoWSpec;
+          role: 'tank' | 'healer' | 'dps';
+          equipment: Equipment;
+          gearScore: number;
+        }) => ({
+          id: saved.id,
+          name: saved.name,
+          class: saved.class,
+          spec: saved.spec,
+          role: saved.role,
+          equipment: this.migrateEquipment(saved.equipment),
+          gearScore: saved.gearScore || 0,
+        }));
+      } else {
+        this.state.benchPlayers = [];
       }
 
       // Update max paladin blessings
