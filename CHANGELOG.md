@@ -2,6 +2,18 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.28.0] - 2025-12-03
+
+### Added
+- **Ragnaros RP Intro Event**: Cinematic dialogue sequence before the Ragnaros fight
+- **Voiced Dialogue**: 5 lines with Majordomo Executus and Ragnaros audio
+- **Rag_Domo.png Artwork**: Iconic image displayed during the RP sequence
+- **65-Second Countdown**: Progress bar showing time until fight starts
+- **Skip Button**: Bypass the RP and start the fight immediately
+
+### Changed
+- **Tank Assignment First**: Tank assignment modal now appears before the RP sequence
+
 ## [0.27.0] - 2025-12-03
 
 ### Added
