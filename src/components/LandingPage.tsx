@@ -14,7 +14,9 @@ export interface CharacterConfig {
   faction: Faction;
   playerClass: WoWClass;
   playerName: string;
+  raidSize: 20 | 40;  // Raid size chosen at character creation
   isContinuing?: boolean;  // True when continuing existing save, false for new character
+  isRaidLeaderMode?: boolean;  // True when playing as Raid Leader instead of healer
 }
 
 export interface SavedCharacter {
@@ -23,6 +25,8 @@ export interface SavedCharacter {
   faction: Faction;
   playerClass: WoWClass;
   gearScore?: number;
+  raidSize?: 20 | 40;  // Raid size (defaults to 40 for legacy saves)
+  isRaidLeaderMode?: boolean;  // True if this is a Raid Leader Mode character
 }
 
 interface LandingPageProps {
@@ -61,6 +65,9 @@ const CLASS_ICONS: Record<HealerClass, string> = {
   shaman: `${ICON_BASE}/classicon_shaman.jpg`,
 };
 
+// Raid Leader Mode icon
+const RAID_LEADER_ICON = `${ICON_BASE}/classic_temp.jpg`;
+
 export function LandingPage({
   onStartGame,
   savedCharacters,
@@ -90,10 +97,13 @@ export function LandingPage({
     if (savedFaction === 'horde') return 'shaman';
     return null;
   });
-  const [playerName, setPlayerName] = useState(mostRecentCharacter?.playerName || '');
+  const [playerName, setPlayerName] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isEnteringGame, setIsEnteringGame] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isRaidLeaderMode, setIsRaidLeaderMode] = useState(false);
+  const [showRaidLeaderInfo, setShowRaidLeaderInfo] = useState(false);
+  const [selectedRaidSize, setSelectedRaidSize] = useState<20 | 40>(40);
 
   // Update state when savedCharacters changes (e.g., after login loads cloud saves)
   useEffect(() => {
@@ -101,7 +111,7 @@ export function LandingPage({
       const recent = savedCharacters[0];
       setSelectedFaction(recent.faction);
       setSelectedClass(recent.playerClass as HealerClass);
-      setPlayerName(recent.playerName);
+      // Don't auto-fill name - let user type a new one for new characters
     }
   }, [savedCharacters]);
 
@@ -122,11 +132,18 @@ export function LandingPage({
   const handleClassSelect = (healerClass: HealerClass) => {
     if (PLAYABLE_CLASSES.includes(healerClass)) {
       setSelectedClass(healerClass);
+      setIsRaidLeaderMode(false);  // Deselect raid leader mode when selecting a class
     }
   };
 
+  const handleRaidLeaderSelect = () => {
+    setIsRaidLeaderMode(true);
+    setSelectedClass(null);  // Deselect healer class
+  };
+
   const handleStartGame = () => {
-    if (selectedFaction && selectedClass && playerName.trim()) {
+    const canStart = selectedFaction && (selectedClass || isRaidLeaderMode) && playerName.trim();
+    if (canStart) {
       setIsEnteringGame(true);
       // Save faction preference for next time
       localStorage.setItem('preferredFaction', selectedFaction);
@@ -136,9 +153,14 @@ export function LandingPage({
         onStartGame({
           id: characterId,
           faction: selectedFaction,
-          playerClass: selectedClass,
+          // For raid leader mode, use a default class (paladin for alliance, shaman for horde)
+          playerClass: isRaidLeaderMode
+            ? (selectedFaction === 'alliance' ? 'paladin' : 'shaman')
+            : selectedClass!,
           playerName: playerName.trim(),
+          raidSize: selectedRaidSize,
           isContinuing: false,  // New character - don't load cloud save
+          isRaidLeaderMode: isRaidLeaderMode,
         });
       }, 1500);
     }
@@ -152,7 +174,9 @@ export function LandingPage({
         faction: character.faction,
         playerClass: character.playerClass,
         playerName: character.playerName,
+        raidSize: character.raidSize || 40,  // Default to 40 for legacy saves
         isContinuing: true,  // Continuing - load cloud save
+        isRaidLeaderMode: character.isRaidLeaderMode || false,
       });
     }, 1500);
   };
@@ -207,7 +231,7 @@ export function LandingPage({
     setDeleteConfirmId(null);
   };
 
-  const canStartGame = selectedFaction && selectedClass && playerName.trim().length > 0;
+  const canStartGame = selectedFaction && (selectedClass || isRaidLeaderMode) && playerName.trim().length > 0;
   const availableClasses = selectedFaction ? FACTION_CLASSES[selectedFaction] : [];
 
   // Handle Enter key to start game
@@ -308,7 +332,7 @@ export function LandingPage({
             <div className="class-buttons">
               {availableClasses.map((wowClass) => {
                 const isPlayable = PLAYABLE_CLASSES.includes(wowClass);
-                const isSelected = selectedClass === wowClass;
+                const isSelected = selectedClass === wowClass && !isRaidLeaderMode;
                 return (
                   <button
                     key={wowClass}
@@ -332,13 +356,44 @@ export function LandingPage({
                 );
               })}
             </div>
+
+            {/* Raid Leader Mode Option */}
+            <div className="raid-leader-section">
+              <div className="or-divider">OR</div>
+              <div className="raid-leader-option">
+                <button
+                  className={`class-btn raid-leader ${isRaidLeaderMode ? 'selected' : ''}`}
+                  onClick={handleRaidLeaderSelect}
+                  style={{
+                    '--class-color': '#ffd700',
+                  } as React.CSSProperties}
+                >
+                  <img
+                    src={RAID_LEADER_ICON}
+                    alt="Raid Leader"
+                    className="class-icon"
+                  />
+                  <span className="class-name">Raid Leader</span>
+                </button>
+                <button
+                  className="raid-leader-info-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowRaidLeaderInfo(true);
+                  }}
+                  title="What is Raid Leader Mode?"
+                >
+                  ?
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Character Name */}
-        {selectedClass && (
+        {(selectedClass || isRaidLeaderMode) && (
           <div className="name-section">
-            <h2>Name Your Character</h2>
+            <h2>{isRaidLeaderMode ? 'Name Your Raid Leader' : 'Name Your Character'}</h2>
             <input
               type="text"
               className="name-input"
@@ -347,9 +402,30 @@ export function LandingPage({
               placeholder="Enter name..."
               maxLength={12}
               style={{
-                borderColor: CLASS_COLORS[selectedClass],
+                borderColor: isRaidLeaderMode ? '#ffd700' : CLASS_COLORS[selectedClass!],
               }}
             />
+          </div>
+        )}
+
+        {/* Raid Size Selection */}
+        {(selectedClass || isRaidLeaderMode) && (
+          <div className="raid-size-section">
+            <h2>Raid Size</h2>
+            <div className="raid-size-toggle">
+              <button
+                className={`raid-size-btn ${selectedRaidSize === 20 ? 'selected' : ''}`}
+                onClick={() => setSelectedRaidSize(20)}
+              >
+                20 Man
+              </button>
+              <button
+                className={`raid-size-btn ${selectedRaidSize === 40 ? 'selected' : ''}`}
+                onClick={() => setSelectedRaidSize(40)}
+              >
+                40 Man
+              </button>
+            </div>
           </div>
         )}
 
@@ -372,7 +448,7 @@ export function LandingPage({
           {/* Footer */}
           <div className="landing-footer">
             <p>A raiding simulator for World of Warcraft Classic</p>
-            <p className="version">v0.26.0</p>
+            <p className="version">v0.27.0</p>
             <a
               href="https://github.com/taubut/holy-paladin-raid-healing-simulator"
               target="_blank"
@@ -394,22 +470,23 @@ export function LandingPage({
               {savedCharacters.map((char, index) => (
                 <div
                   key={char.id}
-                  className={`character-panel-item ${index === 0 ? 'selected' : ''}`}
+                  className={`character-panel-item ${index === 0 ? 'selected' : ''} ${char.isRaidLeaderMode ? 'raid-leader' : ''}`}
                   onClick={() => handleContinue(char)}
                 >
                   <div className="character-panel-icon">
                     <img
-                      src={CLASS_ICONS[char.playerClass as HealerClass]}
-                      alt={char.playerClass}
+                      src={char.isRaidLeaderMode ? RAID_LEADER_ICON : CLASS_ICONS[char.playerClass as HealerClass]}
+                      alt={char.isRaidLeaderMode ? 'Raid Leader' : char.playerClass}
                     />
                   </div>
                   <div className="character-panel-info">
-                    <span className="character-panel-name" style={{ color: CLASS_COLORS[char.playerClass as HealerClass] }}>
+                    <span className="character-panel-name" style={{ color: char.isRaidLeaderMode ? '#ffd700' : CLASS_COLORS[char.playerClass as HealerClass] }}>
                       {char.playerName}
                     </span>
                     <span className="character-panel-details">
-                      {char.playerClass.charAt(0).toUpperCase() + char.playerClass.slice(1)}
-                      {char.gearScore ? ` • GS ${char.gearScore}` : ''}
+                      {char.isRaidLeaderMode ? 'Raid Leader' : char.playerClass.charAt(0).toUpperCase() + char.playerClass.slice(1)}
+                      {!char.isRaidLeaderMode && char.gearScore ? ` • GS ${char.gearScore}` : ''}
+                      {` • ${char.raidSize || 40}m`}
                     </span>
                   </div>
                   {currentUser && onDeleteCharacter && (
@@ -500,6 +577,46 @@ export function LandingPage({
                 Continue with Apple
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raid Leader Info Modal */}
+      {showRaidLeaderInfo && (
+        <div className="login-modal-overlay" onClick={() => setShowRaidLeaderInfo(false)}>
+          <div className="raid-leader-info-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="login-modal-close" onClick={() => setShowRaidLeaderInfo(false)}>
+              X
+            </button>
+            <h2>Raid Leader Mode</h2>
+            <div className="raid-leader-info-content">
+              <p className="raid-leader-intro">
+                In Raid Leader Mode, you manage the raid instead of healing. All healing is done by AI.
+              </p>
+
+              <div className="raid-leader-feature">
+                <h3>Build Your Raid</h3>
+                <p>Choose all 20 or 40 raid members - their classes, specs, and assignments. Set up paladin auras and shaman totems before you start.</p>
+              </div>
+
+              <div className="raid-leader-feature">
+                <h3>Lead the Fight</h3>
+                <p>Start boss encounters and watch your AI raiders work. Handle mechanics like dragging bombed players to safety in the Baron Geddon fight.</p>
+              </div>
+
+              <div className="raid-leader-feature">
+                <h3>Master Looter</h3>
+                <p>When bosses die, you assign loot to raiders or disenchant items. Legendary materials still go to your bags for crafting.</p>
+              </div>
+
+              <div className="raid-leader-feature">
+                <h3>Manage Buffs</h3>
+                <p>Control raid buffs, consumables, and world buffs just like in healer mode.</p>
+              </div>
+            </div>
+            <button className="raid-leader-info-close-btn" onClick={() => setShowRaidLeaderInfo(false)}>
+              Got it!
+            </button>
           </div>
         </div>
       )}

@@ -28,7 +28,7 @@ export type TotemElement = 'earth' | 'fire' | 'water' | 'air';
 // Vanilla WoW specs for each class
 export type WoWSpec =
   // Warrior specs
-  | 'arms' | 'fury' | 'protection_warrior'
+  | 'arms' | 'fury' | 'fury_prot' | 'protection_warrior'
   // Paladin specs
   | 'holy_paladin' | 'protection_paladin' | 'retribution'
   // Hunter specs
@@ -59,6 +59,7 @@ export const CLASS_SPECS: Record<WoWClass, SpecDefinition[]> = {
   warrior: [
     { id: 'arms', name: 'Arms', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_savageblow.jpg' },
     { id: 'fury', name: 'Fury', role: 'dps', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_innerrage.jpg' },
+    { id: 'fury_prot', name: 'Fury/Prot', role: 'tank', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_innerrage.jpg' },
     { id: 'protection_warrior', name: 'Protection', role: 'tank', icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg' },
   ],
   paladin: [
@@ -108,7 +109,7 @@ export const CLASS_SPECS: Record<WoWClass, SpecDefinition[]> = {
 // Specs NOT in the same group require using the bench system for a full character swap
 export const GEAR_COMPATIBLE_SPECS: Record<WoWClass, WoWSpec[][]> = {
   // Warriors: All plate DPS/tank stats are interchangeable enough
-  warrior: [['arms', 'fury', 'protection_warrior']],
+  warrior: [['arms', 'fury', 'fury_prot', 'protection_warrior']],
   // Paladins: Holy (healing), Prot (tank), Ret (DPS) all need different gear
   paladin: [['holy_paladin'], ['protection_paladin'], ['retribution']],
   // Hunters: All use agility/AP mail
@@ -707,6 +708,16 @@ export interface GameState {
   tankSwapWarning: { message: string; type: 'swap' | 'late_swap' | 'stacks_high' } | null;
   // Bench players - roster of players not in active raid
   benchPlayers: BenchPlayer[]; // 5 for 20-man, 10 for 40-man
+  // Raid Leader Mode - player manages raid instead of healing
+  isRaidLeaderMode: boolean;
+  // Weapon slot choice modal - for dual-wield classes when assigning weapons
+  pendingWeaponAssignment: {
+    item: GearItem;
+    memberId: string;
+    memberName: string;
+    mainHandItem: GearItem | null;
+    offHandItem: GearItem | null;
+  } | null;
 }
 
 // Class colors matching Classic WoW

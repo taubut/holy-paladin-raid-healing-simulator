@@ -7,7 +7,7 @@ import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
 import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
 import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial, QuestMaterialId, QuestRewardId, EnchantId, EnchantSlot } from './items';
-import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTS } from './items';
+import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTS, CLASS_ARMOR_PROFICIENCY } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
 import { getPreRaidBisForSpec } from './preRaidBisSets';
@@ -552,6 +552,10 @@ export class GameEngine {
       tankSwapWarning: null,
       // Bench players - roster of players not in active raid
       benchPlayers: [],
+      // Raid Leader Mode - player manages raid instead of healing
+      isRaidLeaderMode: false,
+      // Weapon slot choice modal - for dual-wield classes when assigning weapons
+      pendingWeaponAssignment: null,
     };
   }
 
@@ -1635,6 +1639,18 @@ export class GameEngine {
     this.notify();
   }
 
+  // Clear the raid completely for Raid Leader Mode (no members, just empty slots)
+  clearRaidForRaidLeader() {
+    // In Raid Leader Mode, the player doesn't participate - they just manage
+    // So we clear all raid members, leaving empty slots to fill
+    this.state.raid = [];
+    this.state.selectedTargetId = null;
+    this.state.benchPlayers = [];
+    this.state.activePaladinBlessings = [];
+    this.state.playerBuffs = [];
+    this.notify();
+  }
+
   // Reset raid lockout - clears defeated bosses for ALL raids, allowing player to start fresh
   resetRaidLockout() {
     // Reset per-raid defeated bosses for ALL raids
@@ -2008,6 +2024,15 @@ export class GameEngine {
     const player = this.getPlayerMember();
     if (player) {
       player.name = name;
+    }
+    this.notify();
+  }
+
+  setRaidLeaderMode(enabled: boolean) {
+    this.state.isRaidLeaderMode = enabled;
+    if (enabled) {
+      // In raid leader mode, enable all AI healers
+      this.state.otherHealersEnabled = true;
     }
     this.notify();
   }
@@ -5731,8 +5756,35 @@ export class GameEngine {
   }
 
   // Check if a class can equip an item (public for admin panel)
+  // Armor type restrictions:
+  // - Plate wearers (warrior, paladin): plate, mail, leather, cloth
+  // - Mail wearers (hunter, shaman): mail, leather, cloth
+  // - Leather wearers (rogue, druid): leather, cloth
+  // - Cloth wearers (mage, warlock, priest): cloth only
   canEquip(wowClass: WoWClass, item: GearItem): boolean {
-    return item.classes.includes('all') || item.classes.includes(wowClass as WearableClass);
+    // Direct class match or 'all' items always work
+    if (item.classes.includes('all') || item.classes.includes(wowClass as WearableClass)) {
+      return true;
+    }
+
+    // Tier set items (have setId) are CLASS-LOCKED - only the specified classes can equip
+    // Do NOT allow armor type flexibility for tier items
+    if (item.setId) {
+      return false; // Class not in the item's class list, and it's a tier item
+    }
+
+    // For non-tier items with an armor type, check if the class can wear that armor type
+    if (item.armorType && item.armorType !== 'none') {
+      const proficiency = CLASS_ARMOR_PROFICIENCY[wowClass];
+      if (!proficiency || !proficiency.includes(item.armorType)) {
+        return false; // Class cannot wear this armor type
+      }
+      // Class CAN wear this armor type, so allow it
+      return true;
+    }
+
+    // No armor type specified, fall back to class list only
+    return false;
   }
 
   // Check if a raid member can benefit from an item based on their spec
@@ -6073,9 +6125,24 @@ export class GameEngine {
       this.equipItemOnMember(winner, item);
       this.addCombatLogEntry({ message: `${winner.name} receives ${item.name}`, type: 'system' });
     } else {
-      // No AI players need this - send to player's bag for offspec/disenchant/later use
-      this.state.playerBag.push(item);
-      this.addCombatLogEntry({ message: `${item.name} sent to your bag (no upgrades needed)`, type: 'system' });
+      // No AI players need this
+      // In Raid Leader Mode: automatically disenchant into Nexus Crystal
+      // In normal mode: send to player's bag for offspec/disenchant/later use
+      if (this.state.isRaidLeaderMode) {
+        // Raid Leader Mode - auto-disenchant
+        if (item.isPreRaidBis) {
+          // Pre-raid BiS items get destroyed, not disenchanted
+          this.addCombatLogEntry({ message: `Destroyed ${item.name} (pre-raid BiS, cannot disenchant)`, type: 'debuff' });
+        } else {
+          // Disenchant into Nexus Crystal
+          this.state.materialsBag.nexus_crystal++;
+          this.addCombatLogEntry({ message: `Disenchanted ${item.name} into a Nexus Crystal`, type: 'buff' });
+        }
+      } else {
+        // Normal mode - send to bag
+        this.state.playerBag.push(item);
+        this.addCombatLogEntry({ message: `${item.name} sent to your bag (no upgrades needed)`, type: 'system' });
+      }
     }
 
     this.state.pendingLoot.splice(itemIndex, 1);
@@ -6102,6 +6169,112 @@ export class GameEngine {
   // Get DKP cost for an item
   getItemDKPCost(item: GearItem): number {
     return calculateDKPCost(item);
+  }
+
+  // Raid Leader Mode: Award loot directly to a raid member (Master Looter)
+  awardLootToMember(itemId: string, memberId: string) {
+    const itemIndex = this.state.pendingLoot.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = this.state.pendingLoot[itemIndex];
+    const member = this.state.raid.find(m => m.id === memberId);
+
+    if (!member) {
+      this.addCombatLogEntry({ message: `Cannot find raid member`, type: 'system' });
+      this.notify();
+      return;
+    }
+
+    // Check if member can equip (no DKP check in Master Looter mode)
+    if (!this.canEquip(member.class, item)) {
+      this.addCombatLogEntry({ message: `${member.name} cannot equip ${item.name}`, type: 'system' });
+      this.notify();
+      return;
+    }
+
+    // Check if this is a one-hand weapon and member can dual-wield
+    // Dual-wield classes: warrior, rogue, enhancement shaman (fury warriors, rogues always can)
+    const canDualWield = member.class === 'warrior' || member.class === 'rogue' ||
+      (member.class === 'shaman' && member.spec === 'enhancement');
+    const isOneHandWeapon = item.slot === 'weapon' && item.weaponType === 'one_hand';
+
+    // If dual-wielder getting a 1H weapon and has weapons in both slots, show choice modal
+    if (canDualWield && isOneHandWeapon && member.equipment.weapon && member.equipment.offhand) {
+      this.state.pendingWeaponAssignment = {
+        item,
+        memberId: member.id,
+        memberName: member.name,
+        mainHandItem: member.equipment.weapon,
+        offHandItem: member.equipment.offhand,
+      };
+      this.notify();
+      return; // Don't equip yet - wait for slot choice
+    }
+
+    // Equip the item on the member
+    this.equipItemOnMember(member, item);
+    this.state.pendingLoot.splice(itemIndex, 1);
+    this.addCombatLogEntry({ message: `Raid Leader awarded ${item.name} to ${member.name}`, type: 'buff' });
+    this.notify();
+  }
+
+  // Complete a pending weapon assignment after slot choice
+  completeWeaponAssignment(slot: 'weapon' | 'offhand') {
+    const pending = this.state.pendingWeaponAssignment;
+    if (!pending) return;
+
+    const member = this.state.raid.find(m => m.id === pending.memberId);
+    if (!member) {
+      this.state.pendingWeaponAssignment = null;
+      this.notify();
+      return;
+    }
+
+    // Remove from pending loot
+    const itemIndex = this.state.pendingLoot.findIndex(i => i.id === pending.item.id);
+    if (itemIndex !== -1) {
+      this.state.pendingLoot.splice(itemIndex, 1);
+    }
+
+    // Equip in the chosen slot
+    member.equipment[slot] = pending.item;
+    member.gearScore = this.calculateGearScore(member.equipment);
+
+    this.addCombatLogEntry({
+      message: `Raid Leader awarded ${pending.item.name} to ${pending.memberName} (${slot === 'weapon' ? 'Main Hand' : 'Off Hand'})`,
+      type: 'buff'
+    });
+
+    this.state.pendingWeaponAssignment = null;
+    this.notify();
+  }
+
+  // Cancel a pending weapon assignment
+  cancelWeaponAssignment() {
+    this.state.pendingWeaponAssignment = null;
+    this.notify();
+  }
+
+  // Get eligible raid members for an item (for Master Looter UI)
+  getEligibleMembersForItem(item: GearItem): { id: string; name: string; class: string; isUpgrade: boolean }[] {
+    return this.state.raid
+      .filter(m =>
+        m.isAlive &&
+        m.wasInEncounter && // Must have participated
+        this.canEquip(m.class, item) &&
+        this.canBenefitFrom(m, item)
+      )
+      .map(m => ({
+        id: m.id,
+        name: m.name,
+        class: m.class,
+        isUpgrade: !m.equipment[item.slot] || m.equipment[item.slot]!.itemLevel < item.itemLevel
+      }))
+      .sort((a, b) => {
+        // Sort by upgrade status first (upgrades on top), then alphabetically
+        if (a.isUpgrade !== b.isUpgrade) return a.isUpgrade ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
   }
 
   // =========================================================================
@@ -6719,12 +6892,13 @@ export class GameEngine {
   // Export current game state as JSON (for cloud saves)
   exportSaveData(): unknown {
     return {
-      version: 8,
+      version: 9,  // Bumped for isRaidLeaderMode support
       timestamp: Date.now(),
       // Top-level faction and class for character selection screen
       faction: this.state.faction,
       playerClass: this.state.playerClass,
       gearScore: this.getPlayerMember()?.gearScore || 0,
+      isRaidLeaderMode: this.state.isRaidLeaderMode,
       player: {
         name: this.state.playerName,
         equipment: this.state.playerEquipment,

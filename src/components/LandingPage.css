@@ -260,18 +260,52 @@
 /* Faction Selection */
 .faction-selection,
 .class-selection,
-.name-section {
+.name-section,
+.raid-size-section {
   margin-bottom: 20px;
 }
 
 .faction-selection h2,
 .class-selection h2,
-.name-section h2 {
+.name-section h2,
+.raid-size-section h2 {
   color: #c0c0c0;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 2px;
   margin-bottom: 12px;
+}
+
+/* Raid Size Selection */
+.raid-size-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.raid-size-btn {
+  padding: 10px 24px;
+  background: linear-gradient(180deg, #2a2a3a, #1a1a2a);
+  border: 2px solid #444;
+  border-radius: 8px;
+  color: #c0c0c0;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: 'LifeCraft', serif;
+}
+
+.raid-size-btn:hover {
+  border-color: #666;
+  transform: translateY(-2px);
+}
+
+.raid-size-btn.selected {
+  border-color: #ffd700;
+  color: #ffd700;
+  background: linear-gradient(180deg, #3a3a2a, #2a2a1a);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
 
 .faction-buttons {
@@ -821,6 +855,15 @@
   box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
 }
 
+/* Raid Leader character styling */
+.character-panel-item.raid-leader .character-panel-icon img {
+  border-color: #ffd700;
+}
+
+.character-panel-item.raid-leader.selected .character-panel-icon img {
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+}
+
 .character-panel-info {
   flex: 1;
   display: flex;
@@ -1092,4 +1135,133 @@
 .login-provider-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* Raid Leader Mode Styles */
+.raid-leader-section {
+  margin-top: 16px;
+}
+
+.raid-leader-option {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.class-btn.raid-leader {
+  width: 120px;
+  background: linear-gradient(180deg, #3a3a2a, #2a2a1a);
+  border-color: #665522;
+}
+
+.class-btn.raid-leader:hover {
+  border-color: #ffd700;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+}
+
+.class-btn.raid-leader.selected {
+  border-color: #ffd700;
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.15), rgba(0, 0, 0, 0.2));
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+}
+
+.raid-leader-info-btn {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(180deg, #2a4a6a, #1a3a5a);
+  border: 2px solid #4a7abf;
+  border-radius: 50%;
+  color: #9ac8ff;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.raid-leader-info-btn:hover {
+  background: linear-gradient(180deg, #3a5a7a, #2a4a6a);
+  color: #fff;
+  border-color: #6a9adf;
+  box-shadow: 0 0 10px rgba(74, 122, 191, 0.4);
+}
+
+/* Raid Leader Info Modal */
+.raid-leader-info-modal {
+  background: linear-gradient(180deg, #1a1a2a, #0f0f1a);
+  border: 2px solid #ffd700;
+  border-radius: 12px;
+  padding: 28px 36px;
+  max-width: 480px;
+  width: 90%;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.1);
+}
+
+.raid-leader-info-modal h2 {
+  color: #ffd700;
+  font-family: 'LifeCraft', 'Georgia', serif;
+  font-size: 28px;
+  font-weight: normal;
+  margin: 0 0 16px 0;
+  text-align: center;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.raid-leader-info-content {
+  text-align: left;
+}
+
+.raid-leader-intro {
+  color: #ccc;
+  font-size: 15px;
+  margin-bottom: 20px;
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 215, 0, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.raid-leader-feature {
+  margin-bottom: 16px;
+  padding-left: 12px;
+  border-left: 3px solid #665522;
+}
+
+.raid-leader-feature h3 {
+  color: #ffd700;
+  font-size: 15px;
+  margin: 0 0 6px 0;
+  font-weight: 600;
+}
+
+.raid-leader-feature p {
+  color: #aaa;
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.raid-leader-info-close-btn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: linear-gradient(180deg, #ffd700, #b8860b);
+  border: 2px solid #ffd700;
+  border-radius: 6px;
+  color: #1a1a2a;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.raid-leader-info-close-btn:hover {
+  background: linear-gradient(180deg, #ffe44d, #d4a20a);
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
 }

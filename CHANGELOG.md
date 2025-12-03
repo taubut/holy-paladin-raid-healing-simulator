@@ -2,6 +2,18 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.27.0] - 2025-12-03
+
+### Added
+- **Raid Leader Mode**: Manage your entire 40-man raid's gear progression with loot council simulation
+- **Armor Type Proficiency**: Classes can now equip items based on what armor types they can physically wear (plate wearers can use plate, mail, leather, cloth)
+- **Tier Set Class Lock**: Tier set items are now locked to their designated class only
+- **Weapon Slot Choice Modal**: When assigning 1H weapons to dual-wielders, choose which slot (Main Hand or Off Hand) to replace
+
+### Changed
+- **231 Items Updated**: All armor items now have proper armor types assigned
+- **Smart Loot Distribution**: Healers can roll on and receive leather/cloth healing gear if their class can wear it
+
 ## [0.26.0] - 2025-12-03
 
 ### Added

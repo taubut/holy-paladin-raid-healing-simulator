@@ -17,6 +17,7 @@ import type { TotemElement } from './game/types';
 import { MultiplayerLobby } from './components/MultiplayerLobby';
 import { RaidMeter } from './components/RaidMeter';
 import { RaidSetupModal } from './components/RaidSetupModal';
+import { RaidLeaderSetup } from './components/RaidLeaderSetup';
 import { LandingPage } from './components/LandingPage';
 import type { CharacterConfig, SavedCharacter } from './components/LandingPage';
 import type { GameSession, SessionPlayer } from './lib/supabase';
@@ -112,7 +113,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.26.0';
+  const CURRENT_PATCH_VERSION = '0.27.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -120,6 +121,10 @@ function App() {
   });
   // Raid Setup Modal state
   const [showRaidSetup, setShowRaidSetup] = useState(false);
+  // Raid Leader Mode: show raid composition setup before starting
+  const [showRaidLeaderSetup, setShowRaidLeaderSetup] = useState(false);
+  // Track the selected raid size for Raid Leader Mode (20 or 40)
+  const [raidLeaderRaidSize, setRaidLeaderRaidSize] = useState<20 | 40>(40);
   // Collapsible buffs panel state (persisted to localStorage)
   const [buffsExpanded, setBuffsExpanded] = useState(() => {
     const saved = localStorage.getItem('ui_buffs_expanded');
@@ -225,6 +230,8 @@ function App() {
             faction?: 'alliance' | 'horde';
             playerClass?: WoWClass;
             gearScore?: number;
+            raidSize?: 20 | 40;
+            isRaidLeaderMode?: boolean;
           } | null;
 
           if (cloudData && Object.keys(cloudData).length > 0) {
@@ -234,6 +241,8 @@ function App() {
               faction: cloudData.faction || 'alliance',
               playerClass: cloudData.playerClass || 'paladin',
               gearScore: cloudData.gearScore,
+              raidSize: cloudData.raidSize || 40,  // Default to 40 for legacy saves
+              isRaidLeaderMode: cloudData.isRaidLeaderMode || false,
             });
           }
         }
@@ -674,6 +683,26 @@ function App() {
     engine.setPlayerName(config.playerName);
     engine.switchFaction(config.faction);
 
+    // Set raid leader mode if selected
+    if (config.isRaidLeaderMode) {
+      engine.setRaidLeaderMode(true);
+      // For new raid leader characters, clear the raid completely (no player character)
+      if (!config.isContinuing) {
+        engine.clearRaidForRaidLeader();
+        // Track the selected raid size for the setup UI
+        if (config.raidSize) {
+          setRaidLeaderRaidSize(config.raidSize);
+        }
+      }
+    }
+
+    // Set raid size from character config (for new characters, non-raid-leader only)
+    // Continuing characters will have this overwritten by importSaveData
+    // Raid leader mode doesn't use this since they build their own raid
+    if (!config.isContinuing && config.raidSize && !config.isRaidLeaderMode) {
+      engine.adminResizeRaid(config.raidSize);
+    }
+
     // Only load cloud save if continuing an existing character
     if (config.isContinuing && currentUser && config.id) {
       try {
@@ -712,6 +741,12 @@ function App() {
 
     setGameInitialized(true);
     setShowLandingPage(false);
+
+    // For new Raid Leader Mode characters, show the raid composition setup
+    if (config.isRaidLeaderMode && !config.isContinuing) {
+      setShowRaidLeaderSetup(true);
+    }
+
     forceUpdate(n => n + 1);
   };
 
@@ -1881,6 +1916,47 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.27.0 - Raid Leader Mode</h3>
+                  <span className="patch-date">December 3, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Raid Leader Mode</h4>
+                  <ul>
+                    <li><strong>You ARE the Raid Leader</strong>: Manage your entire 40-man raid's gear progression, not just your own character</li>
+                    <li><strong>Loot Council Simulation</strong>: Assign loot drops to any raid member based on need, performance, or attendance</li>
+                    <li><strong>Full Raid Gearing</strong>: Every AI raid member has their own persistent gear that you control</li>
+                    <li><strong>Strategic Decisions</strong>: Balance gearing your healers, tanks, and DPS to optimize raid performance</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Armor Type Proficiency</h4>
+                  <ul>
+                    <li><strong>Class-Based Restrictions</strong>: Items now respect armor type proficiency - plate wearers can equip plate, mail, leather, and cloth</li>
+                    <li><strong>Proper Loot Distribution</strong>: Healers can now roll on and receive leather/cloth healing gear if their class can wear it</li>
+                    <li><strong>231 Items Updated</strong>: All armor items now have proper armor types assigned</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Tier Set Class Lock</h4>
+                  <ul>
+                    <li><strong>Class-Specific Tier</strong>: Tier set items are now locked to their designated class only</li>
+                    <li><strong>No Cross-Class Tier</strong>: Warlock tier can't go to mages, priest tier can't go to warlocks, etc.</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Weapon Slot Choice</h4>
+                  <ul>
+                    <li><strong>Dual-Wield Support</strong>: When assigning a 1H weapon to a dual-wielder, choose which slot to replace</li>
+                    <li><strong>Visual Preview</strong>: See your current Main Hand and Off Hand items before deciding</li>
+                    <li><strong>Works for All Dual-Wielders</strong>: Warriors, rogues, and enhancement shamans all supported</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.26.0 - Bench System Added</h3>
                   <span className="patch-date">December 3, 2025</span>
                 </div>
@@ -2269,7 +2345,104 @@ function App() {
       <main className="app-main">
         {/* Left Panel - Player, Boss, Raid */}
         <div className="left-panel">
-          {/* Player Frame */}
+          {/* Player Frame - Different for Raid Leader Mode */}
+          {state.isRaidLeaderMode ? (
+            <div className="player-frame raid-leader-frame">
+              <div className="player-portrait">
+                <img
+                  src="https://wow.zamimg.com/images/wow/icons/large/classic_temp.jpg"
+                  alt="Raid Leader"
+                  className="player-class-icon"
+                />
+              </div>
+              <div className="player-info">
+                <div className="player-title">
+                  <span className="player-name-editable" style={{ color: '#ffd700' }}>
+                    {state.playerName}
+                  </span>
+                  <span className="player-class" style={{ color: '#ffd700' }}>
+                    Raid Leader
+                  </span>
+                </div>
+                <div className="raid-leader-status">
+                  <span className="raid-leader-badge">Raid Leader Mode</span>
+                </div>
+              </div>
+              {/* Utility buttons for Raid Leader Mode */}
+              {!state.isRunning && (
+                <div className="player-utility-icons raid-leader-utility">
+                  <div
+                    className={`utility-mini-btn has-tooltip ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
+                    onClick={() => setShowInventory(true)}
+                  >
+                    <span className="icon-tooltip">Bags (B)</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
+                    <span className="keybind-text">B</span>
+                    {state.legendaryMaterials.length > 0 && (
+                      <span className="mini-badge">{state.legendaryMaterials.length}</span>
+                    )}
+                  </div>
+                  <div
+                    className={`utility-mini-btn has-tooltip ${state.materialsBag.nexus_crystal > 0 ? 'has-crystals' : ''}`}
+                    onClick={() => engine.openAuctionHouse()}
+                  >
+                    <span className="icon-tooltip">Auction House</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg" alt="Enchants" />
+                    {state.materialsBag.nexus_crystal > 0 && (
+                      <span className="mini-badge crystal">{state.materialsBag.nexus_crystal}</span>
+                    )}
+                  </div>
+                  <div
+                    className="utility-mini-btn has-tooltip"
+                    onClick={() => setShowRaidGroupManager(true)}
+                  >
+                    <span className="icon-tooltip">Manage Raid</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/achievement_guildperk_everybodysfriend.jpg" alt="Raid" />
+                  </div>
+                  <div className="utility-icon-separator" />
+                  <div
+                    className="utility-mini-btn has-tooltip"
+                    onClick={() => setShowSaveModal(true)}
+                  >
+                    <span className="icon-tooltip">Save</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_note_01.jpg" alt="Save" />
+                  </div>
+                  <div
+                    className="utility-mini-btn has-tooltip"
+                    onClick={() => setShowLoadModal(true)}
+                  >
+                    <span className="icon-tooltip">Load</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_book_09.jpg" alt="Load" />
+                  </div>
+                  <div
+                    className="utility-mini-btn has-tooltip"
+                    onClick={() => setShowSettings(true)}
+                  >
+                    <span className="icon-tooltip">Settings</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/trade_engineering.jpg" alt="Settings" />
+                  </div>
+                  <div
+                    className="utility-mini-btn has-tooltip"
+                    onClick={() => {
+                      setSelectedAdminMemberId(state.playerId);
+                      setShowAdminPanel(true);
+                    }}
+                  >
+                    <span className="icon-tooltip">Admin</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_key_03.jpg" alt="Admin" />
+                  </div>
+                  <div
+                    className={`utility-mini-btn has-tooltip ${currentUser ? 'logged-in' : ''}`}
+                    onClick={() => setShowAuthModal(true)}
+                  >
+                    <span className="icon-tooltip">{currentUser ? currentUser.email?.split('@')[0] || 'Account' : 'Sign In'}</span>
+                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_human_01.jpg" alt="Account" />
+                    {currentUser && <span className="logged-in-indicator">✓</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
           <div className={`player-frame ${(state.playerMana / state.maxMana) < 0.20 ? 'low-mana' : ''}`}>
             <div className="player-portrait">
               <img
@@ -2371,6 +2544,13 @@ function App() {
                         <span className="mini-badge crystal">{state.materialsBag.nexus_crystal}</span>
                       )}
                     </div>
+                    <div
+                      className="utility-mini-btn has-tooltip"
+                      onClick={() => setShowRaidGroupManager(true)}
+                    >
+                      <span className="icon-tooltip">Manage Raid</span>
+                      <img src="https://wow.zamimg.com/images/wow/icons/large/achievement_guildperk_everybodysfriend.jpg" alt="Raid" />
+                    </div>
                     <div className="utility-icon-separator" />
                     <div
                       className="utility-mini-btn has-tooltip"
@@ -2426,6 +2606,7 @@ function App() {
             )}
 
           </div>
+          )}
 
           {/* Phase Transition Alert */}
           {phaseAlert && (
@@ -2877,16 +3058,6 @@ function App() {
               </div>
             )}
 
-            {/* Manage Groups Button - Only show when not in encounter */}
-            {!state.isRunning && (
-              <button
-                className="raid-management-btn"
-                onClick={() => setShowRaidGroupManager(true)}
-                title="Arrange raid members between groups to optimize party auras"
-              >
-                Manage Raid Groups
-              </button>
-            )}
         </div>
 
         {/* Center Panel */}
@@ -3015,9 +3186,6 @@ function App() {
               </div>
               {/* Raid Config Summary Strip */}
               <div className="raid-config-strip">
-                <button className="raid-setup-btn" onClick={() => setShowRaidSetup(true)}>
-                  <span className="gear-icon">⚙</span> Raid Setup
-                </button>
                 <div className="config-summary">
                   <span className={`faction-indicator ${state.faction}`}>
                     {state.faction === 'alliance' ? 'Alliance' : 'Horde'}
@@ -3101,6 +3269,7 @@ function App() {
                 aiHealerStats={state.aiHealerStats}
                 showAiHealers={state.otherHealersEnabled}
                 isMultiplayer={isMultiplayerMode}
+                hidePlayer={state.isRaidLeaderMode}
                 multiplayerHealers={Object.entries(multiplayerHealingStats)
                   .filter(([id]) => id !== (localPlayer?.id || 'host')) // Exclude self - already shown as "You"
                   .map(([id, stats]) => ({
@@ -3138,6 +3307,7 @@ function App() {
                 aiHealerStats={state.aiHealerStats}
                 showAiHealers={state.otherHealersEnabled}
                 isMultiplayer={isMultiplayerMode}
+                hidePlayer={state.isRaidLeaderMode}
                 multiplayerHealers={Object.entries(multiplayerHealingStats)
                   .filter(([id]) => id !== (localPlayer?.id || 'host'))
                   .map(([id, stats]) => ({
@@ -3152,8 +3322,8 @@ function App() {
             </div>
           )}
 
-          {/* Cast Bar */}
-          {state.isCasting && state.castingSpell && (
+          {/* Cast Bar - Hidden in Raid Leader Mode */}
+          {!state.isRaidLeaderMode && state.isCasting && state.castingSpell && (
             <div className="cast-bar-wrapper">
               <div className="cast-bar">
                 <div className="cast-bar-fill" style={{ width: `${state.castProgress * 100}%` }} />
@@ -3164,7 +3334,9 @@ function App() {
             </div>
           )}
 
-          {/* Action Bar */}
+          {/* Action Bar - Hidden in Raid Leader Mode */}
+          {!state.isRaidLeaderMode && (
+          <>
           <div className="action-bar-row">
             <div className="action-bar">
               {actionBar.map((spell, idx) => {
@@ -3276,9 +3448,11 @@ function App() {
               })}
             </div>
           )}
+          </>
+          )}
 
-          {/* Spell Tooltip - Shows when hovering over action bar spells (out of encounter) */}
-          {hoveredSpell && !state.isRunning && (
+          {/* Spell Tooltip - Shows when hovering over action bar spells (out of encounter) - Hidden in Raid Leader Mode */}
+          {!state.isRaidLeaderMode && hoveredSpell && !state.isRunning && (
             <div className="spell-tooltip">
               <div className="spell-tooltip-header">
                 <img src={hoveredSpell.icon} alt={hoveredSpell.name} className="spell-tooltip-icon" />
@@ -4035,6 +4209,7 @@ function App() {
                       aiHealerStats={state.aiHealerStats}
                       showAiHealers={state.otherHealersEnabled}
                       isMultiplayer={isMultiplayerMode}
+                      hidePlayer={state.isRaidLeaderMode}
                       multiplayerHealers={Object.entries(multiplayerHealingStats)
                         .filter(([id]) => id !== (localPlayer?.id || 'host'))
                         .map(([id, stats]) => ({
@@ -4073,6 +4248,7 @@ function App() {
                         aiHealerStats={state.aiHealerStats}
                         showAiHealers={state.otherHealersEnabled}
                         isMultiplayer={isMultiplayerMode}
+                        hidePlayer={state.isRaidLeaderMode}
                         multiplayerHealers={Object.entries(multiplayerHealingStats)
                           .filter(([id]) => id !== (localPlayer?.id || 'host'))
                           .map(([id, stats]) => ({
@@ -4211,7 +4387,11 @@ function App() {
           <div className="loot-modal">
             <div className="loot-modal-header">
               <h2>Loot Dropped!</h2>
-              <span className="dkp-display">Your DKP: {state.playerDKP.points}</span>
+              {state.isRaidLeaderMode ? (
+                <span className="master-looter-badge">Master Looter</span>
+              ) : (
+                <span className="dkp-display">Your DKP: {state.playerDKP.points}</span>
+              )}
               {/* Show bidding timer in multiplayer */}
               {isMultiplayerMode && state.lootBidTimer > 0 && (
                 <span className="loot-bid-timer">
@@ -4267,7 +4447,8 @@ function App() {
                 const cost = calculateDKPCost(item);
                 const canAfford = state.playerDKP.points >= cost;
                 const playerClass = state.faction === 'alliance' ? 'paladin' : 'shaman';
-                const canEquip = item.classes.includes(playerClass) || item.classes.includes('all');
+                // Use engine's canEquip which allows healers to wear any healer-category gear
+                const canEquip = engine.canEquip(playerClass, item);
                 const itemBids = state.lootBids[item.id] || [];
                 const myPlayerId = localPlayer?.id || 'player';
                 const hasPlayerBid = itemBids.some(b => b.playerId === myPlayerId);
@@ -4290,7 +4471,7 @@ function App() {
                         {item.stats.mp5 && <span>+{item.stats.mp5} MP5</span>}
                         {item.stats.critChance && <span>+{item.stats.critChance}% Crit</span>}
                       </div>
-                      {!canEquip && <div className="loot-item-warning">Cannot equip ({playerClass === 'paladin' ? 'Paladin' : 'Shaman'} cannot use)</div>}
+                      {!canEquip && !state.isRaidLeaderMode && <div className="loot-item-warning">Cannot equip ({playerClass === 'paladin' ? 'Paladin' : 'Shaman'} cannot use)</div>}
                       {/* Show current bids in multiplayer */}
                       {isMultiplayerMode && itemBids.length > 0 && (
                         <div className="loot-item-bids">
@@ -4300,8 +4481,40 @@ function App() {
                       )}
                     </div>
                     <div className="loot-item-actions">
-                      <div className="loot-item-cost">{cost} DKP</div>
-                      {isMultiplayerMode ? (
+                      {!state.isRaidLeaderMode && <div className="loot-item-cost">{cost} DKP</div>}
+                      {state.isRaidLeaderMode ? (
+                        // Raid Leader Mode: Master Looter dropdown
+                        (() => {
+                          const eligibleMembers = engine.getEligibleMembersForItem(item);
+                          return (
+                            <div className="master-looter-controls">
+                              <select
+                                className="master-looter-select"
+                                defaultValue=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    engine.awardLootToMember(item.id, e.target.value);
+                                  }
+                                }}
+                              >
+                                <option value="" disabled>Assign to...</option>
+                                {eligibleMembers.map(m => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.name} ({m.class}){m.isUpgrade ? ' ★' : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                className="disenchant-btn"
+                                onClick={() => engine.passLoot(item.id)}
+                                title="Send to bag or give to AI member"
+                              >
+                                DE
+                              </button>
+                            </div>
+                          );
+                        })()
+                      ) : isMultiplayerMode ? (
                         // Multiplayer: Need/Pass buttons that send to host
                         <>
                           <button
@@ -4421,6 +4634,73 @@ function App() {
             <div className="loot-results-footer">
               <button className="close-btn" onClick={() => handleLootComplete('clearResults')}>
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Weapon Slot Choice Modal (for dual-wielders) */}
+      {state.pendingWeaponAssignment && (
+        <div className="modal-overlay">
+          <div className="weapon-slot-modal">
+            <div className="weapon-slot-header">
+              <h2>Choose Weapon Slot</h2>
+              <p>Which weapon should <strong>{state.pendingWeaponAssignment.memberName}</strong> replace?</p>
+            </div>
+            <div className="weapon-slot-new-item">
+              <span className="weapon-slot-label">New Item:</span>
+              <div className="weapon-slot-item" style={{ borderColor: state.pendingWeaponAssignment.item.rarity === 'epic' ? '#a335ee' : '#0070dd' }}>
+                <img src={state.pendingWeaponAssignment.item.icon} alt={state.pendingWeaponAssignment.item.name} className="weapon-slot-icon" />
+                <span className="weapon-slot-name" style={{ color: state.pendingWeaponAssignment.item.rarity === 'epic' ? '#a335ee' : '#0070dd' }}>
+                  {state.pendingWeaponAssignment.item.name}
+                </span>
+                <span className="weapon-slot-ilvl">iLvl {state.pendingWeaponAssignment.item.itemLevel}</span>
+              </div>
+            </div>
+            <div className="weapon-slot-choices">
+              <button
+                className="weapon-slot-choice"
+                onClick={() => engine.completeWeaponAssignment('weapon')}
+              >
+                <span className="slot-label">Main Hand</span>
+                {state.pendingWeaponAssignment.mainHandItem ? (
+                  <div className="weapon-slot-current">
+                    <img src={state.pendingWeaponAssignment.mainHandItem.icon} alt={state.pendingWeaponAssignment.mainHandItem.name} className="weapon-slot-icon" />
+                    <div className="weapon-slot-info">
+                      <span className="weapon-slot-name" style={{ color: state.pendingWeaponAssignment.mainHandItem.rarity === 'epic' ? '#a335ee' : state.pendingWeaponAssignment.mainHandItem.rarity === 'rare' ? '#0070dd' : '#1eff00' }}>
+                        {state.pendingWeaponAssignment.mainHandItem.name}
+                      </span>
+                      <span className="weapon-slot-ilvl">iLvl {state.pendingWeaponAssignment.mainHandItem.itemLevel}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="weapon-slot-empty">Empty</span>
+                )}
+              </button>
+              <button
+                className="weapon-slot-choice"
+                onClick={() => engine.completeWeaponAssignment('offhand')}
+              >
+                <span className="slot-label">Off Hand</span>
+                {state.pendingWeaponAssignment.offHandItem ? (
+                  <div className="weapon-slot-current">
+                    <img src={state.pendingWeaponAssignment.offHandItem.icon} alt={state.pendingWeaponAssignment.offHandItem.name} className="weapon-slot-icon" />
+                    <div className="weapon-slot-info">
+                      <span className="weapon-slot-name" style={{ color: state.pendingWeaponAssignment.offHandItem.rarity === 'epic' ? '#a335ee' : state.pendingWeaponAssignment.offHandItem.rarity === 'rare' ? '#0070dd' : '#1eff00' }}>
+                        {state.pendingWeaponAssignment.offHandItem.name}
+                      </span>
+                      <span className="weapon-slot-ilvl">iLvl {state.pendingWeaponAssignment.offHandItem.itemLevel}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="weapon-slot-empty">Empty</span>
+                )}
+              </button>
+            </div>
+            <div className="weapon-slot-footer">
+              <button className="cancel-btn" onClick={() => engine.cancelWeaponAssignment()}>
+                Cancel
               </button>
             </div>
           </div>
@@ -5189,9 +5469,34 @@ function App() {
         </div>
       )}
 
-      {/* Raid Group Manager Modal */}
+      {/* Raid Group Manager Modal (also used for Raid Leader Setup) */}
+      {/* Raid Leader Setup - Dedicated Component */}
+      <RaidLeaderSetup
+        isOpen={showRaidLeaderSetup}
+        onStartRaid={() => {
+          engine.recalculateAuras();
+          // Trigger cloud save to persist the raid configuration and bench
+          if (currentUser) {
+            handleCloudSave();
+          }
+          setShowRaidLeaderSetup(false);
+        }}
+        engine={engine}
+        state={state}
+        faction={state.faction}
+        raidSize={raidLeaderRaidSize}
+      />
+
+      {/* Regular Raid Group Manager (not for initial raid leader setup) */}
       {showRaidGroupManager && (
-        <div className="modal-overlay" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setShowAddToBenchModal(false); }}>
+        <div className="modal-overlay" onClick={() => {
+            setShowRaidGroupManager(false);
+            setSelectedPaladinForAura(null);
+            setDraggedMemberId(null);
+            setSelectedMemberForClassSpec(null);
+            setSelectedBenchPlayerForSwap(null);
+            setShowAddToBenchModal(false);
+        }}>
           <div className="raid-group-manager-modal" onClick={e => e.stopPropagation()}>
             <div className="rgm-header">
               <h2>Raid Group Manager</h2>
@@ -5446,35 +5751,66 @@ function App() {
               )}
 
               {/* Paladin Aura Selection Panel - Alliance only */}
-              {selectedPaladinForAura && state.faction === 'alliance' && (
-                <div className="rgm-aura-panel">
-                  <div className="rgm-aura-header">
-                    <h3>Select Aura for {state.raid.find(m => m.id === selectedPaladinForAura)?.name}</h3>
-                    <button className="close-panel-btn" onClick={() => setSelectedPaladinForAura(null)}>×</button>
-                  </div>
-                  <div className="rgm-aura-options">
-                    {getPaladinAuras().map(aura => {
-                      const isSelected = engine.getPaladinAura(selectedPaladinForAura) === aura.id;
-                      return (
-                        <button
-                          key={aura.id}
-                          className={`rgm-aura-option ${isSelected ? 'selected' : ''}`}
-                          onClick={() => {
-                            engine.setPaladinAura(selectedPaladinForAura, isSelected ? null : aura.id);
-                          }}
-                        >
-                          <img src={aura.icon} alt={aura.name} className="rgm-aura-btn-icon" />
-                          <div className="rgm-aura-info">
-                            <span className="rgm-aura-name">{aura.name}</span>
-                            <span className="rgm-aura-effect">{formatAuraEffect(aura.effect)}</span>
+              {selectedPaladinForAura && state.faction === 'alliance' && (() => {
+                const currentAuraId = engine.getPaladinAura(selectedPaladinForAura);
+                const selectedPaladin = state.raid.find(m => m.id === selectedPaladinForAura);
+                const allAuras = getPaladinAuras();
+
+                // Categorize auras
+                const auraCategories = {
+                  defensive: allAuras.filter(a => a.id === 'devotion_aura'),
+                  resistance: allAuras.filter(a => a.id.includes('resistance')),
+                  utility: allAuras.filter(a => ['concentration_aura', 'retribution_aura', 'sanctity_aura'].includes(a.id)),
+                };
+
+                const categoryColors: Record<string, string> = {
+                  defensive: '#C79C6E', // Tan/bronze
+                  resistance: '#8B0000', // Dark red
+                  utility: '#DAA520', // Golden
+                };
+
+                return (
+                  <div className="rgm-aura-panel rgm-aura-panel-columnar">
+                    <div className="rgm-aura-header">
+                      <h3>Select Aura for {selectedPaladin?.name}</h3>
+                      <button className="close-panel-btn" onClick={() => setSelectedPaladinForAura(null)}>×</button>
+                    </div>
+                    <div className="rgm-aura-elements-horizontal">
+                      {Object.entries(auraCategories).map(([category, auras]) => (
+                        <div key={category} className="rgm-aura-element-column">
+                          <div className="rgm-aura-element-header-h" style={{ backgroundColor: categoryColors[category] }}>
+                            {category.charAt(0).toUpperCase() + category.slice(1)}
                           </div>
-                          {isSelected && <span className="rgm-selected-check">✓</span>}
-                        </button>
-                      );
-                    })}
+                          <div className="rgm-aura-options-vertical">
+                            {auras.map(aura => {
+                              const isSelected = currentAuraId === aura.id;
+                              // Get short name (remove "Aura" suffix and resistance type)
+                              const shortName = aura.name.replace(' Aura', '').replace(' Resistance', ' Resist');
+                              return (
+                                <div
+                                  key={aura.id}
+                                  className={`rgm-aura-row ${isSelected ? 'selected' : ''}`}
+                                  onClick={() => {
+                                    engine.setPaladinAura(selectedPaladinForAura, isSelected ? null : aura.id);
+                                  }}
+                                >
+                                  <img src={aura.icon} alt={aura.name} className="rgm-aura-row-icon" />
+                                  <span className="rgm-aura-row-name">{shortName}</span>
+                                  {isSelected && <span className="aura-check">✓</span>}
+                                  <div className="rgm-aura-tooltip">
+                                    <div className="rgm-aura-tooltip-name">{aura.name}</div>
+                                    <div className="rgm-aura-tooltip-effect">{formatAuraEffect(aura.effect)}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Shaman Totem Selection Panel - Horde only */}
               {selectedShamanForTotems && state.faction === 'horde' && (() => {
@@ -7041,23 +7377,12 @@ function App() {
               {/* RAID MANAGEMENT TAB */}
               {adminTab === 'raid' && (
                 <div className="admin-raid-tab">
-                  {/* Raid Size */}
+                  {/* Raid Size Info (selected at character creation) */}
                   <div className="admin-section">
                     <div className="admin-section-header">Raid Size</div>
-                    <div className="raid-size-controls">
-                      <span>Current: {state.raid.length} members</span>
-                      <button
-                        className={state.raid.length === 20 ? 'active' : ''}
-                        onClick={() => engine.adminResizeRaid(20)}
-                      >
-                        20-Man
-                      </button>
-                      <button
-                        className={state.raid.length === 40 ? 'active' : ''}
-                        onClick={() => engine.adminResizeRaid(40)}
-                      >
-                        40-Man
-                      </button>
+                    <div className="raid-size-info">
+                      <span className="raid-size-badge">{state.raid.length}-Man Raid</span>
+                      <span className="raid-size-hint">(Selected at character creation)</span>
                     </div>
                   </div>
 

@@ -175,6 +175,36 @@ body {
   50% { border-color: #ff4444; }
 }
 
+/* Raid Leader Frame */
+.player-frame.raid-leader-frame {
+  border-color: #ffd700;
+  background: linear-gradient(180deg, #2a2a1e 0%, #1a1a0f 100%);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+.player-frame.raid-leader-frame .player-portrait {
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+
+.raid-leader-badge {
+  display: inline-block;
+  background: linear-gradient(180deg, #ffd700 0%, #cc9900 100%);
+  color: #1a1a0f;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* Utility buttons in Raid Leader Mode - position them nicely */
+.player-utility-icons.raid-leader-utility {
+  margin-left: auto;
+  margin-right: 8px;
+}
+
 .player-portrait {
   position: relative;
   width: 48px;
@@ -2854,6 +2884,60 @@ body {
   background: linear-gradient(180deg, #6a4a4a 0%, #4a2a2a 100%);
 }
 
+/* Master Looter badge in header */
+.master-looter-badge {
+  background: linear-gradient(180deg, #ffd700 0%, #cc9900 100%);
+  color: #1a1a0f;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Master Looter Controls */
+.master-looter-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.master-looter-select {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #2a2a3e 0%, #1a1a2e 100%);
+  border: 1px solid #4a3a6a;
+  color: #fff;
+  font-size: 12px;
+  min-width: 150px;
+  cursor: pointer;
+}
+
+.master-looter-select:hover {
+  border-color: #ffd700;
+}
+
+.master-looter-select option {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+.disenchant-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  background: linear-gradient(180deg, #6a3a6a 0%, #4a2a4a 100%);
+  border: 1px solid #8a4a8a;
+  color: #ffaaff;
+  transition: all 0.2s ease;
+}
+
+.disenchant-btn:hover {
+  background: linear-gradient(180deg, #8a4a8a 0%, #6a3a6a 100%);
+}
+
 .loot-modal-footer {
   margin-top: 20px;
   padding-top: 16px;
@@ -3016,6 +3100,148 @@ body {
   padding-top: 16px;
   border-top: 2px solid #4a8a4a;
   text-align: center;
+}
+
+/* Weapon Slot Choice Modal */
+.weapon-slot-modal {
+  background: linear-gradient(180deg, #2a1a1a 0%, #1a0f0f 100%);
+  border: 3px solid #8a4a4a;
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 0 40px rgba(138, 74, 74, 0.5);
+}
+
+.weapon-slot-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #8a4a4a;
+}
+
+.weapon-slot-header h2 {
+  margin: 0 0 8px 0;
+  color: #ffaaaa;
+}
+
+.weapon-slot-header p {
+  margin: 0;
+  color: #aaa;
+  font-size: 14px;
+}
+
+.weapon-slot-new-item {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+}
+
+.weapon-slot-label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.weapon-slot-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px solid;
+  border-radius: 4px;
+}
+
+.weapon-slot-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  border: 2px solid #444;
+}
+
+.weapon-slot-name {
+  flex: 1;
+  font-weight: bold;
+}
+
+.weapon-slot-ilvl {
+  font-size: 11px;
+  color: #888;
+}
+
+.weapon-slot-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.weapon-slot-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.weapon-slot-choice:hover {
+  border-color: #8a4a4a;
+  background: rgba(138, 74, 74, 0.2);
+}
+
+.weapon-slot-choice .slot-label {
+  font-size: 12px;
+  color: #ffd700;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.weapon-slot-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.weapon-slot-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weapon-slot-empty {
+  color: #666;
+  font-style: italic;
+}
+
+.weapon-slot-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #8a4a4a;
+  text-align: center;
+}
+
+.weapon-slot-footer .cancel-btn {
+  padding: 8px 24px;
+  background: #333;
+  border: 2px solid #555;
+  border-radius: 4px;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.weapon-slot-footer .cancel-btn:hover {
+  background: #444;
+  border-color: #666;
+  color: #fff;
 }
 
 /* Inspection Panel - Redesigned */
@@ -6356,6 +6582,29 @@ body {
   border-color: #6a4a8a;
 }
 
+/* Raid Size Info (read-only display) */
+.raid-size-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.raid-size-badge {
+  padding: 6px 14px;
+  background: linear-gradient(180deg, #4a3a6a 0%, #3a2a5a 100%);
+  border: 1px solid #6a4a8a;
+  border-radius: 4px;
+  color: #ffd700;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.raid-size-hint {
+  color: #666;
+  font-size: 11px;
+  font-style: italic;
+}
+
 /* Member Table */
 .admin-member-table {
   border: 1px solid #3a2a5a;
@@ -8689,6 +8938,130 @@ body {
   font-size: 16px;
 }
 
+/* Paladin Aura Selection Panel - Columnar Layout (matches totem style) */
+.rgm-aura-panel-columnar {
+  background: rgba(245, 197, 135, 0.1);
+  border-color: #f5c587;
+}
+
+.rgm-aura-panel-columnar h3 {
+  color: #f5c587;
+}
+
+.rgm-aura-elements-horizontal {
+  display: flex;
+  gap: 8px;
+}
+
+.rgm-aura-element-column {
+  flex: 1;
+  min-width: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rgm-aura-element-header-h {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-align: center;
+  color: #fff;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.rgm-aura-options-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rgm-aura-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 2px solid #5a4a2a;
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s;
+}
+
+.rgm-aura-row:hover {
+  background: rgba(90, 74, 42, 0.5);
+  border-color: #8a7a4a;
+}
+
+.rgm-aura-row.selected {
+  border-color: #ffd700;
+  background: rgba(100, 80, 0, 0.2);
+}
+
+.rgm-aura-row-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.rgm-aura-row-name {
+  font-size: 11px;
+  color: #e8d8b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.rgm-aura-row.selected .rgm-aura-row-name {
+  color: #fff;
+}
+
+.rgm-aura-row .aura-check {
+  color: #ffd700;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* Aura tooltip */
+.rgm-aura-row .rgm-aura-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 25, 45, 0.95);
+  border: 1px solid #f5c587;
+  border-radius: 4px;
+  padding: 8px;
+  min-width: 150px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.rgm-aura-row:hover .rgm-aura-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.rgm-aura-tooltip-name {
+  font-weight: bold;
+  color: #f5c587;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.rgm-aura-tooltip-effect {
+  font-size: 11px;
+  color: #c9b8e8;
+}
+
 /* Shaman Totem Selection Panel - Horizontal Layout */
 .rgm-totem-panel {
   background: rgba(0, 112, 192, 0.1);
@@ -8868,6 +9241,33 @@ body {
   border-color: #8aaa8a;
   transform: scale(1.02);
   box-shadow: 0 0 15px rgba(100, 200, 100, 0.3);
+}
+
+/* Start Raid button for Raid Leader Setup */
+.rgm-start-raid-btn {
+  padding: 12px 32px;
+  background: linear-gradient(180deg, #ffd700 0%, #cc9900 100%);
+  border: 2px solid #ffcc00;
+  border-radius: 6px;
+  color: #1a1a0f;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.rgm-start-raid-btn:hover {
+  background: linear-gradient(180deg, #ffdd33 0%, #ddaa00 100%);
+  border-color: #ffdd55;
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+/* Raid Leader Setup modal styling */
+.raid-group-manager-modal.raid-leader-setup .rgm-header h2 {
+  color: #ffd700;
 }
 
 /* Class/Spec Selection Panel */

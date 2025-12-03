@@ -49,6 +49,7 @@ interface RaidMeterProps {
   showAiHealers: boolean;
   isMultiplayer?: boolean;
   multiplayerHealers?: HealerEntry[];
+  hidePlayer?: boolean; // For Raid Leader mode where player doesn't heal
 }
 
 export function RaidMeter({
@@ -61,6 +62,7 @@ export function RaidMeter({
   showAiHealers,
   isMultiplayer = false,
   multiplayerHealers = [],
+  hidePlayer = false,
 }: RaidMeterProps) {
   const [activeTab, setActiveTab] = useState<'healing' | 'dispels'>('healing');
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
@@ -68,16 +70,18 @@ export function RaidMeter({
   // Build the healers list
   const healers: HealerEntry[] = [];
 
-  // Add player
-  healers.push({
-    id: 'player',
-    name: playerName,
-    healingDone: playerHealing,
-    dispelsDone: playerDispels,
-    class: playerClass,
-    isPlayer: true,
-    spellBreakdown: playerSpellBreakdown,
-  });
+  // Add player (unless hidden, e.g. in Raid Leader mode)
+  if (!hidePlayer) {
+    healers.push({
+      id: 'player',
+      name: playerName,
+      healingDone: playerHealing,
+      dispelsDone: playerDispels,
+      class: playerClass,
+      isPlayer: true,
+      spellBreakdown: playerSpellBreakdown,
+    });
+  }
 
   // In multiplayer, add other players
   if (isMultiplayer && multiplayerHealers.length > 0) {

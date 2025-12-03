@@ -1,0 +1,370 @@
+Aegis of Preservation: Trinket
+Aged Core Leather Gloves: Leather
+Ancient Cornerstone Grimoire: Off-hand
+Animated Chain Necklace: Neck
+Arcane Infused Gem: Trinket
+Arcanist Belt: Cloth
+Arcanist Bindings: Cloth
+Arcanist Boots: Cloth
+Arcanist Crown: Cloth
+Arcanist Gloves: Cloth
+Arcanist Leggings: Cloth
+Arcanist Mantle: Cloth
+Arcanist Robes: Cloth
+Arcanite Reaper: Axe
+Arcanum of Focus: Quest Item
+Arcanum of Rapidity: Quest Item
+Archivist Cape: Cloak
+Ashkandi, Greatsword of the Brotherhood: Sword
+Ashkandi, Greatsword of the Brotherhood: Sword
+Aurastone Hammer: Mace
+Azuresong Mageblade: Sword
+Band of Accuria: Ring
+Band of Dark Dominion: Ring
+Band of Forced Concentration: Ring
+Band of Sulfuras: Ring
+Barbarous Blade: Sword
+Battleborn Armbraces: Plate
+Belt of Might: Plate
+Belt of Ten Storms: Mail
+Belt of Transcendence: Cloth
+Bindings of Transcendence: Cloth
+Black Ash Robe: Cloth
+Black Brood Pauldrons: Mail
+Blackcrow: Crossbow
+Blackstone Ring: Ring
+Blastershot Launcher: Gun
+Bloodfang Belt: Leather
+Bloodfang Boots: Leather
+Bloodfang Bracers: Leather
+Bloodfang Chestpiece: Leather
+Bloodfang Gloves: Leather
+Bloodfang Hood: Leather
+Bloodfang Pants: Leather
+Bloodfang Spaulders: Leather
+Bloodmail Boots: Mail
+Bloodvine Boots: Cloth
+Bloodvine Leggings: Cloth
+Bloodvine Vest: Cloth
+Bonecreeper Stylus: Wand
+Boots of Prophecy: Cloth
+Boots of Pure Thought: Cloth
+Boots of the Full Moon: Cloth
+Boots of the Shadow Flame: Leather
+Boots of Transcendence: Cloth
+Boots of Valor: Plate
+Bracelets of Wrath: Plate
+Bracers of Arcane Accuracy: Cloth
+Bracers of Might: Plate
+Bracers of Ten Storms: Mail
+Bracers of the Eclipse: Leather
+Breastplate of Might: Plate
+Breastplate of Ten Storms: Mail
+Breastplate of Valor: Plate
+Breastplate of Wrath: Plate
+Briarwood Reed: Trinket
+Brigam Girdle: Plate
+Brutality Blade: Sword
+Cadaverous Armor: Leather
+Cape of the Black Baron: Cloak
+Carapace Spine Crossbow: Crossbow
+Cauterizing Band: Ring
+Cenarion Belt: Leather
+Cenarion Boots: Leather
+Cenarion Bracers: Leather
+Cenarion Gloves: Leather
+Cenarion Helm: Leather
+Cenarion Leggings: Leather
+Cenarion Spaulders: Leather
+Cenarion Vestments: Leather
+Choker of Enlightenment: Neck
+Choker of the Fire Lord: Neck
+Chromatic Boots: Plate
+Chromatic Mantle of the Dawn: Quest Item
+Chromatically Tempered Sword: Sword
+Circle of Applied Force: Ring
+Circlet of Prophecy: Cloth
+Claw of Chromaggus: Dagger
+Claw of the Black Drake: Fist Weapon
+Cloak of Firemaw: Cloak
+Cloak of the Brood Lord: Cloak
+Cloak of the Shrouded Mists: Cloak
+Core Forged Greaves: Plate
+Core Hound Tooth: Dagger
+Crimson Felt Hat: Cloth
+Crimson Shocker: Wand
+Crown of Destruction: Mail
+Deathbone Chestplate: Plate
+Deathbone Girdle: Plate
+Deathbone Legguards: Plate
+Deathbone Sabatons: Plate
+Deathbringer: Axe
+Deep Earth Spaulders: Mail
+Devilsaur Eye: Trinket
+Devilsaur Gauntlets: Leather
+Devilsaur Leggings: Leather
+Devout Mantle: Cloth
+Devout Sandals: Cloth
+Distracting Dagger: Dagger
+Doomfinger: Wand
+Draconian Deflector: Shield
+Draconic Avenger: Axe
+Draconic Maul: Mace
+Dragonbreath Hand Cannon: Gun
+Dragonfang Blade: Dagger
+Drake Fang Talisman: Trinket
+Drake Talon Cleaver: Axe
+Drake Talon Pauldrons: Plate
+Drakestone: Off-hand
+Drillborer Disk: Shield
+Earthfury Belt: Mail
+Earthfury Boots: Mail
+Earthfury Bracers: Mail
+Earthfury Epaulets: Mail
+Earthfury Gauntlets: Mail
+Earthfury Helmet: Mail
+Earthfury Legguards: Mail
+Earthfury Vestments: Mail
+Earthshaker: Mace
+Ebony Flame Gloves: Cloth
+Elementium Reinforced Bulwark: Shield
+Elementium Threaded Cloak: Cloak
+Emberweave Leggings: Mail
+Empowered Leggings: Cloth
+Epaulets of Ten Storms: Mail
+Essence of the Pure Flame: Trinket
+Eye of Sulfuras: Trade Goods
+Eye of the Beast: Trinket
+Felcloth Shoulders: Cloth
+Felheart Belt: Cloth
+Felheart Bracers: Cloth
+Felheart Gloves: Cloth
+Felheart Horns: Cloth
+Felheart Pants: Cloth
+Felheart Robes: Cloth
+Felheart Shoulder Pads: Cloth
+Felheart Slippers: Cloth
+Felstriker: Dagger
+Fire Runed Grimoire: Off-hand
+Fireguard Shoulders: Leather
+Fireproof Cloak: Cloak
+Flameguard Gauntlets: Plate
+Flamewaker Legplates: Plate
+Flurry Axe: Axe
+Force of Will: Trinket
+Freezing Band: Ring
+Gauntlets of Might: Plate
+Gauntlets of Ten Storms: Mail
+Gauntlets of Valor: Plate
+Gauntlets of Wrath: Plate
+Giantstalker\: NOT_FOUND
+Girdle of Prophecy: Cloth
+Girdle of the Fallen Crusader: Plate
+Gloves of Prophecy: Cloth
+Gloves of Rapid Evolution: Cloth
+Gloves of the Hypnotic Flame: Cloth
+Greaves of Ten Storms: Mail
+Gutgore Ripper: Dagger
+Halo of Transcendence: Cloth
+Hammer: Mace
+Hand of Justice: Trinket
+Handguards of Transcendence: Cloth
+Hands of Power: Cloth
+Harmonious Gauntlets: Mail
+Head of Nefarian: Quest Item
+Head of Onyxia: Quest Item
+Heartstriker: Bow
+Heavy Dark Iron Ring: Ring
+Helm of Endless Rage: Plate
+Helm of Might: Plate
+Helm of the Executioner: Plate
+Helm of the Holy Avenger: Plate
+Helm of the Lifegiver: Mail
+Helm of Wrath: Plate
+Helmet of Ten Storms: Mail
+Herald of Woe: Mace
+Hide of the Wild: Cloak
+Idol of Brutality: Idol
+Idol of Ferocity: Idol
+Idol of Health: Idol
+Idol of Longevity: Idol
+Idol of Rejuvenation: Idol
+Idol of the Moon: Idol
+Judgement Belt: Plate
+Judgement Bindings: Plate
+Judgement Breastplate: Plate
+Judgement Crown: Plate
+Judgement Gauntlets: Plate
+Judgement Legplates: Plate
+Judgement Sabatons: Plate
+Judgement Spaulders: Plate
+Kentic Amice: Cloth
+Lawbringer Belt: Plate
+Lawbringer Boots: Plate
+Lawbringer Bracers: Plate
+Lawbringer Chestguard: Plate
+Lawbringer Gauntlets: Plate
+Lawbringer Helm: Plate
+Lawbringer Legplates: Plate
+Lawbringer Spaulders: Plate
+Leggings of Transcendence: Cloth
+Legguards of the Fallen Crusader: Plate
+Legplates of Might: Plate
+Legplates of Ten Storms: Mail
+Legplates of the Chromatic Defier: Mail
+Legplates of Valor: Plate
+Legplates of Wrath: Plate
+Lesser Arcanum of Constitution: Quest Item
+Lesser Arcanum of Rumination: Quest Item
+Lesser Arcanum of Voracity: Quest Item
+Libram of Divinity: Libram
+Libram of Fervor: Libram
+Libram of Grace: Libram
+Libram of Hope: Libram
+Libram of Light: Libram
+Libram of Truth: Libram
+Lifegiving Gem: Trinket
+Lionheart Helm: Plate
+Living Shoulders: Leather
+Loomguard Armbraces: Mail
+Magma Tempered Boots: Plate
+Maladath, Runed Blade of the Black Flight: Sword
+Mana Igniting Cord: Cloth
+Manastorm Leggings: Cloth
+Mantle of Prophecy: Cloth
+Mantle of the Blackwing Cabal: Cloth
+Manual Crowd Pummeler: Mace
+Mark of Fordring: Neck
+Mark of Tyranny: Trinket
+Mask of the Unforgiven: Leather
+Medallion of Grand Marshal Morris: Neck
+Medallion of Steadfast Might: Neck
+Mind Quickening Gem: Trinket
+Mindtap Talisman: Trinket
+Naglering: Ring
+Natural Alignment Crystal: Trinket
+Nemesis Belt: Cloth
+Nemesis Boots: Cloth
+Nemesis Bracers: Cloth
+Nemesis Gloves: Cloth
+Nemesis Leggings: Cloth
+Nemesis Robes: Cloth
+Nemesis Skullcap: Cloth
+Nemesis Spaulders: Cloth
+Nether Force Wand: Wand
+Netherwind Belt: Cloth
+Netherwind Bindings: Cloth
+Netherwind Boots: Cloth
+Netherwind Crown: Cloth
+Netherwind Gloves: Cloth
+Netherwind Mantle: Cloth
+Netherwind Pants: Cloth
+Netherwind Robes: Cloth
+Nexus Crystal: Trade Goods
+Nightslayer Belt: Leather
+Nightslayer Boots: Leather
+Nightslayer Bracelets: Leather
+Nightslayer Chestpiece: Leather
+Nightslayer Cover: Leather
+Nightslayer Gloves: Leather
+Nightslayer Pants: Leather
+Nightslayer Shoulder Pads: Leather
+Obsidian Edged Blade: Sword
+Omnicast Boots: Cloth
+Onslaught Girdle: Plate
+Onyxia Blood Talisman: Trinket
+Onyxia Tooth Pendant: Neck
+Pads of the Dread Wolf: Leather
+Painweaver Band: Ring
+Pants of Prophecy: Cloth
+Pauldrons of Might: Plate
+Pauldrons of Transcendence: Cloth
+Pauldrons of Wrath: Plate
+Pendant of the Fallen Dragon: Neck
+Power of the Scourge: Quest Item
+Pure Elementium Band: Ring
+Quick Strike Ring: Ring
+Red Dragonscale Protector: Shield
+Rejuvenating Gem: Trinket
+Ring of Binding: Ring
+Ring of Blackrock: Ring
+Ring of Spell Power: Ring
+Robe of the Archmage: Cloth
+Robe of the Void: Cloth
+Robe of Volatile Power: Cloth
+Robe of Winter Night: Cloth
+Robes of Prophecy: Cloth
+Robes of the Exalted: Cloth
+Robes of Transcendence: Cloth
+Rosewine Circle: Ring
+Rune of Metamorphosis: Trinket
+Rune of the Guard Captain: Trinket
+Sabatons of Might: Plate
+Sabatons of Wrath: Plate
+Salamander Scale Pants: Leather
+Sapphiron Drape: Cloak
+Sash of Whispered Secrets: Cloth
+Savage Gladiator Chain: Mail
+Scrolls of Blinding Light: Trinket
+Seal of the Archmagus: Ring
+Second Wind: Trinket
+Shadow Wing Focus Staff: Staff
+Shadowstrike: Polearm
+Shard of the Flame: Trinket
+Shard of the Scale: Trinket
+Shimmering Geta: Cloth
+Shroud of Pure Thought: Cloak
+Skullforge Reaver: Sword
+Skyshroud Leggings: Cloth
+Sorcerous Dagger: Dagger
+Spinal Reaper: Axe
+Spineshatter: Mace
+Spirit of Aquementas: Off-hand
+Staff of Dominance: Staff
+Staff of the Shadow Flame: Staff
+Stockade Pauldrons: Plate
+Stonegrip Gauntlets: Plate
+Stoneskin Gargoyle Cape: Cloak
+Stormrage Belt: Leather
+Stormrage Boots: Leather
+Stormrage Bracers: Leather
+Stormrage Chestguard: Leather
+Stormrage Cover: Leather
+Stormrage Handguards: Leather
+Stormrage Legguards: Leather
+Stormrage Pauldrons: Leather
+Sublime Wristguards: Cloth
+Sulfuras, Hand of Ragnaros: Mace
+Sulfuras, Hand of Ragnaros: Mace
+Talisman of Ephemeral Power: Trinket
+Taut Dragonhide Belt: Leather
+Taut Dragonhide Gloves: Leather
+Taut Dragonhide Shoulderpads: Leather
+The Black Book: Trinket
+The Untamed Blade: Sword
+Thrash Blade: Sword
+Thunderfury, Blessed Blade of the Windseeker: Sword
+Totem of Life: Totem
+Totem of Rage: Totem
+Totem of Rebirth: Totem
+Totem of Sustaining: Totem
+Totem of the Storm: Totem
+Truefaith Vestments: Cloth
+Truestrike Shoulders: Leather
+Vambraces of Prophecy: Cloth
+Vambraces of the Sadist: Plate
+Venomous Totem: Trinket
+Waistband of Wrath: Plate
+Warden Staff: Staff
+Warpwood Binding: Mail
+Whipvine Cord: Cloth
+Whitemend Pants: Cloth
+Wild Growth Spaulders: Leather
+Windreaver Greaves: Mail
+Witchblade: Dagger
+Wolfshead Helm: Leather
+Wristguards of Stability: Leather
+Wristguards of True Flight: Mail
+Zandalar Signet of Might: Quest Item
+Zandalar Signet of Mojo: Quest Item
+Zandalar Signet of Serenity: Quest Item
