@@ -929,7 +929,7 @@ export const BAND_OF_SULFURAS: GearItem = { id: 'band_of_sulfuras', name: 'Band 
 export const QUICK_STRIKE_RING: GearItem = { id: 'quick_strike_ring', name: 'Quick Strike Ring', slot: 'ring1', rarity: 'epic', itemLevel: 67, classes: ['warrior', 'rogue', 'hunter', 'paladin'], stats: { strength: 5, stamina: 8, attackPower: 30, critChance: 1 }, icon: `${ICON_BASE}/inv_jewelry_ring_07.jpg`, itemCategory: 'melee' };
 
 // MC Trinkets (many have on-use or proc effects rather than passive stats)
-export const TALISMAN_OF_EPHEMERAL_POWER: GearItem = { id: 'talisman_of_ephemeral_power', name: 'Talisman of Ephemeral Power', slot: 'trinket1', rarity: 'rare', itemLevel: 66, classes: ['all'], stats: {}, icon: `${ICON_BASE}/inv_misc_stonetablet_11.jpg`, itemCategory: 'caster' }; // Use: +175 spell damage/healing for 15s
+export const TALISMAN_OF_EPHEMERAL_POWER: GearItem = { id: 'talisman_of_ephemeral_power', name: 'Talisman of Ephemeral Power', slot: 'trinket1', rarity: 'epic', itemLevel: 66, classes: ['all'], stats: {}, icon: `${ICON_BASE}/inv_misc_stonetablet_11.jpg`, itemCategory: 'caster' }; // Use: +175 spell damage/healing for 15s
 export const ESSENCE_OF_THE_PURE_FLAME: GearItem = { id: 'essence_of_the_pure_flame', name: 'Essence of the Pure Flame', slot: 'trinket1', rarity: 'epic', itemLevel: 75, classes: ['all'], stats: {}, icon: `${ICON_BASE}/spell_fire_fire.jpg`, itemCategory: 'melee' }; // Equip: When struck, deal 13 fire damage
 
 // =============================================================================

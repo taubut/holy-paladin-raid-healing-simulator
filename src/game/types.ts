@@ -264,14 +264,33 @@ export interface Debuff {
   icon?: string;
   duration: number;
   maxDuration?: number;
-  type: 'magic' | 'poison' | 'disease' | 'curse';
+  type: 'magic' | 'poison' | 'disease' | 'curse' | 'enrage' | 'physical';
   damagePerTick?: number;
   tickInterval?: number;
+  damageType?: DamageType; // For fire/shadow/etc damage reduction
   // Living Bomb mechanic
   explodesOnExpiry?: boolean;
   explosionDamage?: number;
   // Some debuffs cannot be dispelled even if they have a dispellable type
   dispellable?: boolean;
+  // Lucifron's Curse - doubles mana costs
+  increasesManaCost?: boolean;
+  // Dominate Mind - mind control, player attacks raid
+  isMindControl?: boolean;
+  mcTargetId?: string; // Who the MC'd player is attacking
+  // Targeting restrictions
+  targetZones?: readonly PositionZone[]; // Only targets these position zones (melee, ranged, tank)
+  // Stacking debuffs (like Magma Spit)
+  maxStacks?: number;
+  stacks?: number; // Current stack count
+  // Boss debuffs (like Frenzy)
+  isBossDebuff?: boolean;
+  // Healing reduction (Gehennas' Curse) - 0.75 = 75% reduction
+  healingReduction?: number;
+  // Shazzrah's Curse - increases magic damage taken (2.0 = doubles)
+  increasesMagicDamageTaken?: number;
+  // Deaden Magic - reduces magic damage taken by boss (0.5 = 50% reduction)
+  reducesMagicDamage?: number;
 }
 
 // Equipment slots for gear (17 slots total - authentic WoW Classic)
@@ -376,7 +395,7 @@ export interface Spell {
 export type DamageType = 'physical' | 'fire' | 'frost' | 'shadow' | 'nature' | 'arcane';
 
 export interface DamageEvent {
-  type: 'tank_damage' | 'raid_damage' | 'random_target' | 'debuff';
+  type: 'tank_damage' | 'raid_damage' | 'random_target' | 'debuff' | 'inferno' | 'frenzy' | 'lava_bomb' | 'rain_of_fire' | 'antimagic_pulse' | 'shazzrah_curse' | 'shazzrah_blink' | 'deaden_magic' | 'hand_of_ragnaros' | 'inspire' | 'dark_mending' | 'sulfuron_immolate' | 'golemagg_magma_splash' | 'golemagg_pyroblast' | 'golemagg_earthquake' | 'core_rager_mangle' | 'core_rager_melee' | 'majordomo_teleport' | 'majordomo_elite_melee' | 'majordomo_fire_blast' | 'majordomo_shadow_shock' | 'majordomo_shadow_bolt' | 'majordomo_fireball' | 'majordomo_dark_mending' | 'majordomo_magic_reflection';
   damage: number;
   interval: number;
   targetCount?: number;
@@ -395,6 +414,15 @@ export interface PhaseTransition {
   message: string;         // Combat log message for transition
 }
 
+// Boss add (minions like Flamewaker Priests for Sulfuron)
+export interface BossAdd {
+  id: string;
+  name: string;
+  maxHealth: number;
+  currentHealth: number;
+  isAlive: boolean;
+}
+
 export interface Boss {
   id: string;
   name: string;
@@ -405,6 +433,57 @@ export interface Boss {
   // Optional phase transitions (for multi-phase bosses like Onyxia)
   phaseTransitions?: PhaseTransition[];
   currentPhase?: number;  // Runtime tracking of current phase
+  // Boss debuffs (like Frenzy) - runtime state
+  isFrenzied?: boolean;
+  frenzyEndTime?: number; // When frenzy will be removed by Tranq Shot
+  // Shazzrah's Deaden Magic - reduces magic damage taken by 50%
+  hasDeadenMagic?: boolean;
+  deadenMagicEndTime?: number; // When Deaden Magic will expire or be dispelled
+  // Sulfuron Harbinger - adds (Flamewaker Priests)
+  adds?: BossAdd[];
+  // Sulfuron's Inspire buff
+  isInspired?: boolean;
+  inspireEndTime?: number;
+  // Golemagg tank assignment and swap tracking
+  golemaggTanks?: {
+    tank1Id: string;
+    tank2Id: string;
+    coreRagerTankId: string;
+    currentMainTank: 1 | 2; // Which tank is currently on Golemagg
+    tank1Stacks: number;
+    tank2Stacks: number;
+    lastSwapTime: number;
+    nextSwapThreshold: number; // Starts at 5, increases by 5 each swap (5, 10, 15, etc.)
+    ragersLoose: boolean; // True when dog tank is dead and ragers are attacking random DPS
+    ragerTarget1: string | null; // Current target for first Core Rager
+    ragerTarget2: string | null; // Current target for second Core Rager
+  };
+  // Flag for bosses that require tank assignment modal
+  requiresTankAssignment?: boolean;
+  // Majordomo Executus tank assignments and magic reflection tracking
+  majordomoTanks?: {
+    majordomoTankId: string; // Tank for Majordomo himself (gets Teleport fire damage)
+    addTank1Id: string; // Tanks adds 1 & 2
+    addTank2Id: string; // Tanks adds 3 & 4
+    addTank3Id: string; // Tanks adds 5 & 6
+    addTank4Id: string; // Tanks adds 7 & 8
+    magicReflectionActive: boolean; // When true, adds have magic reflection shield
+    magicReflectionEndTime: number; // When the shield expires
+    dpsStoppedTime: number; // When DPS stopped (for forgetful DPS mechanic)
+    // Loose adds tracking (when a tank dies, their adds attack random raid members)
+    looseAdds1: boolean; // Adds 1 & 2 are loose (tank1 dead)
+    looseAdds2: boolean; // Adds 3 & 4 are loose (tank2 dead)
+    looseAdds3: boolean; // Adds 5 & 6 are loose (tank3 dead)
+    looseAdds4: boolean; // Adds 7 & 8 are loose (tank4 dead)
+    looseTarget1a: string | null; // Target for add 1 when loose
+    looseTarget1b: string | null; // Target for add 2 when loose
+    looseTarget2a: string | null; // Target for add 3 when loose
+    looseTarget2b: string | null; // Target for add 4 when loose
+    looseTarget3a: string | null; // Target for add 5 when loose
+    looseTarget3b: string | null; // Target for add 6 when loose
+    looseTarget4a: string | null; // Target for add 7 when loose
+    looseTarget4b: string | null; // Target for add 8 when loose
+  };
 }
 
 export interface CombatLogEntry {
@@ -515,6 +594,8 @@ export interface GameState {
   raidMemberQuestRewards: Record<string, QuestMaterialId[]>; // memberId -> claimed quest types
   // Track the most recently obtained quest material (for loot screen notification)
   lastObtainedQuestMaterial: QuestMaterialId | null;
+  // Track the most recently obtained legendary material (for loot screen notification)
+  lastObtainedLegendaryMaterial: LegendaryMaterialId | null;
   // Player bag for storing extra gear
   playerBag: GearItem[]; // Items in the player's inventory bag
   // Materials bag for enchanting materials (nexus crystals from disenchanting)
@@ -550,6 +631,8 @@ export interface GameState {
   membersInSafeZone: Set<string>; // Member IDs currently in the safe zone
   // Cloud save trigger - set to true when important events happen that should trigger a cloud save
   pendingCloudSave: boolean;
+  // Golemagg tank swap warning - displayed as raid warning
+  tankSwapWarning: { message: string; type: 'swap' | 'late_swap' | 'stacks_high' } | null;
 }
 
 // Class colors matching Classic WoW

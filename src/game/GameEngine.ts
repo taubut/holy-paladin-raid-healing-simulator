@@ -1,4 +1,4 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
 import { DEFAULT_SHAMAN_ACTION_BAR } from './shamanSpells';
@@ -362,6 +362,9 @@ export class GameEngine {
   private specialAlertCallback: ((message: string) => void) | null = null;
   private onHealApplied: HealAppliedCallback | null = null;
   private onDispelApplied: DispelAppliedCallback | null = null;
+  public onInfernoWarning: ((targetNames: string[]) => void) | null = null;
+  public onMindControlWarning: ((mcPlayerName: string, attackingName: string) => void) | null = null;
+  public onLavaBombWarning: ((targetName: string) => void) | null = null;
   private isMultiplayerClient: boolean = false; // If true, don't apply heals locally - they'll come from host
 
   constructor() {
@@ -443,6 +446,8 @@ export class GameEngine {
       raidMemberQuestRewards: {},
       // Track the most recently obtained quest material (for loot screen notification)
       lastObtainedQuestMaterial: null,
+      // Track the most recently obtained legendary material (for loot screen notification)
+      lastObtainedLegendaryMaterial: null,
       // Player bag for storing extra gear
       playerBag: [],
       // Materials bag for enchanting materials
@@ -478,6 +483,8 @@ export class GameEngine {
       membersInSafeZone: new Set<string>(),
       // Cloud save trigger
       pendingCloudSave: false,
+      // Tank swap warning
+      tankSwapWarning: null,
     };
   }
 
@@ -494,6 +501,17 @@ export class GameEngine {
 
   private getPaladinCountForRaidSize(size: 20 | 40): number {
     return size === 40 ? 4 : 2;
+  }
+
+  // Check if player has Lucifron's Curse (doubles mana costs)
+  private playerHasManaCostCurse(): boolean {
+    const player = this.state.raid.find(m => m.id === PLAYER_ID);
+    return player ? player.debuffs.some(d => d.increasesManaCost) : false;
+  }
+
+  // Get effective mana cost (doubled if cursed)
+  private getEffectiveManaCost(baseCost: number): number {
+    return this.playerHasManaCostCurse() ? baseCost * 2 : baseCost;
   }
 
   // Determine position zone for Chain Heal bouncing
@@ -829,6 +847,9 @@ export class GameEngine {
     // Recalculate max paladin blessings based on new paladin count
     const paladinCount = this.state.raid.filter(m => m.class === 'paladin').length;
     this.state.maxPaladinBlessings = paladinCount;
+
+    // Recalculate party auras since class/spec changed
+    this.recalculateAuras();
 
     this.notify();
   }
@@ -1190,16 +1211,24 @@ export class GameEngine {
           this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + manaGain);
         }
 
-        // TREMOR TOTEM - removes Fear/Charm/Sleep every tick
+        // TREMOR TOTEM - removes Fear/Charm/Sleep every tick (including Panic from Magmadar)
         if (activeTotem.effect.fearImmunity) {
           alivePartyMembers.forEach(member => {
-            const beforeCount = member.debuffs.length;
-            member.debuffs = member.debuffs.filter(d =>
-              d.type !== 'magic' || (d.name?.toLowerCase().indexOf('fear') === -1 &&
-                                     d.name?.toLowerCase().indexOf('charm') === -1 &&
-                                     d.name?.toLowerCase().indexOf('sleep') === -1));
-            if (member.debuffs.length < beforeCount) {
-              // TODO: Could add combat log entry for fear removal
+            const fearDebuff = member.debuffs.find(d =>
+              d.id === 'panic' || // Magmadar's Panic
+              (d.type === 'magic' && (
+                d.name?.toLowerCase().includes('fear') ||
+                d.name?.toLowerCase().includes('charm') ||
+                d.name?.toLowerCase().includes('sleep') ||
+                d.name?.toLowerCase().includes('panic')
+              ))
+            );
+            if (fearDebuff) {
+              member.debuffs = member.debuffs.filter(d => d !== fearDebuff);
+              this.addCombatLogEntry({
+                message: `Tremor Totem removed ${fearDebuff.name} from ${member.name}!`,
+                type: 'buff'
+              });
             }
           });
         }
@@ -1354,7 +1383,7 @@ export class GameEngine {
     this.notify();
   }
 
-  startEncounter(encounterId: string) {
+  startEncounter(encounterId: string, options?: { golemaggTanks?: Boss['golemaggTanks']; majordomoTanks?: Boss['majordomoTanks'] }) {
     if (this.state.isRunning) return;
 
     // Get encounters for current raid
@@ -1418,7 +1447,12 @@ export class GameEngine {
     }
 
     // Create boss
-    this.state.boss = { ...encounter, currentHealth: encounter.maxHealth };
+    this.state.boss = {
+      ...encounter,
+      currentHealth: encounter.maxHealth,
+      ...(options?.golemaggTanks && { golemaggTanks: options.golemaggTanks }),
+      ...(options?.majordomoTanks && { majordomoTanks: options.majordomoTanks })
+    };
     this.state.isRunning = true;
     this.state.elapsedTime = 0;
     this.state.playerMana = this.state.maxMana;
@@ -1485,6 +1519,12 @@ export class GameEngine {
       clearTimeout(this.castTimeout);
       this.castTimeout = null;
     }
+
+    // Clear all debuffs from raid members when encounter ends
+    this.state.raid.forEach(member => {
+      member.debuffs = [];
+    });
+
     this.addCombatLogEntry({ message: 'Encounter ended.', type: 'system' });
     this.notify();
   }
@@ -1696,8 +1736,11 @@ export class GameEngine {
     // Check GCD for spells that use it
     if (this.state.globalCooldown > 0 && spell.isOnGlobalCooldown) return;
 
+    // Calculate effective mana cost (doubled if Lucifron's Curse is active)
+    const effectiveManaCost = this.getEffectiveManaCost(spell.manaCost);
+
     // Check mana
-    if (this.state.playerMana < spell.manaCost) {
+    if (this.state.playerMana < effectiveManaCost) {
       this.addCombatLogEntry({ message: 'Not enough mana!', type: 'system' });
       this.notify();
       return;
@@ -1714,7 +1757,7 @@ export class GameEngine {
     // Divine Favor - just activate the buff
     if (spell.id === 'divine_favor') {
       this.state.divineFavorActive = true;
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
       this.addCombatLogEntry({ message: 'Divine Favor activated - next heal will crit!', type: 'buff' });
@@ -1725,7 +1768,7 @@ export class GameEngine {
     // Nature's Swiftness - makes next heal instant (Shaman)
     if (spell.id === 'natures_swiftness') {
       this.state.naturesSwiftnessActive = true;
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
       this.addCombatLogEntry({ message: "Nature's Swiftness activated - next nature spell is instant!", type: 'buff' });
@@ -1754,7 +1797,7 @@ export class GameEngine {
 
     // Blessing of Light - instant buff application
     if (spell.id === 'blessing_of_light') {
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
 
@@ -1786,7 +1829,7 @@ export class GameEngine {
         return;
       }
 
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
 
@@ -1825,7 +1868,7 @@ export class GameEngine {
         return;
       }
 
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
 
@@ -1864,7 +1907,7 @@ export class GameEngine {
         return;
       }
 
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
 
@@ -1963,7 +2006,7 @@ export class GameEngine {
         return;
       }
 
-      this.state.playerMana -= spell.manaCost;
+      this.state.playerMana -= effectiveManaCost;
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       this.state.globalCooldown = GCD_DURATION;
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
@@ -1993,7 +2036,7 @@ export class GameEngine {
 
       if (effectiveCastTime === 0) {
         // Instant cast (Nature's Swiftness active)
-        this.state.playerMana -= spell.manaCost;
+        this.state.playerMana -= effectiveManaCost;
         this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
         this.state.globalCooldown = GCD_DURATION;
 
@@ -2025,8 +2068,11 @@ export class GameEngine {
 
       this.castTimeout = window.setTimeout(() => {
         if (this.state.isCasting && this.state.castingSpell?.id === spell.id) {
+          // Recalculate effective mana cost when cast completes (curse may have been dispelled)
+          const finalManaCost = this.getEffectiveManaCost(spell.manaCost);
+
           // Check if we still have enough mana when cast completes
-          if (this.state.playerMana < spell.manaCost) {
+          if (this.state.playerMana < finalManaCost) {
             this.addCombatLogEntry({ message: 'Not enough mana!', type: 'system' });
             this.state.isCasting = false;
             this.state.castingSpell = null;
@@ -2036,7 +2082,7 @@ export class GameEngine {
           }
 
           // Deduct mana when cast completes
-          this.state.playerMana -= spell.manaCost;
+          this.state.playerMana -= finalManaCost;
           this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
 
           // Use the original target from when cast started (stored in targetId closure)
@@ -2081,6 +2127,12 @@ export class GameEngine {
       } else if (spell.name === 'Flash of Light') {
         totalHeal += bolBuff.effect.flashOfLightBonus || 0;
       }
+    }
+
+    // Check for healing reduction debuffs (Gehennas' Curse)
+    const healingReductionDebuff = target.debuffs.find(d => d.healingReduction && d.healingReduction > 0);
+    if (healingReductionDebuff && healingReductionDebuff.healingReduction) {
+      totalHeal = Math.floor(totalHeal * (1 - healingReductionDebuff.healingReduction));
     }
 
     // Check for crit
@@ -2235,6 +2287,12 @@ export class GameEngine {
   }
 
   private applyChainHealToTarget(target: RaidMember, spell: Spell, healAmount: number, isCrit: boolean, bounceNumber: number) {
+    // Check for healing reduction debuffs (Gehennas' Curse)
+    const healingReductionDebuff = target.debuffs.find(d => d.healingReduction && d.healingReduction > 0);
+    if (healingReductionDebuff && healingReductionDebuff.healingReduction) {
+      healAmount = Math.floor(healAmount * (1 - healingReductionDebuff.healingReduction));
+    }
+
     const actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
     const overheal = healAmount - actualHeal;
 
@@ -2430,6 +2488,23 @@ export class GameEngine {
         });
       }
     }
+  }
+
+  // Handle generic debuff explosion (like Impending Doom) - only damages the target
+  private handleDebuffExplosion(member: RaidMember, debuff: Debuff): void {
+    const damage = debuff.explosionDamage || 0;
+
+    // Apply damage to the target
+    member.currentHealth -= damage;
+    if (member.currentHealth <= 0) {
+      member.currentHealth = 0;
+      this.handleMemberDeath(member);
+    }
+
+    this.addCombatLogEntry({
+      message: `${debuff.name} exploded on ${member.name} for ${damage} damage!`,
+      type: 'damage'
+    });
   }
 
   // Get active auras affecting a specific member based on their group (used by UI)
@@ -2823,6 +2898,37 @@ export class GameEngine {
               message: transition.message,
               type: 'system',
             });
+
+            // Garr: Eruption damage on each Firesworn death (phase transition)
+            if (this.state.boss.id === 'garr' && transition.phase <= 9) {
+              const eruptionDamage = 500 + Math.floor(Math.random() * 301); // 500-800
+              const eruptionEnrageMultiplier = this.state.bossEnraged ? 3.0 : 1.0;
+              this.state.raid.forEach(member => {
+                if (member.isAlive) {
+                  const damage = this.calculateDamageReduction(member, eruptionDamage * eruptionEnrageMultiplier, 'fire');
+                  member.currentHealth -= damage;
+                  if (member.currentHealth <= 0) {
+                    member.currentHealth = 0;
+                    this.handleMemberDeath(member);
+                  }
+                }
+              });
+              this.addCombatLogEntry({
+                message: `Eruption deals ${eruptionDamage} fire damage to the raid!`,
+                type: 'damage',
+                amount: eruptionDamage
+              });
+
+              // When the last Firesworn dies (phase 9), refill Garr's health to 100%
+              if (transition.phase === 9) {
+                this.state.boss.currentHealth = this.state.boss.maxHealth;
+                this.addCombatLogEntry({
+                  message: `Garr roars in fury! His health is restored!`,
+                  type: 'system'
+                });
+              }
+            }
+
             // Reset damage timers on phase transition so abilities fire fresh
             this.damageTimers = {};
             break;
@@ -2848,7 +2954,12 @@ export class GameEngine {
           this.damageTimers[timerId] = this.state.elapsedTime;
 
           // Apply enrage multiplier to damage
-          const damage = Math.floor(event.damage * enrageMultiplier);
+          let damage = Math.floor(event.damage * enrageMultiplier);
+
+          // Apply Inspire multiplier for Sulfuron (priests deal +25% damage)
+          if (this.state.boss?.isInspired && this.state.boss.id === 'sulfuron') {
+            damage = Math.floor(damage * 1.25);
+          }
 
           // Get damage type for resistance calculations (default to physical)
           const damageType: DamageType = event.damageType || 'physical';
@@ -2896,7 +3007,13 @@ export class GameEngine {
               if (event.debuffId) {
                 const template = DEBUFFS[event.debuffId];
                 if (template) {
-                  const alive = this.state.raid.filter(m => m.isAlive);
+                  let alive = this.state.raid.filter(m => m.isAlive);
+
+                  // Filter by targetZones if specified (e.g., Panic only hits melee/tanks, Magma Spit only melee)
+                  if (template.targetZones && template.targetZones.length > 0) {
+                    alive = alive.filter(m => template.targetZones!.includes(m.positionZone));
+                  }
+
                   if (alive.length > 0) {
                     // Support multi-target debuffs (e.g., Deep Breath hits 5 players)
                     const targetCount = event.targetCount || 1;
@@ -2911,7 +3028,47 @@ export class GameEngine {
                     }
 
                     targets.forEach(target => {
-                      target.debuffs.push({ ...template, duration: template.maxDuration || 15 });
+                      // Check for stacking debuffs (like Magma Spit)
+                      if (template.maxStacks) {
+                        const existingDebuff = target.debuffs.find(d => d.id === template.id);
+                        if (existingDebuff) {
+                          // Add a stack (up to max)
+                          const currentStacks = existingDebuff.stacks || 1;
+                          if (currentStacks < template.maxStacks) {
+                            existingDebuff.stacks = currentStacks + 1;
+                            existingDebuff.duration = template.maxDuration || 30; // Refresh duration
+                            this.addCombatLogEntry({
+                              message: `${target.name}'s ${template.name} stacks to ${existingDebuff.stacks}!`,
+                              type: 'debuff'
+                            });
+                          }
+                          return; // Don't add a new debuff, we stacked it
+                        }
+                      }
+
+                      const debuff = { ...template, duration: template.maxDuration || 15, stacks: 1 };
+
+                      // Special handling for Dominate Mind - pick an MC target
+                      if (template.isMindControl) {
+                        // Pick a random raid member (not the MC'd player) to attack
+                        const potentialTargets = this.state.raid.filter(m => m.isAlive && m.id !== target.id);
+                        if (potentialTargets.length > 0) {
+                          const mcTarget = potentialTargets[Math.floor(Math.random() * potentialTargets.length)];
+                          debuff.mcTargetId = mcTarget.id;
+
+                          // Fire MC warning callback
+                          if (this.onMindControlWarning) {
+                            this.onMindControlWarning(target.name, mcTarget.name);
+                          }
+
+                          this.addCombatLogEntry({
+                            message: `${target.name} is MIND CONTROLLED and attacking ${mcTarget.name}!`,
+                            type: 'damage'
+                          });
+                        }
+                      }
+
+                      target.debuffs.push(debuff);
                       this.addCombatLogEntry({ message: `${target.name} is afflicted by ${template.name}!`, type: 'debuff' });
                     });
                   }
@@ -2919,9 +3076,1260 @@ export class GameEngine {
               }
               break;
             }
+
+            case 'inferno': {
+              // Baron Geddon's Inferno - 1-3 melee players "forget" to move and take the Inferno debuff
+              // Uses positionZone which is properly set based on class/spec
+              const template = DEBUFFS['inferno'];
+              if (template) {
+                const alive = this.state.raid.filter(m => m.isAlive);
+
+                // Use positionZone to determine melee vs ranged (already set correctly per class/spec)
+                // Melee zone includes warriors, rogues, feral druids, enhancement shamans, ret paladins
+                // Tank zone is also in melee range
+                const meleeMembers = alive.filter(m => m.positionZone === 'melee' || m.positionZone === 'tank');
+                const rangedMembers = alive.filter(m => m.positionZone === 'ranged');
+
+                // 90% chance from melee, 10% chance from ranged for each target
+                const numTargets = 1 + Math.floor(Math.random() * 3); // 1-3 targets
+                const targets: typeof alive = [];
+
+                for (let i = 0; i < numTargets && (meleeMembers.length > 0 || rangedMembers.length > 0); i++) {
+                  const pool = Math.random() < 0.9 && meleeMembers.length > 0 ? meleeMembers : rangedMembers;
+                  if (pool.length > 0) {
+                    const idx = Math.floor(Math.random() * pool.length);
+                    const target = pool[idx];
+                    // Remove from both pools to avoid duplicates
+                    const meleeIdx = meleeMembers.indexOf(target);
+                    if (meleeIdx > -1) meleeMembers.splice(meleeIdx, 1);
+                    const rangedIdx = rangedMembers.indexOf(target);
+                    if (rangedIdx > -1) rangedMembers.splice(rangedIdx, 1);
+                    targets.push(target);
+                  }
+                }
+
+                if (targets.length > 0) {
+                  // Fire the inferno warning callback (handled by App.tsx)
+                  if (this.onInfernoWarning) {
+                    this.onInfernoWarning(targets.map(t => t.name));
+                  }
+
+                  // Combat log in red - who forgot to move
+                  const names = targets.map(t => t.name).join(', ');
+                  this.addCombatLogEntry({
+                    message: `INFERNO! ${names} forgot to move!`,
+                    type: 'damage'
+                  });
+
+                  // Apply inferno debuff to targets
+                  targets.forEach(target => {
+                    target.debuffs.push({ ...template, duration: template.maxDuration || 8 });
+                    this.addCombatLogEntry({
+                      message: `${target.name} is being burned by Inferno!`,
+                      type: 'debuff'
+                    });
+                  });
+                }
+              }
+              break;
+            }
+
+            case 'frenzy': {
+              // Magmadar's Frenzy - boss enrages, increases tank damage
+              // Hunters will Tranq Shot after 2 seconds
+              if (this.state.boss) {
+                this.state.boss.isFrenzied = true;
+                this.state.boss.frenzyEndTime = this.state.elapsedTime + 2; // Hunters Tranq after 2 seconds
+
+                this.addCombatLogEntry({
+                  message: `${this.state.boss.name} goes into a FRENZY!`,
+                  type: 'damage'
+                });
+
+                // Apply burst damage to tank immediately
+                const tank = this.state.raid.find(m => m.role === 'tank' && m.isAlive);
+                if (tank) {
+                  const frenzyDamage = 1200 * enrageMultiplier;
+                  tank.currentHealth -= frenzyDamage;
+                  if (tank.currentHealth <= 0) {
+                    tank.currentHealth = 0;
+                    this.handleMemberDeath(tank);
+                  }
+                  this.addCombatLogEntry({
+                    message: `${tank.name} takes ${Math.round(frenzyDamage)} frenzy damage!`,
+                    type: 'damage',
+                    amount: Math.round(frenzyDamage)
+                  });
+                }
+              }
+              break;
+            }
+
+            case 'lava_bomb': {
+              // Magmadar's Lava Bomb - undispellable fire DoT
+              // Random chance (20%) the target doesn't move and takes full damage
+              const template = DEBUFFS['lava_bomb'];
+              if (template) {
+                const alive = this.state.raid.filter(m => m.isAlive);
+                if (alive.length > 0) {
+                  const target = alive[Math.floor(Math.random() * alive.length)];
+
+                  // 20% chance player "doesn't move" and gets the full DoT
+                  const didntMove = Math.random() < 0.2;
+
+                  if (didntMove) {
+                    // Apply the lava bomb debuff
+                    target.debuffs.push({
+                      ...template,
+                      duration: template.maxDuration || 8,
+                      damageType: 'fire',
+                    });
+
+                    // Fire a warning similar to inferno
+                    if (this.onLavaBombWarning) {
+                      this.onLavaBombWarning(target.name);
+                    }
+
+                    this.addCombatLogEntry({
+                      message: `LAVA BOMB! ${target.name} didn't move!`,
+                      type: 'damage'
+                    });
+                  } else {
+                    // Player moved - small splash damage
+                    const splashDamage = 400 * enrageMultiplier;
+                    target.currentHealth -= splashDamage;
+                    if (target.currentHealth <= 0) {
+                      target.currentHealth = 0;
+                      this.handleMemberDeath(target);
+                    }
+                    this.addCombatLogEntry({
+                      message: `${target.name} moved from Lava Bomb (${Math.round(splashDamage)} splash)`,
+                      type: 'damage',
+                      amount: Math.round(splashDamage)
+                    });
+                  }
+                }
+              }
+              break;
+            }
+
+            case 'rain_of_fire': {
+              // Gehennas' Rain of Fire - hits 5 random players with a fire DoT
+              // After first tick (2 seconds), some players might "not move" and take full damage
+              const template = DEBUFFS['rain_of_fire'];
+              if (template) {
+                const alive = this.state.raid.filter(m => m.isAlive);
+                if (alive.length > 0) {
+                  // Target 5 random players
+                  const targets = alive.sort(() => Math.random() - 0.5).slice(0, 5);
+
+                  targets.forEach(target => {
+                    // First tick always hits (700 damage)
+                    const firstTickDamage = this.calculateDamageReduction(target, 700 * enrageMultiplier, 'fire');
+                    target.currentHealth -= firstTickDamage;
+                    if (target.currentHealth <= 0) {
+                      target.currentHealth = 0;
+                      this.handleMemberDeath(target);
+                    }
+
+                    // Log the initial damage for everyone
+                    this.addCombatLogEntry({
+                      message: `${target.name} takes ${Math.round(firstTickDamage)} fire damage from Rain of Fire`,
+                      type: 'damage',
+                      amount: Math.round(firstTickDamage)
+                    });
+
+                    // 25% chance player "didn't move" and gets the full DoT
+                    const didntMove = Math.random() < 0.25;
+
+                    if (didntMove && target.isAlive) {
+                      // Apply the rain of fire debuff for remaining duration (4 more seconds = 2 more ticks)
+                      target.debuffs.push({
+                        ...template,
+                        duration: 4, // 4 seconds remaining (2 more ticks of 700)
+                        damageType: 'fire',
+                      });
+
+                      this.addCombatLogEntry({
+                        message: `${target.name} didn't move from Rain of Fire!`,
+                        type: 'damage'
+                      });
+                    }
+                  });
+                }
+              }
+              break;
+            }
+
+            case 'antimagic_pulse': {
+              // Garr's Antimagic Pulse - removes 1 buff from player and all AI raiders
+              // Remove 1 random buff from player (includes world buffs, consumables, blessings)
+              if (this.state.playerBuffs.length > 0) {
+                const randomIndex = Math.floor(Math.random() * this.state.playerBuffs.length);
+                const removedBuff = this.state.playerBuffs[randomIndex];
+                this.state.playerBuffs.splice(randomIndex, 1);
+
+                // Also remove from activeWorldBuffs if it was a world buff
+                const worldBuffIndex = this.state.activeWorldBuffs.indexOf(removedBuff.id);
+                if (worldBuffIndex >= 0) {
+                  this.state.activeWorldBuffs.splice(worldBuffIndex, 1);
+                }
+
+                // Also remove from activeConsumables if it was a consumable
+                const consumableIndex = this.state.activeConsumables.indexOf(removedBuff.id);
+                if (consumableIndex >= 0) {
+                  this.state.activeConsumables.splice(consumableIndex, 1);
+                }
+
+                this.addCombatLogEntry({
+                  message: `Antimagic Pulse dispels ${removedBuff.name} from you!`,
+                  type: 'debuff'
+                });
+              }
+
+              // Remove 1 random buff from each AI raider (not auras - they're automatic)
+              this.state.raid.forEach(member => {
+                if (member.isAlive && member.buffs.length > 0) {
+                  // Filter to only removable buffs (not auras which start with 'aura_')
+                  const removableBuffs = member.buffs.filter(b => !b.id.startsWith('aura_'));
+                  if (removableBuffs.length > 0) {
+                    const randomBuff = removableBuffs[Math.floor(Math.random() * removableBuffs.length)];
+                    member.buffs = member.buffs.filter(b => b.id !== randomBuff.id);
+                  }
+                }
+              });
+              break;
+            }
+
+            case 'shazzrah_curse': {
+              // Shazzrah's Curse - applies curse to entire raid that doubles magic damage taken for 5 minutes
+              // Cast every 10 seconds to everyone - curse type so only mages/druids can dispel
+              const curseDebuff = DEBUFFS.shazzrahs_curse;
+              const curseDuration = curseDebuff.maxDuration || 300; // 5 minutes default
+              this.state.raid.forEach(member => {
+                if (!member.isAlive) return;
+                // Check if they already have the curse - if so, refresh duration
+                const existingCurse = member.debuffs.find(d => d.id === 'shazzrahs_curse');
+                if (existingCurse) {
+                  existingCurse.duration = curseDuration;
+                } else {
+                  member.debuffs.push({
+                    ...curseDebuff,
+                    duration: curseDuration,
+                  });
+                }
+              });
+              this.addCombatLogEntry({
+                message: `Shazzrah casts Shazzrah's Curse! Magic damage taken doubled!`,
+                type: 'damage'
+              });
+              break;
+            }
+
+            case 'shazzrah_blink': {
+              // Shazzrah Blinks to a random player and casts Arcane Explosion
+              const aliveTargets = this.state.raid.filter(m => m.isAlive);
+              if (aliveTargets.length > 0) {
+                const blinkTarget = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+
+                // Log the blink
+                this.addCombatLogEntry({
+                  message: `Shazzrah blinks to ${blinkTarget.name}!`,
+                  type: 'system'
+                });
+
+                // Arcane Explosion hits the ENTIRE RAID - this is the dangerous part!
+                const baseArcaneExplosionDamage = event.damage; // 500 arcane damage base
+
+                aliveTargets.forEach(target => {
+                  if (!target.isAlive) return;
+
+                  let damage = baseArcaneExplosionDamage * enrageMultiplier;
+
+                  // Check for Shazzrah's Curse - doubles magic damage taken
+                  const hasCurse = target.debuffs.some(d => d.increasesMagicDamageTaken);
+                  if (hasCurse) {
+                    damage *= 2; // Double damage from curse - 1000 damage if cursed!
+                  }
+
+                  damage = this.calculateDamageReduction(target, damage, 'arcane');
+                  target.currentHealth -= damage;
+
+                  if (target.currentHealth <= 0) {
+                    target.currentHealth = 0;
+                    this.handleMemberDeath(target);
+                  }
+                });
+
+                // Count how many had the curse for the log message
+                const cursedCount = aliveTargets.filter(t => t.debuffs.some(d => d.increasesMagicDamageTaken)).length;
+                const logDamage = cursedCount > 0
+                  ? `${Math.round(baseArcaneExplosionDamage * enrageMultiplier)}-${Math.round(baseArcaneExplosionDamage * 2 * enrageMultiplier)}`
+                  : `${Math.round(baseArcaneExplosionDamage * enrageMultiplier)}`;
+
+                this.addCombatLogEntry({
+                  message: `Shazzrah's Arcane Explosion hits the ENTIRE RAID for ${logDamage} arcane damage!${cursedCount > 0 ? ` (${cursedCount} cursed!)` : ''}`,
+                  type: 'damage'
+                });
+              }
+              break;
+            }
+
+            case 'deaden_magic': {
+              // Shazzrah gains Deaden Magic - reduces magic damage taken by 50% for 30 seconds
+              // This acts like Frenzy - makes the raid frame glow red
+              // Can be dispelled by Priest or Purged by Shaman
+              if (this.state.boss) {
+                this.state.boss.hasDeadenMagic = true;
+                this.state.boss.deadenMagicEndTime = this.state.elapsedTime + 30;
+
+                this.addCombatLogEntry({
+                  message: `Shazzrah gains Deaden Magic! Magic damage reduced by 50%! Dispel or Purge it!`,
+                  type: 'system'
+                });
+              }
+              break;
+            }
+
+            // ===== SULFURON HARBINGER ABILITIES =====
+            case 'hand_of_ragnaros': {
+              // Hand of Ragnaros: Hits all tanks and TRUE melee DPS for fire damage + 2 second stun
+              // Melee classes: Warriors, Rogues, Feral Druids, Ret Paladins, Enhancement Shamans
+              const meleeClasses: WoWClass[] = ['warrior', 'rogue'];
+              const meleeSpecs: WoWSpec[] = ['feral_dps', 'feral_tank', 'retribution', 'enhancement', 'arms', 'fury'];
+
+              const meleeTargets = this.state.raid.filter(m => {
+                if (!m.isAlive) return false;
+                if (m.role === 'tank') return true; // Tanks always get hit
+                // Check if this is a melee DPS class/spec
+                if (meleeClasses.includes(m.class)) return true;
+                if (m.spec && meleeSpecs.includes(m.spec)) return true;
+                return false;
+              });
+
+              meleeTargets.forEach(target => {
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(target, damage, 'fire');
+                target.currentHealth -= damage;
+
+                // Apply stun debuff (2 seconds)
+                target.debuffs.push({
+                  ...DEBUFFS.hand_of_ragnaros,
+                  duration: 2,
+                });
+
+                if (target.currentHealth <= 0) {
+                  target.currentHealth = 0;
+                  this.handleMemberDeath(target);
+                }
+              });
+
+              this.addCombatLogEntry({
+                message: `Sulfuron casts Hand of Ragnaros! ${meleeTargets.length} melee stunned for ${Math.round(event.damage * enrageMultiplier)} fire damage!`,
+                type: 'damage'
+              });
+              break;
+            }
+
+            case 'inspire': {
+              // Inspire: Sulfuron buffs the Flamewaker Priests (+25% damage for 10 seconds)
+              if (this.state.boss) {
+                this.state.boss.isInspired = true;
+                this.state.boss.inspireEndTime = this.state.elapsedTime + 10;
+
+                this.addCombatLogEntry({
+                  message: `Sulfuron casts Inspire! Flamewaker Priests deal +25% damage!`,
+                  type: 'system'
+                });
+              }
+              break;
+            }
+
+            case 'dark_mending': {
+              // Dark Mending: Priest tries to heal another priest
+              // 70% chance AI DPS interrupts, 30% chance heal goes through
+              if (!this.state.boss?.adds) break;
+
+              // Find alive priests that aren't at full health
+              const alivePriests = this.state.boss.adds.filter(a => a.isAlive);
+              const damagedPriests = alivePriests.filter(a => a.currentHealth < a.maxHealth);
+
+              if (damagedPriests.length === 0 || alivePriests.length === 0) break; // No one to heal
+
+              const interrupted = Math.random() < 0.7;
+
+              if (interrupted) {
+                // Find an interrupter (rogue, warrior, mage, shaman)
+                const interrupters = this.state.raid.filter(m =>
+                  m.isAlive && ['rogue', 'warrior', 'mage', 'shaman'].includes(m.class)
+                );
+                const interrupter = interrupters[Math.floor(Math.random() * interrupters.length)];
+                const interruptName = interrupter?.name || 'A DPS';
+
+                // Class-appropriate interrupt ability
+                let interruptAbility = 'interrupts';
+                if (interrupter?.class === 'rogue') interruptAbility = 'Kicks';
+                else if (interrupter?.class === 'warrior') interruptAbility = 'uses Pummel on';
+                else if (interrupter?.class === 'mage') interruptAbility = 'Counterspells';
+                else if (interrupter?.class === 'shaman') interruptAbility = 'Earth Shocks';
+
+                this.addCombatLogEntry({
+                  message: `${interruptName} ${interruptAbility} Dark Mending!`,
+                  type: 'buff'
+                });
+              } else {
+                // Heal goes through - pick the most damaged priest
+                const targetPriest = damagedPriests.reduce((a, b) =>
+                  a.currentHealth < b.currentHealth ? a : b
+                );
+
+                const healAmount = targetPriest.maxHealth * 0.15; // 15% heal
+                targetPriest.currentHealth = Math.min(
+                  targetPriest.maxHealth,
+                  targetPriest.currentHealth + healAmount
+                );
+
+                this.addCombatLogEntry({
+                  message: `Dark Mending heals ${targetPriest.name} for ${Math.round(healAmount)}!`,
+                  type: 'heal'
+                });
+              }
+              break;
+            }
+
+            case 'sulfuron_immolate': {
+              // Immolate: Random target hit for fire damage + fire DoT
+              const aliveTargets = this.state.raid.filter(m => m.isAlive);
+              if (aliveTargets.length > 0) {
+                const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+
+                // Instant damage: 750-850
+                const burstDamage = 750 + Math.floor(Math.random() * 101);
+                let damage = burstDamage * enrageMultiplier;
+                damage = this.calculateDamageReduction(target, damage, 'fire');
+                target.currentHealth -= damage;
+
+                // Apply DoT: 380-420 over 3 seconds
+                const dotDamage = 380 + Math.floor(Math.random() * 41);
+                target.debuffs.push({
+                  ...DEBUFFS.immolate,
+                  duration: 3,
+                  damagePerTick: Math.round(dotDamage / 3),
+                });
+
+                this.addCombatLogEntry({
+                  message: `Immolate hits ${target.name} for ${Math.round(damage)} fire damage!`,
+                  type: 'damage'
+                });
+
+                if (target.currentHealth <= 0) {
+                  target.currentHealth = 0;
+                  this.handleMemberDeath(target);
+                }
+              }
+              break;
+            }
+
+            // ===== GOLEMAGG THE INCINERATOR ABILITIES =====
+            case 'golemagg_magma_splash': {
+              // Magma Splash: Stacking fire DoT on current Golemagg tank
+              if (!this.state.boss?.golemaggTanks) break;
+
+              const tanks = this.state.boss.golemaggTanks;
+              const currentTankId = tanks.currentMainTank === 1 ? tanks.tank1Id : tanks.tank2Id;
+              const currentTank = this.state.raid.find(m => m.id === currentTankId);
+
+              if (!currentTank?.isAlive) break;
+
+              // Check if stacks have fallen off on the current tank - if so, reset threshold
+              const existingMagmaSplashCheck = currentTank.debuffs.find(d => d.id === 'magma_splash');
+              if (!existingMagmaSplashCheck && tanks.nextSwapThreshold > 5) {
+                // Stacks fell off, reset threshold back to 5
+                tanks.nextSwapThreshold = 5;
+                this.addCombatLogEntry({
+                  message: `Magma Splash stacks fell off! Tank swap threshold reset.`,
+                  type: 'system'
+                });
+              }
+
+              // Add/increment Magma Splash stack
+              const existingMagmaSplash = currentTank.debuffs.find(d => d.id === 'magma_splash');
+              if (existingMagmaSplash) {
+                existingMagmaSplash.stacks = (existingMagmaSplash.stacks || 1) + 1;
+                existingMagmaSplash.duration = 30; // Refresh duration
+              } else {
+                currentTank.debuffs.push({
+                  ...DEBUFFS.magma_splash,
+                  duration: 30,
+                  stacks: 1,
+                });
+              }
+
+              // Update tracked stacks
+              const currentStacks = (existingMagmaSplash?.stacks || 1);
+              if (tanks.currentMainTank === 1) {
+                tanks.tank1Stacks = currentStacks;
+              } else {
+                tanks.tank2Stacks = currentStacks;
+              }
+
+              // Calculate threshold for warnings (swap at threshold, late at threshold+2)
+              const swapThreshold = tanks.nextSwapThreshold;
+              const lateThreshold = swapThreshold + 2;
+
+              // Log when stacks get high and show warning
+              if (currentStacks >= swapThreshold - 1) {
+                this.addCombatLogEntry({
+                  message: `${currentTank.name} has ${currentStacks} stacks of Magma Splash!`,
+                  type: 'damage'
+                });
+                // Show warning when stacks are approaching threshold
+                if (currentStacks >= swapThreshold) {
+                  this.state.tankSwapWarning = {
+                    message: `TANK SWAP NEEDED! ${currentTank.name} at ${currentStacks} stacks!`,
+                    type: 'stacks_high'
+                  };
+                }
+              }
+
+              // Check for tank swap (should happen at threshold, but sometimes delayed)
+              const timeSinceSwap = this.state.elapsedTime - tanks.lastSwapTime;
+
+              // At threshold: 70% chance to swap on time, 30% chance delayed
+              // At lateThreshold: always swap (tanks finally notice)
+              if (currentStacks >= swapThreshold && timeSinceSwap > 10) {
+                const shouldSwapNow = currentStacks >= lateThreshold || Math.random() < 0.7;
+
+                if (shouldSwapNow) {
+                  tanks.currentMainTank = tanks.currentMainTank === 1 ? 2 : 1;
+                  tanks.lastSwapTime = this.state.elapsedTime;
+                  // Increase threshold for next swap (5 -> 10 -> 15, etc.)
+                  tanks.nextSwapThreshold = swapThreshold + 5;
+
+                  const newTank = this.state.raid.find(m =>
+                    m.id === (tanks.currentMainTank === 1 ? tanks.tank1Id : tanks.tank2Id)
+                  );
+
+                  if (currentStacks >= lateThreshold) {
+                    this.addCombatLogEntry({
+                      message: `${newTank?.name} finally taunts Golemagg! (Late swap at ${currentStacks} stacks!)`,
+                      type: 'system'
+                    });
+                    // Show LATE swap warning
+                    this.state.tankSwapWarning = {
+                      message: `LATE SWAP! ${newTank?.name} taunts at ${currentStacks} stacks!`,
+                      type: 'late_swap'
+                    };
+                  } else {
+                    this.addCombatLogEntry({
+                      message: `${newTank?.name} taunts Golemagg! (Next swap at ${tanks.nextSwapThreshold} stacks)`,
+                      type: 'system'
+                    });
+                    // Show normal swap notification
+                    this.state.tankSwapWarning = {
+                      message: `TANK SWAP! ${newTank?.name} taunts Golemagg!`,
+                      type: 'swap'
+                    };
+                  }
+
+                  // Clear warning after 3 seconds
+                  setTimeout(() => {
+                    if (this.state.tankSwapWarning?.type === 'swap' || this.state.tankSwapWarning?.type === 'late_swap') {
+                      this.state.tankSwapWarning = null;
+                      this.notify();
+                    }
+                  }, 3000);
+                } else {
+                  this.addCombatLogEntry({
+                    message: `Tank swap delayed! Magma Splash at ${currentStacks} stacks!`,
+                    type: 'damage'
+                  });
+                }
+              }
+              break;
+            }
+
+            case 'golemagg_pyroblast': {
+              // Pyroblast: Random raid member hit for fire damage + fire DoT
+              const pyroblastTargets = this.state.raid.filter(m => m.isAlive);
+              if (pyroblastTargets.length === 0) break;
+
+              const target = pyroblastTargets[Math.floor(Math.random() * pyroblastTargets.length)];
+
+              // Instant damage: 1388-1612
+              const instantDamage = 1388 + Math.floor(Math.random() * 225);
+              let damage = instantDamage * enrageMultiplier;
+              damage = this.calculateDamageReduction(target, damage, 'fire');
+              target.currentHealth -= damage;
+
+              // Apply DoT: 200 damage every 3 seconds for 12 seconds
+              target.debuffs.push({
+                ...DEBUFFS.golemagg_pyroblast,
+                duration: 12,
+              });
+
+              this.addCombatLogEntry({
+                message: `Pyroblast hits ${target.name} for ${Math.round(damage)} fire damage!`,
+                type: 'damage'
+              });
+
+              if (target.currentHealth <= 0) {
+                target.currentHealth = 0;
+                this.handleMemberDeath(target);
+              }
+              break;
+            }
+
+            case 'core_rager_mangle': {
+              // Mangle: DoT on target (dog tank normally, or loose rager targets)
+              if (!this.state.boss?.golemaggTanks) break;
+
+              const tanks = this.state.boss.golemaggTanks;
+              const dogTank = this.state.raid.find(m => m.id === tanks.coreRagerTankId);
+
+              // Helper to apply mangle to a target
+              const applyMangle = (target: RaidMember) => {
+                const existingMangle = target.debuffs.find(d => d.id === 'mangle');
+                if (existingMangle) {
+                  existingMangle.duration = 20; // Refresh
+                } else {
+                  target.debuffs.push({
+                    ...DEBUFFS.mangle,
+                    duration: 20,
+                  });
+                }
+                this.addCombatLogEntry({
+                  message: `Core Rager Mangles ${target.name}!`,
+                  type: 'damage'
+                });
+              };
+
+              if (tanks.ragersLoose) {
+                // Ragers are loose - apply mangle to their current targets
+                const target1 = this.state.raid.find(m => m.id === tanks.ragerTarget1);
+                const target2 = this.state.raid.find(m => m.id === tanks.ragerTarget2);
+
+                if (target1?.isAlive) applyMangle(target1);
+                if (target2?.isAlive && target2.id !== target1?.id) applyMangle(target2);
+              } else if (dogTank?.isAlive) {
+                // Normal behavior - mangle the dog tank
+                applyMangle(dogTank);
+              }
+              break;
+            }
+
+            case 'core_rager_melee': {
+              // Core Rager melee: Two dogs attacking
+              if (!this.state.boss?.golemaggTanks) break;
+
+              const tanks = this.state.boss.golemaggTanks;
+              const dogTank = this.state.raid.find(m => m.id === tanks.coreRagerTankId);
+
+              // Check if dog tank is alive - if not, ragers go loose!
+              if (!dogTank?.isAlive && !tanks.ragersLoose) {
+                tanks.ragersLoose = true;
+                this.addCombatLogEntry({
+                  message: `CORE RAGERS ARE LOOSE! They're attacking the raid!`,
+                  type: 'damage'
+                });
+                // Set raid warning
+                this.state.tankSwapWarning = {
+                  message: `CORE RAGERS LOOSE! Dog tank is dead!`,
+                  type: 'late_swap'
+                };
+              }
+
+              if (tanks.ragersLoose) {
+                // Ragers are loose - each attacks a random DPS/healer
+                const availableTargets = this.state.raid.filter(m =>
+                  m.isAlive && m.role !== 'tank' // Don't attack tanks, they're busy with Golemagg
+                );
+
+                if (availableTargets.length === 0) break;
+
+                // Helper to get or pick a new target for a rager
+                const getOrPickTarget = (currentTargetId: string | null): string => {
+                  const currentTarget = this.state.raid.find(m => m.id === currentTargetId);
+                  if (currentTarget?.isAlive) {
+                    return currentTargetId!;
+                  }
+                  // Pick a new random target
+                  const newTarget = availableTargets[Math.floor(Math.random() * availableTargets.length)];
+                  return newTarget.id;
+                };
+
+                // Rager 1 attacks
+                tanks.ragerTarget1 = getOrPickTarget(tanks.ragerTarget1);
+                const target1 = this.state.raid.find(m => m.id === tanks.ragerTarget1);
+                if (target1?.isAlive) {
+                  let damage1 = event.damage * enrageMultiplier;
+                  damage1 = this.calculateDamageReduction(target1, damage1, 'physical');
+                  target1.currentHealth -= damage1;
+
+                  if (target1.currentHealth <= 0) {
+                    target1.currentHealth = 0;
+                    this.handleMemberDeath(target1);
+                    this.addCombatLogEntry({
+                      message: `Core Rager mauls ${target1.name} to death!`,
+                      type: 'damage'
+                    });
+                    tanks.ragerTarget1 = null; // Will pick new target next tick
+                  }
+                }
+
+                // Rager 2 attacks (different target if possible)
+                if (!tanks.ragerTarget2 || !this.state.raid.find(m => m.id === tanks.ragerTarget2)?.isAlive) {
+                  const otherTargets = availableTargets.filter(t => t.id !== tanks.ragerTarget1 && t.isAlive);
+                  if (otherTargets.length > 0) {
+                    tanks.ragerTarget2 = otherTargets[Math.floor(Math.random() * otherTargets.length)].id;
+                  } else if (availableTargets.length > 0) {
+                    // No other targets, both ragers attack same person
+                    tanks.ragerTarget2 = tanks.ragerTarget1;
+                  }
+                }
+
+                const target2 = this.state.raid.find(m => m.id === tanks.ragerTarget2);
+                if (target2?.isAlive) {
+                  let damage2 = event.damage * enrageMultiplier;
+                  damage2 = this.calculateDamageReduction(target2, damage2, 'physical');
+                  target2.currentHealth -= damage2;
+
+                  if (target2.currentHealth <= 0) {
+                    target2.currentHealth = 0;
+                    this.handleMemberDeath(target2);
+                    this.addCombatLogEntry({
+                      message: `Core Rager mauls ${target2.name} to death!`,
+                      type: 'damage'
+                    });
+                    tanks.ragerTarget2 = null; // Will pick new target next tick
+                  }
+                }
+              } else {
+                // Normal behavior - both dogs on the dog tank
+                // Two dogs attacking = double damage
+                let damage = event.damage * 2 * enrageMultiplier;
+                damage = this.calculateDamageReduction(dogTank!, damage, 'physical');
+                dogTank!.currentHealth -= damage;
+
+                if (dogTank!.currentHealth <= 0) {
+                  dogTank!.currentHealth = 0;
+                  this.handleMemberDeath(dogTank!);
+                }
+              }
+              break;
+            }
+
+            case 'golemagg_earthquake': {
+              // Earthquake: AoE hitting all melee players (phase 2 only - 10% health)
+              const meleeClasses: WoWClass[] = ['warrior', 'rogue'];
+              const meleeSpecs: WoWSpec[] = ['feral_dps', 'feral_tank', 'retribution', 'enhancement', 'arms', 'fury'];
+
+              const meleeTargets = this.state.raid.filter(m => {
+                if (!m.isAlive) return false;
+                if (m.role === 'tank') return true;
+                if (meleeClasses.includes(m.class)) return true;
+                if (m.spec && meleeSpecs.includes(m.spec)) return true;
+                return false;
+              });
+
+              meleeTargets.forEach(target => {
+                // 1388-1612 damage
+                const baseDamage = 1388 + Math.floor(Math.random() * 225);
+                let damage = baseDamage * enrageMultiplier;
+                damage = this.calculateDamageReduction(target, damage, 'physical');
+                target.currentHealth -= damage;
+
+                if (target.currentHealth <= 0) {
+                  target.currentHealth = 0;
+                  this.handleMemberDeath(target);
+                }
+              });
+
+              this.addCombatLogEntry({
+                message: `Earthquake hits ${meleeTargets.length} melee for massive damage!`,
+                type: 'damage'
+              });
+              break;
+            }
+
+            // =========================================================================
+            // MAJORDOMO EXECUTUS - 8 adds, Magic Reflection, Teleport, Healer heals
+            // =========================================================================
+
+            case 'majordomo_teleport': {
+              // Teleport: Majordomo teleports his tank into the fire pit - fire DoT
+              if (!this.state.boss?.majordomoTanks) break;
+
+              const majordomoTankMember = this.state.raid.find(m =>
+                m.id === this.state.boss!.majordomoTanks!.majordomoTankId
+              );
+
+              if (!majordomoTankMember?.isAlive) break;
+
+              // Apply Teleport fire DoT
+              const existingTeleport = majordomoTankMember.debuffs.find(d => d.id === 'majordomo_teleport');
+              if (!existingTeleport) {
+                majordomoTankMember.debuffs.push({
+                  ...DEBUFFS.majordomo_teleport,
+                  duration: 5,
+                });
+                this.addCombatLogEntry({
+                  message: `Majordomo teleports ${majordomoTankMember.name} into the fire pit!`,
+                  type: 'damage'
+                });
+              }
+              break;
+            }
+
+            case 'majordomo_elite_melee': {
+              // Elite melee: Split damage across add tanks based on alive adds
+              // If a tank dies, their adds go LOOSE and attack random raid members
+              if (!this.state.boss?.majordomoTanks || !this.state.boss?.adds) break;
+
+              const tanks = this.state.boss.majordomoTanks;
+              const addTankIds = [tanks.addTank1Id, tanks.addTank2Id, tanks.addTank3Id, tanks.addTank4Id];
+              const looseFlags = ['looseAdds1', 'looseAdds2', 'looseAdds3', 'looseAdds4'] as const;
+              const looseTargetKeys = [
+                ['looseTarget1a', 'looseTarget1b'],
+                ['looseTarget2a', 'looseTarget2b'],
+                ['looseTarget3a', 'looseTarget3b'],
+                ['looseTarget4a', 'looseTarget4b'],
+              ] as const;
+
+              // Helper to get or pick a new target for a loose add
+              const getOrPickLooseTarget = (currentTargetId: string | null): string | null => {
+                const currentTarget = this.state.raid.find(m => m.id === currentTargetId);
+                if (currentTarget?.isAlive) {
+                  return currentTargetId;
+                }
+                // Pick a new random target (prefer non-tanks, but will attack tanks if needed)
+                const availableTargets = this.state.raid.filter(m => m.isAlive && m.role !== 'tank');
+                if (availableTargets.length === 0) {
+                  // Fall back to any alive target
+                  const anyTarget = this.state.raid.filter(m => m.isAlive);
+                  if (anyTarget.length === 0) return null;
+                  return anyTarget[Math.floor(Math.random() * anyTarget.length)].id;
+                }
+                return availableTargets[Math.floor(Math.random() * availableTargets.length)].id;
+              };
+
+              // Each add tank takes damage based on their adds being alive
+              // Add pairs: 0-1 -> tank1, 2-3 -> tank2, 4-5 -> tank3, 6-7 -> tank4
+              addTankIds.forEach((tankId, index) => {
+                const add1Index = index * 2;
+                const add2Index = index * 2 + 1;
+                const add1 = this.state.boss!.adds![add1Index];
+                const add2 = this.state.boss!.adds![add2Index];
+
+                // Count alive adds for this tank pair
+                const add1Alive = add1?.isAlive;
+                const add2Alive = add2?.isAlive;
+                if (!add1Alive && !add2Alive) return; // No adds, no damage
+
+                const tank = this.state.raid.find(m => m.id === tankId);
+                const looseFlag = looseFlags[index];
+                const [targetKeyA, targetKeyB] = looseTargetKeys[index];
+
+                // Check if tank is dead - if so, adds go loose!
+                if (!tank?.isAlive && !tanks[looseFlag]) {
+                  tanks[looseFlag] = true;
+                  this.addCombatLogEntry({
+                    message: `ADDS ARE LOOSE! Tank ${index + 1}'s adds are attacking the raid!`,
+                    type: 'damage'
+                  });
+                  this.state.tankSwapWarning = {
+                    message: `LOOSE ADDS! Add tank ${index + 1} is dead!`,
+                    type: 'late_swap'
+                  };
+                }
+
+                if (tanks[looseFlag]) {
+                  // Adds are loose - each alive add attacks a random raid member
+                  if (add1Alive) {
+                    tanks[targetKeyA] = getOrPickLooseTarget(tanks[targetKeyA]);
+                    const target = this.state.raid.find(m => m.id === tanks[targetKeyA]);
+                    if (target?.isAlive) {
+                      let damage = event.damage * enrageMultiplier;
+                      damage = this.calculateDamageReduction(target, damage, 'physical');
+                      target.currentHealth -= damage;
+
+                      if (target.currentHealth <= 0) {
+                        target.currentHealth = 0;
+                        this.handleMemberDeath(target);
+                        this.addCombatLogEntry({
+                          message: `Loose add mauls ${target.name} to death!`,
+                          type: 'damage'
+                        });
+                        tanks[targetKeyA] = null; // Will pick new target next tick
+                      }
+                    }
+                  }
+
+                  if (add2Alive) {
+                    tanks[targetKeyB] = getOrPickLooseTarget(tanks[targetKeyB]);
+                    const target = this.state.raid.find(m => m.id === tanks[targetKeyB]);
+                    if (target?.isAlive) {
+                      let damage = event.damage * enrageMultiplier;
+                      damage = this.calculateDamageReduction(target, damage, 'physical');
+                      target.currentHealth -= damage;
+
+                      if (target.currentHealth <= 0) {
+                        target.currentHealth = 0;
+                        this.handleMemberDeath(target);
+                        this.addCombatLogEntry({
+                          message: `Loose add mauls ${target.name} to death!`,
+                          type: 'damage'
+                        });
+                        tanks[targetKeyB] = null; // Will pick new target next tick
+                      }
+                    }
+                  }
+                } else {
+                  // Normal behavior - damage the tank
+                  const aliveCount = (add1Alive ? 1 : 0) + (add2Alive ? 1 : 0);
+                  let damage = event.damage * aliveCount * enrageMultiplier;
+                  damage = this.calculateDamageReduction(tank!, damage, 'physical');
+                  tank!.currentHealth -= damage;
+
+                  if (tank!.currentHealth <= 0) {
+                    tank!.currentHealth = 0;
+                    this.handleMemberDeath(tank!);
+                  }
+                }
+              });
+              break;
+            }
+
+            case 'majordomo_fire_blast': {
+              // Fire Blast: Instant fire damage on random targets
+              if (!this.state.boss?.adds) break;
+
+              // Only happens if elites are alive
+              const aliveElites = this.state.boss.adds.filter(a => a.isAlive && a.id.startsWith('elite'));
+              if (aliveElites.length === 0) break;
+
+              const aliveTargets = this.state.raid.filter(m => m.isAlive);
+              if (aliveTargets.length === 0) break;
+
+              // Hit 2-3 random targets
+              const targetCount = 2 + Math.floor(Math.random() * 2);
+              const shuffled = [...aliveTargets].sort(() => Math.random() - 0.5);
+              const targets = shuffled.slice(0, targetCount);
+
+              targets.forEach(target => {
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(target, damage, 'fire');
+                target.currentHealth -= damage;
+
+                if (target.currentHealth <= 0) {
+                  target.currentHealth = 0;
+                  this.handleMemberDeath(target);
+                }
+              });
+
+              this.addCombatLogEntry({
+                message: `Fire Blast hits ${targets.length} targets for fire damage!`,
+                type: 'damage'
+              });
+              break;
+            }
+
+            case 'majordomo_shadow_shock': {
+              // Shadow Shock: Instant shadow damage on random targets
+              if (!this.state.boss?.adds) break;
+
+              // Only happens if healers are alive
+              const aliveHealers = this.state.boss.adds.filter(a => a.isAlive && a.id.startsWith('healer'));
+              if (aliveHealers.length === 0) break;
+
+              const aliveTargets = this.state.raid.filter(m => m.isAlive);
+              if (aliveTargets.length === 0) break;
+
+              // Hit 1-2 random targets
+              const targetCount = 1 + Math.floor(Math.random() * 2);
+              const shuffled = [...aliveTargets].sort(() => Math.random() - 0.5);
+              const targets = shuffled.slice(0, targetCount);
+
+              targets.forEach(target => {
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(target, damage, 'shadow');
+                target.currentHealth -= damage;
+
+                if (target.currentHealth <= 0) {
+                  target.currentHealth = 0;
+                  this.handleMemberDeath(target);
+                }
+              });
+
+              this.addCombatLogEntry({
+                message: `Shadow Shock hits ${targets.length} targets for shadow damage!`,
+                type: 'damage'
+              });
+              break;
+            }
+
+            case 'majordomo_shadow_bolt': {
+              // Shadow Bolt: Interruptible - 80% chance to be kicked
+              if (!this.state.boss?.adds) break;
+
+              const aliveHealers = this.state.boss.adds.filter(a => a.isAlive && a.id.startsWith('healer'));
+              if (aliveHealers.length === 0) break;
+
+              const interrupted = Math.random() < 0.80;
+
+              if (interrupted) {
+                const interrupters = this.state.raid.filter(m =>
+                  m.isAlive && ['rogue', 'warrior', 'mage', 'shaman'].includes(m.class)
+                );
+                const interrupter = interrupters[Math.floor(Math.random() * interrupters.length)];
+                const interruptName = interrupter?.name || 'A DPS';
+
+                let interruptAbility = 'interrupts';
+                if (interrupter?.class === 'rogue') interruptAbility = 'Kicks';
+                else if (interrupter?.class === 'warrior') interruptAbility = 'uses Pummel on';
+                else if (interrupter?.class === 'mage') interruptAbility = 'Counterspells';
+                else if (interrupter?.class === 'shaman') interruptAbility = 'Earth Shocks';
+
+                this.addCombatLogEntry({
+                  message: `${interruptName} ${interruptAbility} Shadow Bolt!`,
+                  type: 'buff'
+                });
+              } else {
+                // Shadow Bolt hits a random target
+                const aliveTargets = this.state.raid.filter(m => m.isAlive);
+                if (aliveTargets.length > 0) {
+                  const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+                  let damage = event.damage * enrageMultiplier;
+                  damage = this.calculateDamageReduction(target, damage, 'shadow');
+                  target.currentHealth -= damage;
+
+                  this.addCombatLogEntry({
+                    message: `Shadow Bolt hits ${target.name} for ${Math.round(damage)} shadow damage!`,
+                    type: 'damage'
+                  });
+
+                  if (target.currentHealth <= 0) {
+                    target.currentHealth = 0;
+                    this.handleMemberDeath(target);
+                  }
+                }
+              }
+              break;
+            }
+
+            case 'majordomo_fireball': {
+              // Fireball: Interruptible - 75% chance to be kicked
+              if (!this.state.boss?.adds) break;
+
+              const aliveHealers = this.state.boss.adds.filter(a => a.isAlive && a.id.startsWith('healer'));
+              if (aliveHealers.length === 0) break;
+
+              const interrupted = Math.random() < 0.75;
+
+              if (interrupted) {
+                const interrupters = this.state.raid.filter(m =>
+                  m.isAlive && ['rogue', 'warrior', 'mage', 'shaman'].includes(m.class)
+                );
+                const interrupter = interrupters[Math.floor(Math.random() * interrupters.length)];
+                const interruptName = interrupter?.name || 'A DPS';
+
+                let interruptAbility = 'interrupts';
+                if (interrupter?.class === 'rogue') interruptAbility = 'Kicks';
+                else if (interrupter?.class === 'warrior') interruptAbility = 'uses Pummel on';
+                else if (interrupter?.class === 'mage') interruptAbility = 'Counterspells';
+                else if (interrupter?.class === 'shaman') interruptAbility = 'Earth Shocks';
+
+                this.addCombatLogEntry({
+                  message: `${interruptName} ${interruptAbility} Fireball!`,
+                  type: 'buff'
+                });
+              } else {
+                // Fireball hits a random target
+                const aliveTargets = this.state.raid.filter(m => m.isAlive);
+                if (aliveTargets.length > 0) {
+                  const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+                  let damage = event.damage * enrageMultiplier;
+                  damage = this.calculateDamageReduction(target, damage, 'fire');
+                  target.currentHealth -= damage;
+
+                  this.addCombatLogEntry({
+                    message: `Fireball hits ${target.name} for ${Math.round(damage)} fire damage!`,
+                    type: 'damage'
+                  });
+
+                  if (target.currentHealth <= 0) {
+                    target.currentHealth = 0;
+                    this.handleMemberDeath(target);
+                  }
+                }
+              }
+              break;
+            }
+
+            case 'majordomo_dark_mending': {
+              // Dark Mending: Flamewaker Healer heals an add
+              // 70% chance AI DPS interrupts, 30% chance heal goes through
+              if (!this.state.boss?.adds) break;
+
+              // Only happens if healers are alive
+              const aliveHealers = this.state.boss.adds.filter(a => a.isAlive && a.id.startsWith('healer'));
+              if (aliveHealers.length === 0) break;
+
+              // Find damaged adds that aren't at full health
+              const aliveAdds = this.state.boss.adds.filter(a => a.isAlive);
+              const damagedAdds = aliveAdds.filter(a => a.currentHealth < a.maxHealth);
+
+              if (damagedAdds.length === 0 || aliveAdds.length === 0) break;
+
+              const interrupted = Math.random() < 0.7;
+
+              if (interrupted) {
+                const interrupters = this.state.raid.filter(m =>
+                  m.isAlive && ['rogue', 'warrior', 'mage', 'shaman'].includes(m.class)
+                );
+                const interrupter = interrupters[Math.floor(Math.random() * interrupters.length)];
+                const interruptName = interrupter?.name || 'A DPS';
+
+                let interruptAbility = 'interrupts';
+                if (interrupter?.class === 'rogue') interruptAbility = 'Kicks';
+                else if (interrupter?.class === 'warrior') interruptAbility = 'uses Pummel on';
+                else if (interrupter?.class === 'mage') interruptAbility = 'Counterspells';
+                else if (interrupter?.class === 'shaman') interruptAbility = 'Earth Shocks';
+
+                this.addCombatLogEntry({
+                  message: `${interruptName} ${interruptAbility} Dark Mending!`,
+                  type: 'buff'
+                });
+              } else {
+                // Heal goes through - pick the most damaged add
+                const targetAdd = damagedAdds.reduce((a, b) =>
+                  a.currentHealth < b.currentHealth ? a : b
+                );
+
+                const healAmount = targetAdd.maxHealth * 0.15; // 15% heal
+                targetAdd.currentHealth = Math.min(
+                  targetAdd.maxHealth,
+                  targetAdd.currentHealth + healAmount
+                );
+
+                this.addCombatLogEntry({
+                  message: `Dark Mending heals ${targetAdd.name} for ${Math.round(healAmount)}!`,
+                  type: 'heal'
+                });
+              }
+              break;
+            }
+
+            case 'majordomo_magic_reflection': {
+              // Magic Reflection: All adds gain magic reflection shield (10 seconds)
+              // DPS must stop attacking, but 1-2 forget and hurt themselves
+              if (!this.state.boss?.majordomoTanks || !this.state.boss?.adds) break;
+
+              const tanks = this.state.boss.majordomoTanks;
+              const aliveAdds = this.state.boss.adds.filter(a => a.isAlive);
+
+              if (aliveAdds.length === 0) break;
+
+              // Activate magic reflection
+              tanks.magicReflectionActive = true;
+              tanks.magicReflectionEndTime = this.state.elapsedTime + 10;
+              tanks.dpsStoppedTime = this.state.elapsedTime + 0.5; // DPS takes 0.5s to react
+
+              this.addCombatLogEntry({
+                message: `MAGIC REFLECTION! ${aliveAdds.length} adds gain damage shields!`,
+                type: 'damage'
+              });
+
+              // Set raid warning
+              this.state.tankSwapWarning = {
+                message: 'MAGIC REFLECTION - STOP DPS!',
+                type: 'swap'
+              };
+
+              // 1-2 DPS forget to stop and hurt themselves
+              const forgetfulCount = 1 + Math.floor(Math.random() * 2);
+              const dpsMembers = this.state.raid.filter(m =>
+                m.isAlive && m.role === 'dps'
+              );
+
+              if (dpsMembers.length > 0) {
+                const shuffled = [...dpsMembers].sort(() => Math.random() - 0.5);
+                const forgetful = shuffled.slice(0, forgetfulCount);
+
+                forgetful.forEach(dps => {
+                  // They deal damage to themselves for a few seconds
+                  // 50% of damage dealt reflected back = ~800-1200 damage
+                  const reflectedDamage = 800 + Math.floor(Math.random() * 400);
+                  dps.currentHealth -= reflectedDamage;
+
+                  this.addCombatLogEntry({
+                    message: `${dps.name} didn't stop! Magic Reflection hits them for ${reflectedDamage}!`,
+                    type: 'damage'
+                  });
+
+                  if (dps.currentHealth <= 0) {
+                    dps.currentHealth = 0;
+                    this.handleMemberDeath(dps);
+                  }
+                });
+              }
+              break;
+            }
           }
         }
       });
+
+      // Check for Deaden Magic ending (Priest Dispel or Shaman Purge)
+      if (this.state.boss?.hasDeadenMagic && this.state.boss.deadenMagicEndTime) {
+        if (this.state.elapsedTime >= this.state.boss.deadenMagicEndTime) {
+          // Natural expiry
+          this.state.boss.hasDeadenMagic = false;
+          this.state.boss.deadenMagicEndTime = undefined;
+          this.addCombatLogEntry({
+            message: `Deaden Magic fades from Shazzrah.`,
+            type: 'buff'
+          });
+        } else if (this.state.elapsedTime >= (this.state.boss.deadenMagicEndTime - 28)) {
+          // Auto-dispel after ~2 seconds by Priest or Shaman
+          const dispeller = this.state.raid.find(m => (m.class === 'priest' || m.class === 'shaman') && m.isAlive);
+          if (dispeller) {
+            this.state.boss.hasDeadenMagic = false;
+            this.state.boss.deadenMagicEndTime = undefined;
+            const action = dispeller.class === 'shaman' ? 'Purges' : 'Dispels';
+            this.addCombatLogEntry({
+              message: `${dispeller.name} ${action} Deaden Magic from Shazzrah!`,
+              type: 'buff'
+            });
+          }
+        }
+      }
+
+      // Check for Frenzy ending (hunters Tranq Shot)
+      if (this.state.boss?.isFrenzied && this.state.boss.frenzyEndTime && this.state.elapsedTime >= this.state.boss.frenzyEndTime) {
+        this.state.boss.isFrenzied = false;
+        this.state.boss.frenzyEndTime = undefined;
+
+        // Find a hunter to credit with the Tranq Shot
+        const hunter = this.state.raid.find(m => m.class === 'hunter' && m.isAlive);
+        const hunterName = hunter?.name || 'A hunter';
+
+        this.addCombatLogEntry({
+          message: `${hunterName} uses Tranquilizing Shot! ${this.state.boss.name}'s Frenzy is removed.`,
+          type: 'buff'
+        });
+      }
+
+      // Check for Inspire ending (Sulfuron Harbinger)
+      if (this.state.boss?.isInspired && this.state.boss.inspireEndTime) {
+        if (this.state.elapsedTime >= this.state.boss.inspireEndTime) {
+          this.state.boss.isInspired = false;
+          this.state.boss.inspireEndTime = undefined;
+          this.addCombatLogEntry({
+            message: `Inspire fades from the Flamewaker Priests.`,
+            type: 'buff'
+          });
+        }
+      }
 
       // Process debuff ticks and durations (also affected by enrage)
       this.state.raid.forEach(member => {
@@ -2929,20 +4337,50 @@ export class GameEngine {
 
         member.debuffs = member.debuffs
           .map(debuff => {
+            // Standard DoT damage
             if (debuff.damagePerTick && debuff.tickInterval) {
-              const tickDamage = (debuff.damagePerTick * delta * enrageMultiplier) / debuff.tickInterval;
+              // Account for stacks (like Magma Spit)
+              const stacks = debuff.stacks || 1;
+              let tickDamage = (debuff.damagePerTick * stacks * delta * enrageMultiplier) / debuff.tickInterval;
+
+              // Apply damage reduction for fire damage (Fire Resistance Aura/Totem)
+              if (debuff.damageType === 'fire') {
+                tickDamage = this.calculateDamageReduction(member, tickDamage, 'fire');
+              }
+
               member.currentHealth -= tickDamage;
               if (member.currentHealth <= 0) {
                 member.currentHealth = 0;
                 this.handleMemberDeath(member);
               }
             }
+
+            // Mind Control damage - MC'd player attacks their target
+            if (debuff.isMindControl && debuff.mcTargetId) {
+              const mcTarget = this.state.raid.find(m => m.id === debuff.mcTargetId);
+              if (mcTarget && mcTarget.isAlive) {
+                // MC'd player deals ~200 damage per second to their target
+                const mcDamage = 200 * delta;
+                mcTarget.currentHealth -= mcDamage;
+                if (mcTarget.currentHealth <= 0) {
+                  mcTarget.currentHealth = 0;
+                  this.handleMemberDeath(mcTarget);
+                }
+              }
+            }
+
             return { ...debuff, duration: debuff.duration - delta };
           })
           .filter(debuff => {
-            // Check for Living Bomb explosion when debuff expires
+            // Check for debuff explosion when it expires
             if (debuff.duration <= 0 && debuff.explodesOnExpiry && debuff.explosionDamage) {
-              this.handleLivingBombExplosion(member, debuff.explosionDamage);
+              if (debuff.id === 'living_bomb') {
+                // Living Bomb has splash damage
+                this.handleLivingBombExplosion(member, debuff.explosionDamage);
+              } else {
+                // Other explosions (like Impending Doom) only hit the target
+                this.handleDebuffExplosion(member, debuff);
+              }
             }
             return debuff.duration > 0;
           });
@@ -2951,6 +4389,26 @@ export class GameEngine {
         member.buffs = member.buffs
           .map(b => ({ ...b, duration: b.duration - delta }))
           .filter(b => b.duration > 0);
+
+        // NPC Shaman Tremor Totem - dispel fear effects (ticks every 4 seconds)
+        // Check if member has a Tremor Totem buff from an NPC shaman
+        const hasTremorTotem = member.buffs.some(b => b.id.includes('tremor_totem') && b.effect?.fearImmunity);
+        if (hasTremorTotem) {
+          const fearDebuff = member.debuffs.find(d =>
+            d.id === 'panic' || // Magmadar's Panic
+            (d.type === 'magic' && (
+              d.name?.toLowerCase().includes('fear') ||
+              d.name?.toLowerCase().includes('panic')
+            ))
+          );
+          if (fearDebuff) {
+            member.debuffs = member.debuffs.filter(d => d !== fearDebuff);
+            this.addCombatLogEntry({
+              message: `Tremor Totem removed ${fearDebuff.name} from ${member.name}!`,
+              type: 'buff'
+            });
+          }
+        }
       });
 
       // AI Healers - other healers in the raid automatically heal
@@ -3049,6 +4507,12 @@ export class GameEngine {
               baseHeal = hps * 1.2; // ~420 HP heal
               manaCost = baseHeal * 0.32; // ~134 mana - similar to FoL
               castTime = 1.5;
+            }
+
+            // Lucifron's Curse doubles mana costs!
+            const hasCurse = healer.debuffs.some(d => d.increasesManaCost);
+            if (hasCurse) {
+              manaCost *= 2;
             }
 
             // OOM behavior - skip healing if not enough mana (unless critical emergency)
@@ -3176,6 +4640,12 @@ export class GameEngine {
       const totalDps = this.state.raid
         .filter(m => m.isAlive)
         .reduce((sum, m) => {
+          // Check if this member is stunned (e.g., by Hand of Ragnaros)
+          const isStunned = m.debuffs.some(d => d.id === 'hand_of_ragnaros');
+          if (isStunned) {
+            return sum; // Stunned players do 0 DPS
+          }
+
           // Gear scaling: each gear score point adds 1 DPS for DPS roles, 0.5 for others
           const gearDpsBonus = m.role === 'dps' ? m.gearScore * 1.0 : m.gearScore * 0.5;
 
@@ -3203,10 +4673,114 @@ export class GameEngine {
             }
           });
 
-          return sum + (m.dps + gearDpsBonus + buffDpsBonus) * attackSpeedMultiplier;
+          // Check if this is a caster class affected by Deaden Magic
+          const isCaster = ['mage', 'warlock', 'priest', 'druid'].includes(m.class);
+          let memberDps = (m.dps + gearDpsBonus + buffDpsBonus) * attackSpeedMultiplier;
+
+          // Deaden Magic reduces magic (caster) damage by 50%
+          if (isCaster && this.state.boss?.hasDeadenMagic) {
+            memberDps *= 0.5;
+          }
+
+          return sum + memberDps;
         }, 0);
 
-      this.state.boss.currentHealth = Math.max(0, this.state.boss.currentHealth - totalDps * delta);
+      // Handle Sulfuron's adds - DPS is distributed to adds first, then Sulfuron
+      if (this.state.boss.id === 'sulfuron' && this.state.boss.adds && this.state.boss.currentPhase === 1) {
+        const alivePriests = this.state.boss.adds.filter(a => a.isAlive);
+
+        if (alivePriests.length > 0) {
+          // Distribute DPS across all living priests (cleave damage)
+          const dpsPerPriest = totalDps / alivePriests.length;
+
+          alivePriests.forEach(priest => {
+            priest.currentHealth -= dpsPerPriest * delta;
+
+            if (priest.currentHealth <= 0) {
+              priest.currentHealth = 0;
+              priest.isAlive = false;
+              this.addCombatLogEntry({
+                message: `${priest.name} has been slain!`,
+                type: 'system'
+              });
+            }
+          });
+
+          // Check if all priests are dead -> transition to phase 2
+          const allPriestsDead = this.state.boss.adds.every(a => !a.isAlive);
+          if (allPriestsDead) {
+            this.state.boss.currentPhase = 2;
+            this.state.boss.isInspired = false; // Inspire ends when priests die
+            this.state.boss.inspireEndTime = undefined;
+            this.addCombatLogEntry({
+              message: `All Flamewaker Priests are dead! Sulfuron Harbinger is now vulnerable!`,
+              type: 'system'
+            });
+          }
+        }
+        // Don't damage Sulfuron while priests are alive
+      } else if (this.state.boss.id === 'majordomo' && this.state.boss.adds && this.state.boss.currentPhase === 1) {
+        // MAJORDOMO: DPS goes to adds, NOT Majordomo (he's immune)
+        const aliveAdds = this.state.boss.adds.filter(a => a.isAlive);
+        const tanks = this.state.boss.majordomoTanks;
+
+        if (aliveAdds.length > 0) {
+          // During Magic Reflection, DPS stops (no damage to adds)
+          if (tanks?.magicReflectionActive && this.state.elapsedTime < tanks.magicReflectionEndTime) {
+            // DPS has stopped - no damage during magic reflection (after initial forgetful DPS damage)
+          } else {
+            // Clear magic reflection if it's expired
+            if (tanks?.magicReflectionActive && this.state.elapsedTime >= tanks.magicReflectionEndTime) {
+              tanks.magicReflectionActive = false;
+              this.addCombatLogEntry({
+                message: `Magic Reflection fades from the adds.`,
+                type: 'buff'
+              });
+              // Clear the warning
+              if (this.state.tankSwapWarning?.message.includes('MAGIC REFLECTION')) {
+                this.state.tankSwapWarning = null;
+              }
+            }
+
+            // Distribute DPS across all living adds
+            const dpsPerAdd = totalDps / aliveAdds.length;
+
+            aliveAdds.forEach(add => {
+              add.currentHealth -= dpsPerAdd * delta;
+
+              if (add.currentHealth <= 0) {
+                add.currentHealth = 0;
+                add.isAlive = false;
+                this.addCombatLogEntry({
+                  message: `${add.name} has been slain!`,
+                  type: 'system'
+                });
+              }
+            });
+          }
+
+          // Check if all adds are dead -> VICTORY!
+          const allAddsDead = this.state.boss.adds.every(a => !a.isAlive);
+          if (allAddsDead) {
+            this.state.boss.currentPhase = 2;
+            this.addCombatLogEntry({
+              message: `All adds are dead! Majordomo Executus submits!`,
+              type: 'system'
+            });
+            this.addCombatLogEntry({
+              message: `VICTORY! Majordomo Executus yields to your power!`,
+              type: 'system'
+            });
+            this.handleBossVictory(this.state.boss.id);
+            return;
+          }
+        }
+        // Majordomo himself is NEVER damaged - his health stays at 100%
+        // Victory is checked above when all adds die
+      } else {
+        // Standard boss damage
+        this.state.boss.currentHealth = Math.max(0, this.state.boss.currentHealth - totalDps * delta);
+      }
 
       // Check victory
       if (this.state.boss.currentHealth === 0) {
@@ -3295,6 +4869,17 @@ export class GameEngine {
       this.castTimeout = null;
     }
 
+    // Clear all debuffs from raid members after boss kill
+    this.state.raid.forEach(member => {
+      member.debuffs = [];
+    });
+
+    // Clear boss frenzy state
+    if (this.state.boss) {
+      this.state.boss.isFrenzied = false;
+      this.state.boss.frenzyEndTime = undefined;
+    }
+
     // Mark boss as defeated (unless it's training dummy)
     if (bossId !== 'training') {
       // Track per-raid defeated bosses
@@ -3352,10 +4937,13 @@ export class GameEngine {
       // Check if player already has this material
       if (!this.state.legendaryMaterials.includes(legendaryMaterial.id)) {
         this.state.legendaryMaterials.push(legendaryMaterial.id);
+        this.state.lastObtainedLegendaryMaterial = legendaryMaterial.id;
         this.addCombatLogEntry({
           message: `LEGENDARY DROP: ${legendaryMaterial.name}!`,
           type: 'system',
         });
+        // Trigger the epic special alert!
+        this.triggerSpecialAlert(`LEGENDARY! ${legendaryMaterial.name} has dropped!`);
       } else {
         this.addCombatLogEntry({
           message: `${legendaryMaterial.name} dropped, but you already have it!`,
@@ -5503,6 +7091,40 @@ export class GameEngine {
     return this.state.legendaryMaterials.includes(materialId);
   }
 
+  // Admin: Simulate a legendary drop (for testing the UI)
+  adminTestLegendaryDrop(materialId: LegendaryMaterialId): void {
+    const material = LEGENDARY_MATERIALS[materialId];
+    if (!material) return;
+
+    // Set the lastObtainedLegendaryMaterial to trigger the loot screen display
+    this.state.lastObtainedLegendaryMaterial = materialId;
+
+    // Add some sample loot items so the loot window looks realistic
+    const sampleItems = ['lawbringer_helm', 'crimson_shocker', 'ring_of_spell_power'];
+    this.state.pendingLoot = sampleItems
+      .map(id => ALL_ITEMS[id])
+      .filter(item => item !== undefined);
+
+    // Show the loot modal
+    this.state.showLootModal = true;
+
+    // Trigger the special alert
+    this.triggerSpecialAlert(`LEGENDARY! ${material.name} has dropped!`);
+
+    this.addCombatLogEntry({
+      message: `[Admin] Testing legendary drop: ${material.name}`,
+      type: 'system',
+    });
+
+    this.notify();
+  }
+
+  // Clear the lastObtainedLegendaryMaterial (when user clicks "Send to Bag")
+  clearLastObtainedLegendaryMaterial(): void {
+    this.state.lastObtainedLegendaryMaterial = null;
+    this.notify();
+  }
+
   // Admin: Clear all progression (defeated bosses, DKP earned this raid)
   adminClearAllProgression(): void {
     this.state.defeatedBosses = [];
@@ -5550,6 +7172,10 @@ export class GameEngine {
     const oldClass = member.class;
     member.class = newClass;
 
+    // Update spec to match new class (use same role if possible, otherwise default to dps)
+    const newSpec = this.getDefaultSpecForClassRole(newClass, member.role);
+    member.spec = newSpec;
+
     // Remove equipment that the new class cannot use
     const slots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'waist', 'legs', 'hands', 'wrist', 'feet', 'weapon'];
     let removedCount = 0;
@@ -5575,8 +7201,11 @@ export class GameEngine {
       this.state.critChance = stats.totalCritChance;
     }
 
+    // Recalculate party auras since class/spec changed
+    this.recalculateAuras();
+
     this.addCombatLogEntry({
-      message: `[Admin] Changed ${member.name} from ${oldClass} to ${newClass}${removedCount > 0 ? ` (removed ${removedCount} incompatible items)` : ''}`,
+      message: `[Admin] Changed ${member.name} from ${oldClass} to ${newClass} (${newSpec})${removedCount > 0 ? `, removed ${removedCount} incompatible items` : ''}`,
       type: 'system',
     });
     this.notify();

@@ -71,6 +71,12 @@ function App() {
   const [specialAlert, setSpecialAlert] = useState<string | null>(null);
   // Living Bomb raid warning
   const [livingBombWarning, setLivingBombWarning] = useState<string | null>(null);
+  // Inferno raid warning (Baron Geddon - no airhorn)
+  const [infernoWarning, setInfernoWarning] = useState<string | null>(null);
+  // Mind Control warning (Lucifron - Dominate Mind)
+  const [mindControlWarning, setMindControlWarning] = useState<{ mcPlayer: string; attackingPlayer: string } | null>(null);
+  // Lava Bomb warning (Magmadar)
+  const [lavaBombWarning, setLavaBombWarning] = useState<string | null>(null);
   // Custom confirmation dialog state
   const [confirmDialog, setConfirmDialog] = useState<{
     title: string;
@@ -141,6 +147,20 @@ function App() {
   const [savedCharacters, setSavedCharacters] = useState<SavedCharacter[]>([]);
   const [currentCharacterId, setCurrentCharacterId] = useState<string | null>(null);
   const [gameInitialized, setGameInitialized] = useState(false);
+
+  // Golemagg tank assignment modal
+  const [showGolemaggTankModal, setShowGolemaggTankModal] = useState(false);
+  const [golemaggTank1, setGolemaggTank1] = useState<string>('');
+  const [golemaggTank2, setGolemaggTank2] = useState<string>('');
+  const [coreRagerTank, setCoreRagerTank] = useState<string>('');
+
+  // Majordomo tank assignment modal (5 tanks: 1 for Majordomo, 4 for adds)
+  const [showMajordomoTankModal, setShowMajordomoTankModal] = useState(false);
+  const [majordomoTank, setMajordomoTank] = useState<string>(''); // Majordomo himself
+  const [majordomoAddTank1, setMajordomoAddTank1] = useState<string>(''); // Adds 1 & 2
+  const [majordomoAddTank2, setMajordomoAddTank2] = useState<string>(''); // Adds 3 & 4
+  const [majordomoAddTank3, setMajordomoAddTank3] = useState<string>(''); // Adds 5 & 6
+  const [majordomoAddTank4, setMajordomoAddTank4] = useState<string>(''); // Adds 7 & 8
 
   // Default keybinds
   const DEFAULT_KEYBINDS = {
@@ -433,6 +453,147 @@ function App() {
     if (state.isRunning) {
       engine.stopEncounter();
     }
+  };
+
+  // Handle encounter selection - intercept for special cases like Golemagg
+  const handleEncounterSelect = (encounterId: string) => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    // Check if this encounter requires tank assignment
+    const encounter = ENCOUNTERS.find(e => e.id === encounterId);
+
+    if (encounter?.requiresTankAssignment && encounterId === 'golemagg') {
+      // Get available tanks (warriors with tank role)
+      const state = engine.getState();
+      const tanks = state.raid.filter(m => m.role === 'tank' && m.isAlive);
+      const warriors = state.raid.filter(m => m.class === 'warrior' && m.isAlive);
+
+      // Pre-select defaults if available
+      if (tanks.length >= 2) {
+        setGolemaggTank1(tanks[0].id);
+        setGolemaggTank2(tanks[1].id);
+      }
+      // Core Rager tank can be any warrior (including DPS)
+      const availableForDogs = warriors.find(w => w.id !== tanks[0]?.id && w.id !== tanks[1]?.id);
+      if (availableForDogs) {
+        setCoreRagerTank(availableForDogs.id);
+      } else if (tanks.length >= 3) {
+        setCoreRagerTank(tanks[2].id);
+      }
+
+      setShowGolemaggTankModal(true);
+      return;
+    }
+
+    if (encounter?.requiresTankAssignment && encounterId === 'majordomo') {
+      // Majordomo requires 5 tanks: 1 for Majordomo, 4 for adds
+      const state = engine.getState();
+      const tanks = state.raid.filter(m => m.role === 'tank' && m.isAlive);
+      // Warriors and feral druids can be temporary tanks for adds
+      const eligibleTanks = state.raid.filter(m =>
+        m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps')))
+      );
+
+      // Pre-select defaults if available
+      if (tanks.length >= 1) setMajordomoTank(tanks[0].id);
+
+      // Assign add tanks from remaining eligible tanks
+      const usedIds = new Set([tanks[0]?.id]);
+      const remainingTanks = eligibleTanks.filter(t => !usedIds.has(t.id));
+
+      if (remainingTanks.length >= 1) { setMajordomoAddTank1(remainingTanks[0].id); usedIds.add(remainingTanks[0].id); }
+      if (remainingTanks.length >= 2) { setMajordomoAddTank2(remainingTanks[1].id); usedIds.add(remainingTanks[1].id); }
+      if (remainingTanks.length >= 3) { setMajordomoAddTank3(remainingTanks[2].id); usedIds.add(remainingTanks[2].id); }
+      if (remainingTanks.length >= 4) { setMajordomoAddTank4(remainingTanks[3].id); }
+
+      setShowMajordomoTankModal(true);
+      return;
+    }
+
+    // Normal encounter start
+    engine.startEncounter(encounterId);
+  };
+
+  // Start Golemagg with assigned tanks
+  const startGolemaggWithTanks = () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    if (!golemaggTank1 || !golemaggTank2 || !coreRagerTank) {
+      alert('Please assign all three tanks before starting the fight.');
+      return;
+    }
+
+    if (golemaggTank1 === golemaggTank2 || golemaggTank1 === coreRagerTank || golemaggTank2 === coreRagerTank) {
+      alert('Each tank role must be assigned to a different raid member.');
+      return;
+    }
+
+    // Close modal and start the encounter with tank assignments
+    setShowGolemaggTankModal(false);
+    engine.startEncounter('golemagg', {
+      golemaggTanks: {
+        tank1Id: golemaggTank1,
+        tank2Id: golemaggTank2,
+        coreRagerTankId: coreRagerTank,
+        currentMainTank: 1,
+        tank1Stacks: 0,
+        tank2Stacks: 0,
+        lastSwapTime: 0,
+        nextSwapThreshold: 5, // First swap at 5 stacks, then 10, 15, etc.
+        ragersLoose: false, // Dogs are contained until tank dies
+        ragerTarget1: null,
+        ragerTarget2: null,
+      }
+    });
+  };
+
+  // Start Majordomo with assigned tanks
+  const startMajordomoWithTanks = () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    const allTanks = [majordomoTank, majordomoAddTank1, majordomoAddTank2, majordomoAddTank3, majordomoAddTank4];
+
+    if (allTanks.some(t => !t)) {
+      alert('Please assign all five tanks before starting the fight.');
+      return;
+    }
+
+    // Check for duplicates
+    const uniqueTanks = new Set(allTanks);
+    if (uniqueTanks.size !== 5) {
+      alert('Each tank role must be assigned to a different raid member.');
+      return;
+    }
+
+    // Close modal and start the encounter with tank assignments
+    setShowMajordomoTankModal(false);
+    engine.startEncounter('majordomo', {
+      majordomoTanks: {
+        majordomoTankId: majordomoTank,
+        addTank1Id: majordomoAddTank1,
+        addTank2Id: majordomoAddTank2,
+        addTank3Id: majordomoAddTank3,
+        addTank4Id: majordomoAddTank4,
+        magicReflectionActive: false,
+        magicReflectionEndTime: 0,
+        dpsStoppedTime: 0,
+        looseAdds1: false,
+        looseAdds2: false,
+        looseAdds3: false,
+        looseAdds4: false,
+        looseTarget1a: null,
+        looseTarget1b: null,
+        looseTarget2a: null,
+        looseTarget2b: null,
+        looseTarget3a: null,
+        looseTarget3b: null,
+        looseTarget4a: null,
+        looseTarget4b: null,
+      }
+    });
   };
 
   // Handle starting the game from landing page
@@ -933,6 +1094,55 @@ function App() {
     });
   }, [engine]);
 
+  // Set up Inferno warning callback (Baron Geddon - no airhorn)
+  useEffect(() => {
+    engine.onInfernoWarning = (targetNames: string[]) => {
+      const warningText = targetNames.length === 1
+        ? `INFERNO! ${targetNames[0]} forgot to move!`
+        : `INFERNO! ${targetNames.join(', ')} forgot to move!`;
+      setInfernoWarning(warningText);
+      // Auto-dismiss after 4 seconds (duration of the warning)
+      setTimeout(() => setInfernoWarning(null), 4000);
+    };
+    return () => {
+      engine.onInfernoWarning = null;
+    };
+  }, [engine]);
+
+  // Set up Mind Control warning callback (Lucifron - Dominate Mind)
+  useEffect(() => {
+    engine.onMindControlWarning = (mcPlayerName: string, attackingName: string) => {
+      setMindControlWarning({ mcPlayer: mcPlayerName, attackingPlayer: attackingName });
+      // Play airhorn for MC warning
+      if (airhornRef.current) {
+        airhornRef.current.currentTime = 0;
+        airhornRef.current.play().catch(() => {});
+      }
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => setMindControlWarning(null), 5000);
+    };
+    return () => {
+      engine.onMindControlWarning = null;
+    };
+  }, [engine]);
+
+  // Set up Lava Bomb warning callback (Magmadar)
+  useEffect(() => {
+    engine.onLavaBombWarning = (targetName: string) => {
+      setLavaBombWarning(`LAVA BOMB! ${targetName} didn't move!`);
+      // Play airhorn for Lava Bomb warning
+      if (airhornRef.current) {
+        airhornRef.current.currentTime = 0;
+        airhornRef.current.play().catch(() => {});
+      }
+      // Auto-dismiss after 4 seconds
+      setTimeout(() => setLavaBombWarning(null), 4000);
+    };
+    return () => {
+      engine.onLavaBombWarning = null;
+    };
+  }, [engine]);
+
   // Phase transition detection
   const state = engine.getState();
   useEffect(() => {
@@ -1197,22 +1407,311 @@ function App() {
           interval: event.interval,
         });
       } else if (event.type === 'random_target') {
+        // Check damage type to determine ability name and icon
+        const isShadow = event.damageType === 'shadow';
+        const shadowBoltDebuff = DEBUFFS['shadow_bolt'];
         abilities.push({
-          name: 'Random Target',
-          type: 'fire',
-          description: `Deals ${event.damage} damage to a random raid member.`,
+          name: isShadow ? 'Shadow Bolt' : 'Random Target',
+          type: event.damageType || 'fire',
+          description: isShadow
+            ? `Hurls a Shadow Bolt at a random raid member, dealing ${event.damage} shadow damage.`
+            : `Deals ${event.damage} damage to a random raid member.`,
+          icon: isShadow ? shadowBoltDebuff?.icon : undefined,
           damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'inferno') {
+        const debuff = DEBUFFS['inferno'];
+        abilities.push({
+          name: 'Inferno',
+          type: 'fire',
+          description: `Baron Geddon erupts in flames. 1-3 melee players who forget to move take ${debuff?.damagePerTick || 1000} fire damage per second for ${debuff?.maxDuration || 8} seconds. Cannot be dispelled!`,
+          icon: debuff?.icon,
+          damage: debuff?.damagePerTick,
+          interval: event.interval,
+        });
+      } else if (event.type === 'lava_bomb') {
+        const debuff = DEBUFFS['lava_bomb'];
+        abilities.push({
+          name: 'Lava Bomb',
+          type: 'fire',
+          description: `Targets a random raid member. 20% chance the player doesn't move in time and takes ${debuff?.damagePerTick || 400} fire damage per second for ${debuff?.maxDuration || 8} seconds. Cannot be dispelled!`,
+          icon: debuff?.icon,
+          damage: debuff?.damagePerTick,
+          interval: event.interval,
+        });
+      } else if (event.type === 'frenzy') {
+        const debuff = DEBUFFS['frenzy'];
+        abilities.push({
+          name: 'Frenzy',
+          type: 'enrage',
+          description: `Magmadar goes into a Frenzy, increasing tank damage significantly. Hunters must use Tranquilizing Shot to remove it.`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'rain_of_fire') {
+        const debuff = DEBUFFS['rain_of_fire'];
+        abilities.push({
+          name: 'Rain of Fire',
+          type: 'fire',
+          description: `Targets 5 random raid members with fire. All targets take 700 fire damage. 25% chance each target doesn't move and takes ${debuff?.damagePerTick || 700} additional fire damage every 2 seconds for 4 more seconds. Cannot be dispelled!`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'antimagic_pulse') {
+        const debuff = DEBUFFS['antimagic_pulse'];
+        abilities.push({
+          name: 'Antimagic Pulse',
+          type: 'arcane',
+          description: `Dispels 1 buff from all raid members every ${event.interval} seconds. Rebuff as needed or conserve mana by fighting without buffs.`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'shazzrah_curse') {
+        const debuff = DEBUFFS['shazzrahs_curse'];
+        abilities.push({
+          name: "Shazzrah's Curse",
+          type: 'curse',
+          description: `Curses the entire raid every ${event.interval} seconds, doubling magic damage taken for 5 minutes. Only Mages and Druids can decurse - they must work through the raid one by one!`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'shazzrah_blink') {
+        const blinkDebuff = DEBUFFS['arcane_explosion'];
+        abilities.push({
+          name: 'Blink',
+          type: 'arcane',
+          description: `Shazzrah teleports to a random raid member every ${event.interval} seconds and immediately casts Arcane Explosion.`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_blink.jpg',
+          interval: event.interval,
+        });
+        abilities.push({
+          name: 'Arcane Explosion',
+          type: 'arcane',
+          description: `Hits the ENTIRE RAID for ${event.damage} arcane damage (${event.damage * 2} if cursed!). Decurse is critical to survival!`,
+          icon: blinkDebuff?.icon,
+          interval: event.interval,
+          damage: event.damage,
+        });
+      } else if (event.type === 'deaden_magic') {
+        const debuff = DEBUFFS['deaden_magic'];
+        abilities.push({
+          name: 'Deaden Magic',
+          type: 'magic',
+          description: `Shazzrah gains a buff that reduces all magic damage taken by 50% for 30 seconds. A Priest must Dispel Magic or a Shaman must Purge this off the boss immediately!`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'hand_of_ragnaros') {
+        const debuff = DEBUFFS['hand_of_ragnaros'];
+        abilities.push({
+          name: 'Hand of Ragnaros',
+          type: 'fire',
+          description: `Sulfuron slams the ground, dealing ${event.damage} fire damage to all tanks and melee DPS (Warriors, Rogues, Feral Druids, Ret Paladins, Enh Shamans) and stunning them for 2 seconds. Stunned players deal no damage!`,
+          icon: debuff?.icon,
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'inspire') {
+        abilities.push({
+          name: 'Inspire',
+          type: 'enrage',
+          description: `Sulfuron rallies the Flamewaker Priests, increasing their damage by 25% for 10 seconds. Tanks will take significantly more damage during this window!`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_battleshout.jpg',
+          interval: event.interval,
+        });
+      } else if (event.type === 'dark_mending') {
+        abilities.push({
+          name: 'Dark Mending',
+          type: 'shadow',
+          description: `A Flamewaker Priest attempts to heal another priest for 15% of their health. AI DPS have a 70% chance to interrupt. If the heal goes through, the fight lasts longer!`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_chilltouch.jpg',
+          interval: event.interval,
+        });
+      } else if (event.type === 'sulfuron_immolate') {
+        const debuff = DEBUFFS['immolate'];
+        abilities.push({
+          name: 'Immolate',
+          type: 'fire',
+          description: `A Flamewaker Priest hurls fire at a random raid member, dealing 750-850 fire damage instantly and an additional 380-420 fire damage over 3 seconds. The DoT is dispellable.`,
+          icon: debuff?.icon,
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'golemagg_magma_splash') {
+        const debuff = DEBUFFS['magma_splash'];
+        abilities.push({
+          name: 'Magma Splash',
+          type: 'fire',
+          description: `Applies a stacking fire DoT on the current Golemagg tank. Each stack deals 150 fire damage every 2 seconds. Tanks should swap at 4-5 stacks, but sometimes forget and swap at 7 stacks instead! NOT dispellable.`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'golemagg_pyroblast') {
+        const debuff = DEBUFFS['golemagg_pyroblast'];
+        abilities.push({
+          name: 'Pyroblast',
+          type: 'fire',
+          description: `Hurls a massive fireball at a random raid member, dealing 1388-1612 fire damage instantly and applying a DoT that deals 200 fire damage every 3 seconds for 12 seconds. The DoT is dispellable!`,
+          icon: debuff?.icon,
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'golemagg_earthquake') {
+        abilities.push({
+          name: 'Earthquake',
+          type: 'physical',
+          description: `At 10% health, Golemagg causes Earthquakes that hit all melee players (tanks, Warriors, Rogues, Feral/Ret/Enh) for 1388-1612 damage every 3 seconds. Intense healing phase!`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_earthquake.jpg',
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'core_rager_mangle') {
+        const debuff = DEBUFFS['mangle'];
+        abilities.push({
+          name: 'Mangle',
+          type: 'physical',
+          description: `The Core Ragers savage the dog tank with Mangle, dealing 300 physical damage every 2 seconds for 20 seconds. NOT dispellable - constant pressure on the dog tank!`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'core_rager_melee') {
+        abilities.push({
+          name: 'Core Rager Melee',
+          type: 'physical',
+          description: `Two Core Ragers attack the dog tank simultaneously, dealing ${event.damage * 2} total physical damage every 2 seconds.`,
+          damage: event.damage * 2,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_teleport') {
+        const debuff = DEBUFFS['majordomo_teleport'];
+        abilities.push({
+          name: 'Teleport',
+          type: 'fire',
+          description: `Majordomo teleports his tank to the fire pit, dealing ${debuff?.damagePerTick || 500} fire damage per second until they escape. The tank must move out quickly!`,
+          icon: debuff?.icon,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_elite_melee') {
+        abilities.push({
+          name: 'Elite Melee',
+          type: 'physical',
+          description: `4 Flamewaker Elites pummel their assigned tanks. Each tank handles 2 adds and takes ${event.damage * 2} physical damage every ${event.interval} seconds.`,
+          damage: event.damage * 2,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_fire_blast') {
+        const debuff = DEBUFFS['majordomo_fire_blast'];
+        abilities.push({
+          name: 'Fire Blast',
+          type: 'fire',
+          description: `Flamewaker Elites fire blast the raid, dealing 700-800 fire damage to 3-5 random targets. The burn effect ticks for 300 fire damage over time.`,
+          icon: debuff?.icon,
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_shadow_shock') {
+        const debuff = DEBUFFS['majordomo_shadow_shock'];
+        abilities.push({
+          name: 'Shadow Shock',
+          type: 'shadow',
+          description: `Flamewaker Healers shock random raid members with shadow damage, dealing 950-1050 shadow damage to 2-4 targets.`,
+          icon: debuff?.icon,
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_shadow_bolt') {
+        abilities.push({
+          name: 'Shadow Bolt',
+          type: 'shadow',
+          description: `Flamewaker Healers hurl shadow bolts at random raid members, dealing 1100-1200 shadow damage.`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowbolt.jpg',
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_fireball') {
+        abilities.push({
+          name: 'Fireball',
+          type: 'fire',
+          description: `Flamewaker Elites cast fireballs at random raid members, dealing 950-1050 fire damage.`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flamebolt.jpg',
+          damage: event.damage,
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_dark_mending') {
+        abilities.push({
+          name: 'Dark Mending',
+          type: 'shadow',
+          description: `A Flamewaker Healer attempts to heal an add for 15% of their health. AI DPS have a 70% chance to interrupt. If the heal goes through, the fight lasts longer!`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_chilltouch.jpg',
+          interval: event.interval,
+        });
+      } else if (event.type === 'majordomo_magic_reflection') {
+        abilities.push({
+          name: 'Magic Reflection',
+          type: 'arcane',
+          description: `All 8 adds gain a Magic Reflection shield for 10 seconds. DPS must STOP attacking or take reflected damage! Health bars turn blue during this phase. 1-2 DPS always forget and hurt themselves.`,
+          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_frostshock.jpg',
           interval: event.interval,
         });
       }
     });
+
+    // Add Eruption ability for Garr (triggered by phase transitions, not damage events)
+    if (boss.id === 'garr') {
+      const eruptionDebuff = DEBUFFS['eruption'];
+      abilities.push({
+        name: 'Eruption',
+        type: 'fire',
+        description: 'Each Firesworn add explodes when killed, dealing 500-800 fire damage to the entire raid. Kill all 8 adds before focusing Garr.',
+        icon: eruptionDebuff?.icon,
+        interval: 0, // Not interval-based, triggered on add death
+      });
+    }
+
+    // Add Core Ragers and Tank Swap info for Golemagg
+    if (boss.id === 'golemagg') {
+      abilities.unshift({
+        name: '3-Tank Fight',
+        type: 'physical',
+        description: 'This fight requires 3 tanks! Before the fight starts, assign 2 tanks for Golemagg (who will swap) and 1 tank for the Core Ragers (2 dogs). A DPS Warrior can serve as the dog tank.',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg',
+        interval: 0,
+      });
+    }
+
+    // Add Flamewaker Priests info for Sulfuron
+    if (boss.id === 'sulfuron') {
+      // Add a special "Phase" ability to explain the fight structure
+      abilities.unshift({
+        name: 'Flamewaker Priests',
+        type: 'physical',
+        description: '4 Flamewaker Priests accompany Sulfuron. All priests must be killed before Sulfuron becomes attackable. DPS cleaves all priests simultaneously.',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_prayerofhealing.jpg',
+        interval: 0,
+      });
+    }
+
+    // Add Majordomo fight structure info
+    if (boss.id === 'majordomo') {
+      abilities.unshift({
+        name: '5-Tank Add Fight',
+        type: 'physical',
+        description: 'Majordomo is immune to damage! Kill all 8 adds (4 Elites, 4 Healers) to win. Assign 1 tank for Majordomo, and 4 tanks for adds (each tanks 2 adds). Warriors and Feral Druids can serve as add tanks.',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg',
+        interval: 0,
+      });
+    }
 
     return abilities;
   };
 
   const getDebuffDescription = (debuff: typeof DEBUFFS[string]) => {
     let desc = '';
-    if (debuff.damagePerTick && debuff.tickInterval) {
+    // Check for special effects first
+    if (debuff.healingReduction) {
+      desc = `Reduces ALL healing received by ${Math.round(debuff.healingReduction * 100)}% for ${debuff.maxDuration} seconds. Must be decursed!`;
+    } else if (debuff.damagePerTick && debuff.tickInterval) {
       desc = `Deals ${debuff.damagePerTick} ${debuff.type} damage every ${debuff.tickInterval} seconds for ${debuff.maxDuration} seconds.`;
     } else if (debuff.damagePerTick && debuff.maxDuration === debuff.tickInterval) {
       desc = `Explodes for ${debuff.damagePerTick} damage after ${debuff.maxDuration} seconds if not dispelled.`;
@@ -1737,28 +2236,146 @@ function App() {
             </div>
           )}
 
+          {/* Inferno Raid Warning (Baron Geddon - no airhorn) */}
+          {infernoWarning && (
+            <div className="inferno-warning">
+              <div className="inferno-warning-text">{infernoWarning}</div>
+            </div>
+          )}
+
+          {/* Mind Control Raid Warning (Lucifron - Dominate Mind) */}
+          {mindControlWarning && (
+            <div className="mind-control-warning">
+              <div className="mind-control-warning-text">{mindControlWarning.mcPlayer} IS MIND CONTROLLED!</div>
+              <div className="mind-control-warning-sub">Attacking {mindControlWarning.attackingPlayer}</div>
+            </div>
+          )}
+
+          {/* Lava Bomb Raid Warning (Magmadar) */}
+          {lavaBombWarning && (
+            <div className="lava-bomb-warning">
+              <div className="lava-bomb-warning-text">{lavaBombWarning}</div>
+            </div>
+          )}
+
+          {/* Tank Swap Warning (Golemagg) */}
+          {state.tankSwapWarning && (
+            <div className={`tank-swap-warning tank-swap-${state.tankSwapWarning.type}`}>
+              <div className="tank-swap-warning-text">{state.tankSwapWarning.message}</div>
+            </div>
+          )}
+
           {/* Airhorn sound for Living Bomb */}
           <audio ref={airhornRef} src="/airhorn.mp3" preload="auto" />
 
           {/* Boss Frame */}
           {state.boss && (
-            <div className="boss-frame">
+            <div className={`boss-frame ${state.boss.isFrenzied || state.boss.hasDeadenMagic || state.boss.isInspired ? 'frenzied' : ''}`}>
               <div className="boss-info">
                 <div className="boss-name">
                   {state.boss.name}
-                  {state.boss.currentPhase && state.boss.currentPhase > 1 && (
+                  {state.boss.isFrenzied && <span className="frenzy-indicator"> FRENZY!</span>}
+                  {state.boss.hasDeadenMagic && <span className="frenzy-indicator"> DEADEN MAGIC!</span>}
+                  {state.boss.isInspired && <span className="frenzy-indicator"> INSPIRED!</span>}
+                  {state.boss.currentPhase && state.boss.currentPhase > 1 && state.boss.id !== 'sulfuron' && (
                     <span className="phase-indicator"> - Phase {state.boss.currentPhase}</span>
                   )}
                 </div>
-                <div className="boss-health-container">
-                  <div
-                    className="boss-health-bar"
-                    style={{ width: `${(state.boss.currentHealth / state.boss.maxHealth) * 100}%` }}
-                  />
-                  <div className="boss-health-text">
-                    {Math.floor((state.boss.currentHealth / state.boss.maxHealth) * 100)}%
+
+                {/* Sulfuron Multi-Add Health Bars */}
+                {state.boss.id === 'sulfuron' && state.boss.adds && (
+                  <div className="sulfuron-adds-container">
+                    {/* Show all 4 priests */}
+                    {state.boss.adds.map((add, index) => (
+                      <div
+                        key={add.id}
+                        className={`add-health-bar ${!add.isAlive ? 'dead' : ''}`}
+                      >
+                        <span className="add-name">Priest {index + 1}</span>
+                        <div className="add-health-bg">
+                          <div
+                            className="add-health-fill"
+                            style={{ width: `${(add.currentHealth / add.maxHealth) * 100}%` }}
+                          />
+                        </div>
+                        <span className="add-health-text">
+                          {add.isAlive ? `${Math.round(add.currentHealth / 1000)}k` : 'DEAD'}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Sulfuron's health bar - grayed out until priests dead */}
+                    <div className={`sulfuron-main-health-bar ${state.boss.currentPhase === 1 ? 'inactive' : ''}`}>
+                      <span className="add-name">Sulfuron</span>
+                      <div className="add-health-bg">
+                        <div
+                          className="add-health-fill sulfuron-fill"
+                          style={{ width: `${(state.boss.currentHealth / state.boss.maxHealth) * 100}%` }}
+                        />
+                      </div>
+                      <span className="add-health-text">
+                        {state.boss.currentPhase === 1 ? 'IMMUNE' : `${Math.round(state.boss.currentHealth / 1000)}k`}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Majordomo Multi-Add Health Bars (8 adds) */}
+                {state.boss.id === 'majordomo' && state.boss.adds && (
+                  <div className="majordomo-adds-container">
+                    {/* Show all 8 adds - 4 Elites then 4 Healers */}
+                    {state.boss.adds.map((add) => {
+                      const isElite = add.id.startsWith('elite');
+                      const addNumber = parseInt(add.id.replace(/\D/g, ''));
+                      const displayName = isElite ? `Elite ${addNumber}` : `Healer ${addNumber}`;
+                      const isMagicReflectionActive = state.boss?.majordomoTanks?.magicReflectionActive;
+
+                      return (
+                        <div
+                          key={add.id}
+                          className={`add-health-bar ${!add.isAlive ? 'dead' : ''} ${isMagicReflectionActive && add.isAlive ? 'magic-reflection' : ''}`}
+                        >
+                          <span className="add-name">{displayName}</span>
+                          <div className="add-health-bg">
+                            <div
+                              className={`add-health-fill ${isMagicReflectionActive && add.isAlive ? 'magic-reflection-fill' : ''}`}
+                              style={{ width: `${(add.currentHealth / add.maxHealth) * 100}%` }}
+                            />
+                          </div>
+                          <span className="add-health-text">
+                            {add.isAlive ? `${Math.round(add.currentHealth / 1000)}k` : 'DEAD'}
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {/* Majordomo's health bar - always at 100%, IMMUNE */}
+                    <div className="sulfuron-main-health-bar inactive">
+                      <span className="add-name">Majordomo</span>
+                      <div className="add-health-bg">
+                        <div
+                          className="add-health-fill sulfuron-fill"
+                          style={{ width: '100%' }}
+                        />
+                      </div>
+                      <span className="add-health-text">IMMUNE</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Standard boss health bar for non-Sulfuron/Majordomo bosses */}
+                {state.boss.id !== 'sulfuron' && state.boss.id !== 'majordomo' && (
+                  <div className="boss-health-container">
+                    <div
+                      className="boss-health-bar"
+                      style={{ width: `${(state.boss.currentHealth / state.boss.maxHealth) * 100}%` }}
+                    />
+                    <div className="boss-health-text">
+                      {Math.floor((state.boss.currentHealth / state.boss.maxHealth) * 100)}%
+                    </div>
+                  </div>
+                )}
+
                 <div className="boss-timer">
                   Time: {formatTime(state.elapsedTime)} | Enrage: {formatTime(state.boss.enrageTimer - state.elapsedTime)}
                 </div>
@@ -1811,13 +2428,22 @@ function App() {
                           ? livingBombDebuff.duration <= 3 ? 'critical' : livingBombDebuff.duration <= 5 ? 'urgent' : ''
                           : '';
 
+                        // Inferno mechanic - check if member has the debuff (red glow)
+                        const hasInferno = member.debuffs.some(d => d.id === 'inferno');
+
+                        // Mind Control mechanic - check if member has the debuff (purple glow)
+                        const hasMindControl = member.debuffs.some(d => d.isMindControl);
+
+                        // Lava Bomb mechanic - check if member has the debuff (orange glow)
+                        const hasLavaBomb = member.debuffs.some(d => d.id === 'lava_bomb');
+
                         // Skip rendering in normal grid if evacuated to safe zone
                         if (evacuatedMembers.has(member.id)) return null;
 
                         return (
                           <div
                             key={member.id}
-                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''}`}
                             draggable={hasLivingBomb}
                             onDragStart={(e) => {
                               if (hasLivingBomb) {
@@ -1881,8 +2507,12 @@ function App() {
                             {member.debuffs.length > 0 && (
                               <div className="debuff-container">
                                 {member.debuffs.slice(0, 3).map((debuff, idx) => (
-                                  <div key={idx} className={`debuff-icon debuff-${debuff.type}`} title={debuff.name}>
-                                    {Math.ceil(debuff.duration)}
+                                  <div key={idx} className={`debuff-icon debuff-${debuff.type} ${debuff.stacks && debuff.stacks > 1 ? 'has-stacks' : ''}`} title={`${debuff.name}${debuff.stacks ? ` (${debuff.stacks} stacks)` : ''}`}>
+                                    {debuff.stacks && debuff.stacks > 1 ? (
+                                      <span className="debuff-stacks">{debuff.stacks}</span>
+                                    ) : (
+                                      Math.ceil(debuff.duration)
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -2102,7 +2732,7 @@ function App() {
                     <button
                       key={enc.id}
                       className={`encounter-button ${isDefeated ? 'defeated' : ''} ${isNext ? 'next-boss' : ''} ${isLocked ? 'locked' : ''}`}
-                      onClick={() => engine.startEncounter(enc.id)}
+                      onClick={() => handleEncounterSelect(enc.id)}
                       disabled={isDefeated || isLocked}
                       title={isDefeated ? 'Already defeated - reset raid to fight again' : isLocked ? `Must defeat ${raidEncounters[idx - 1].name} first` : ''}
                     >
@@ -2708,11 +3338,28 @@ function App() {
             </div>
           )}
 
+          {/* Inferno Raid Warning (Baron Geddon - no airhorn) */}
+          {infernoWarning && (
+            <div className="inferno-warning">
+              <div className="inferno-warning-text">{infernoWarning}</div>
+            </div>
+          )}
+
+          {/* Mind Control Raid Warning (Lucifron - Dominate Mind) */}
+          {mindControlWarning && (
+            <div className="mind-control-warning">
+              <div className="mind-control-warning-text">{mindControlWarning.mcPlayer} IS MIND CONTROLLED!</div>
+              <div className="mind-control-warning-sub">Attacking {mindControlWarning.attackingPlayer}</div>
+            </div>
+          )}
+
           {/* Boss Frame (when in encounter) */}
           {state.boss && (
-            <div className="mobile-boss-frame">
+            <div className={`mobile-boss-frame ${state.boss.isFrenzied || state.boss.hasDeadenMagic ? 'frenzied' : ''}`}>
               <div className="mobile-boss-name">
                 {state.boss.name}
+                {state.boss.isFrenzied && <span className="frenzy-indicator"> FRENZY!</span>}
+                {state.boss.hasDeadenMagic && <span className="frenzy-indicator"> DEADEN MAGIC!</span>}
                 {state.boss.currentPhase && state.boss.currentPhase > 1 && (
                   <span className="phase-indicator"> P{state.boss.currentPhase}</span>
                 )}
@@ -2806,7 +3453,7 @@ function App() {
                           <button
                             key={enc.id}
                             className={`mobile-boss-btn ${isDefeated ? 'defeated' : ''} ${isLocked ? 'locked' : ''}`}
-                            onClick={() => engine.startEncounter(enc.id)}
+                            onClick={() => handleEncounterSelect(enc.id)}
                             disabled={isDefeated || isLocked}
                           >
                             {idx + 1}. {enc.name.split(' ')[0]}
@@ -2909,13 +3556,22 @@ function App() {
                               ? livingBombDebuff.duration <= 3 ? 'critical' : livingBombDebuff.duration <= 5 ? 'urgent' : ''
                               : '';
 
+                            // Inferno detection for mobile (red glow)
+                            const hasInferno = member.debuffs.some(d => d.id === 'inferno');
+
+                            // Mind Control detection for mobile (purple glow)
+                            const hasMindControl = member.debuffs.some(d => d.isMindControl);
+
+                            // Lava Bomb detection for mobile (orange glow)
+                            const hasLavaBomb = member.debuffs.some(d => d.id === 'lava_bomb');
+
                             // Skip if evacuated on mobile too
                             if (evacuatedMembers.has(member.id)) return null;
 
                             return (
                               <div
                                 key={member.id}
-                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''}`}
+                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''}`}
                                 onClick={() => {
                                   if (state.isRunning) {
                                     // In mouseover mode, don't select target on click
@@ -3294,6 +3950,33 @@ function App() {
                 </span>
               )}
             </div>
+            {/* Legendary material notification - EPIC MOMENT! */}
+            {state.lastObtainedLegendaryMaterial && (
+              <div className="legendary-item-obtained">
+                <img
+                  src={LEGENDARY_MATERIALS[state.lastObtainedLegendaryMaterial].icon}
+                  alt={LEGENDARY_MATERIALS[state.lastObtainedLegendaryMaterial].name}
+                  className="legendary-item-icon"
+                />
+                <div className="legendary-item-info">
+                  <span className="legendary-item-label">LEGENDARY!</span>
+                  <span className="legendary-item-name legendary-text">
+                    {LEGENDARY_MATERIALS[state.lastObtainedLegendaryMaterial].name}
+                  </span>
+                  <span className="legendary-item-desc">
+                    {LEGENDARY_MATERIALS[state.lastObtainedLegendaryMaterial].description}
+                  </span>
+                </div>
+                <button
+                  className="legendary-send-to-bag-btn"
+                  onClick={() => {
+                    engine.clearLastObtainedLegendaryMaterial();
+                  }}
+                >
+                  Send to Bag
+                </button>
+              </div>
+            )}
             {/* Quest item notification - dragon heads sent to bag */}
             {state.lastObtainedQuestMaterial && (
               <div className="quest-item-obtained">
@@ -3777,6 +4460,234 @@ function App() {
                 }}
               >
                 {confirmDialog.confirmLabel || 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Golemagg Tank Assignment Modal */}
+      {showGolemaggTankModal && (
+        <div className="modal-overlay" onClick={() => setShowGolemaggTankModal(false)}>
+          <div className="tank-assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="tank-modal-header">
+              <h2>Golemagg Tank Assignment</h2>
+              <button className="close-inspection" onClick={() => setShowGolemaggTankModal(false)}>X</button>
+            </div>
+            <div className="tank-modal-content">
+              <p className="tank-modal-description">
+                This fight requires <strong>3 tanks</strong>. Two tanks will swap on Golemagg when Magma Splash stacks too high,
+                while one tank handles both Core Ragers.
+              </p>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">🛡️</span>
+                  Golemagg Tank 1 (Main):
+                </label>
+                <select
+                  value={golemaggTank1}
+                  onChange={e => setGolemaggTank1(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.role === 'tank' && m.isAlive)
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={t.id === golemaggTank2 || t.id === coreRagerTank}>
+                        {t.name} ({t.class})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">🔄</span>
+                  Golemagg Tank 2 (Swap):
+                </label>
+                <select
+                  value={golemaggTank2}
+                  onChange={e => setGolemaggTank2(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.role === 'tank' && m.isAlive)
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={t.id === golemaggTank1 || t.id === coreRagerTank}>
+                        {t.name} ({t.class})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">🐕</span>
+                  Core Rager Tank (Dogs):
+                </label>
+                <select
+                  value={coreRagerTank}
+                  onChange={e => setCoreRagerTank(e.target.value)}
+                >
+                  <option value="">-- Select Warrior --</option>
+                  {state.raid
+                    .filter(m => m.class === 'warrior' && m.isAlive)
+                    .map(w => (
+                      <option key={w.id} value={w.id} disabled={w.id === golemaggTank1 || w.id === golemaggTank2}>
+                        {w.name} ({w.role === 'tank' ? 'Tank' : 'DPS'})
+                      </option>
+                    ))}
+                </select>
+                <p className="tank-role-hint">Can be a DPS Warrior temporarily assigned as off-tank</p>
+              </div>
+            </div>
+            <div className="tank-modal-actions">
+              <button
+                className="tank-modal-cancel"
+                onClick={() => setShowGolemaggTankModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="tank-modal-start"
+                onClick={startGolemaggWithTanks}
+                disabled={!golemaggTank1 || !golemaggTank2 || !coreRagerTank}
+              >
+                Start Fight
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Majordomo Tank Assignment Modal */}
+      {showMajordomoTankModal && (
+        <div className="modal-overlay" onClick={() => setShowMajordomoTankModal(false)}>
+          <div className="tank-assignment-modal majordomo-tank-modal" onClick={e => e.stopPropagation()}>
+            <div className="tank-modal-header">
+              <h2>Majordomo Tank Assignment</h2>
+              <button className="close-inspection" onClick={() => setShowMajordomoTankModal(false)}>X</button>
+            </div>
+            <div className="tank-modal-content">
+              <p className="tank-modal-description">
+                This fight requires <strong>5 tanks</strong>. Majordomo himself cannot be attacked - kill all 8 adds to win.
+                Each add tank will handle 2 adds. Warriors and Feral Druids can serve as temporary tanks.
+              </p>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">👑</span>
+                  Majordomo Tank (Teleport):
+                </label>
+                <select
+                  value={majordomoTank}
+                  onChange={e => setMajordomoTank(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.role === 'tank' && m.isAlive)
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={[majordomoAddTank1, majordomoAddTank2, majordomoAddTank3, majordomoAddTank4].includes(t.id)}>
+                        {t.name} ({t.class})
+                      </option>
+                    ))}
+                </select>
+                <p className="tank-role-hint">Gets Teleported into fire pit periodically</p>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">⚔️</span>
+                  Add Tank 1 (Adds 1 & 2):
+                </label>
+                <select
+                  value={majordomoAddTank1}
+                  onChange={e => setMajordomoAddTank1(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank2, majordomoAddTank3, majordomoAddTank4].includes(t.id)}>
+                        {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">⚔️</span>
+                  Add Tank 2 (Adds 3 & 4):
+                </label>
+                <select
+                  value={majordomoAddTank2}
+                  onChange={e => setMajordomoAddTank2(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank1, majordomoAddTank3, majordomoAddTank4].includes(t.id)}>
+                        {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">⚔️</span>
+                  Add Tank 3 (Adds 5 & 6):
+                </label>
+                <select
+                  value={majordomoAddTank3}
+                  onChange={e => setMajordomoAddTank3(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank1, majordomoAddTank2, majordomoAddTank4].includes(t.id)}>
+                        {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">⚔️</span>
+                  Add Tank 4 (Adds 7 & 8):
+                </label>
+                <select
+                  value={majordomoAddTank4}
+                  onChange={e => setMajordomoAddTank4(e.target.value)}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
+                    .map(t => (
+                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank1, majordomoAddTank2, majordomoAddTank3].includes(t.id)}>
+                        {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+            <div className="tank-modal-actions">
+              <button
+                className="tank-modal-cancel"
+                onClick={() => setShowMajordomoTankModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="tank-modal-start"
+                onClick={startMajordomoWithTanks}
+                disabled={!majordomoTank || !majordomoAddTank1 || !majordomoAddTank2 || !majordomoAddTank3 || !majordomoAddTank4}
+              >
+                Start Fight
               </button>
             </div>
           </div>
@@ -5258,16 +6169,31 @@ function App() {
                           <div
                             key={mat.id}
                             className={`admin-legendary-item ${hasIt ? 'owned' : ''}`}
-                            onClick={() => engine.adminToggleLegendaryMaterial(mat.id)}
                           >
-                            <img src={mat.icon} alt={mat.name} className="legendary-icon" />
-                            <div className="legendary-info">
+                            <img
+                              src={mat.icon}
+                              alt={mat.name}
+                              className="legendary-icon"
+                              onClick={() => engine.adminToggleLegendaryMaterial(mat.id)}
+                            />
+                            <div className="legendary-info" onClick={() => engine.adminToggleLegendaryMaterial(mat.id)}>
                               <span className="legendary-name" style={{ color: RARITY_COLORS.legendary }}>{mat.name}</span>
                               <span className="legendary-desc">{mat.description}</span>
                             </div>
-                            <span className={`legendary-status ${hasIt ? 'owned' : 'missing'}`}>
-                              {hasIt ? 'Owned' : 'Not Owned'}
-                            </span>
+                            <div className="legendary-actions">
+                              <span className={`legendary-status ${hasIt ? 'owned' : 'missing'}`}>
+                                {hasIt ? 'Owned' : 'Not Owned'}
+                              </span>
+                              <button
+                                className="test-legendary-btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  engine.adminTestLegendaryDrop(mat.id);
+                                }}
+                              >
+                                Test Drop
+                              </button>
+                            </div>
                           </div>
                         );
                       })}

@@ -363,6 +363,128 @@ body {
   color: #888;
 }
 
+/* ============================================= */
+/* SULFURON MULTI-ADD HEALTH BARS               */
+/* ============================================= */
+
+.sulfuron-adds-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.add-health-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-health-bar.dead {
+  opacity: 0.4;
+}
+
+.add-health-bar.dead .add-health-fill {
+  background: linear-gradient(180deg, #444 0%, #333 100%) !important;
+}
+
+.add-name {
+  width: 55px;
+  font-size: 10px;
+  color: #ff6600;
+  text-shadow: 1px 1px 2px #000;
+  white-space: nowrap;
+}
+
+.add-health-bg {
+  flex: 1;
+  height: 14px;
+  background: #1a0a0a;
+  border: 1px solid #333;
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.add-health-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #cc3300 0%, #991100 100%);
+  transition: width 0.1s ease;
+}
+
+.add-health-fill.sulfuron-fill {
+  background: linear-gradient(180deg, #cc0000 0%, #880000 100%);
+}
+
+/* Majordomo Magic Reflection - Blue health bars during shield */
+.add-health-bar.magic-reflection {
+  animation: magic-reflection-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes magic-reflection-pulse {
+  from { box-shadow: 0 0 4px #4488ff; }
+  to { box-shadow: 0 0 10px #66aaff; }
+}
+
+.add-health-fill.magic-reflection-fill {
+  background: linear-gradient(180deg, #4488ff 0%, #2266cc 100%) !important;
+}
+
+/* Majordomo container - 2 columns of 4 adds */
+.majordomo-adds-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.majordomo-adds-container .sulfuron-main-health-bar {
+  grid-column: span 2;
+}
+
+/* Make add names wider in Majordomo to fit "Elite 1" / "Healer 1" */
+.majordomo-adds-container .add-name {
+  width: 50px;
+  font-size: 9px;
+}
+
+.add-health-text {
+  width: 45px;
+  font-size: 10px;
+  text-align: right;
+  color: #fff;
+  text-shadow: 1px 1px 2px #000;
+}
+
+.sulfuron-main-health-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid #333;
+}
+
+.sulfuron-main-health-bar .add-name {
+  color: #ff4444;
+  font-weight: bold;
+}
+
+.sulfuron-main-health-bar.inactive {
+  opacity: 0.5;
+}
+
+.sulfuron-main-health-bar.inactive .add-health-fill {
+  background: linear-gradient(180deg, #555 0%, #444 100%);
+}
+
+.sulfuron-main-health-bar.inactive .add-health-text {
+  color: #888;
+}
+
 /* Raid Grid */
 .raid-grid {
   display: grid;
@@ -475,6 +597,305 @@ body {
   50% { transform: translateX(-2px); }
   75% { transform: translateX(2px); }
   100% { transform: translateX(0); }
+}
+
+/* ============================================= */
+/* INFERNO DEBUFF EFFECT (Baron Geddon)         */
+/* ============================================= */
+
+/* Inferno frame - pulsing red glow for players who forgot to move */
+.raid-frame.has-inferno {
+  border-color: #ff0000 !important;
+  box-shadow: 0 0 15px rgba(255, 0, 0, 0.9), inset 0 0 10px rgba(255, 0, 0, 0.4);
+  animation: inferno-pulse 0.5s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes inferno-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.7), inset 0 0 8px rgba(255, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 50, 0, 1), inset 0 0 15px rgba(255, 50, 0, 0.5);
+  }
+}
+
+/* Inferno raid warning - similar to living bomb but different color */
+.inferno-warning {
+  position: fixed;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(100, 0, 0, 0.95) 0%, rgba(50, 0, 0, 0.95) 100%);
+  border: 3px solid #ff3300;
+  border-radius: 8px;
+  padding: 16px 32px;
+  z-index: 2000;
+  pointer-events: none;
+  animation: inferno-warning-flash 0.4s ease-in-out infinite;
+}
+
+.inferno-warning-text {
+  color: #ff6600;
+  font-size: 28px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px rgba(255, 100, 0, 0.8), 0 0 40px rgba(255, 50, 0, 0.6);
+  text-align: center;
+}
+
+@keyframes inferno-warning-flash {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 50, 0, 0.6), inset 0 0 10px rgba(255, 50, 0, 0.2);
+    border-color: #ff3300;
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 100, 0, 0.9), inset 0 0 20px rgba(255, 100, 0, 0.3);
+    border-color: #ff6600;
+  }
+}
+
+/* ============================================= */
+/* MIND CONTROL EFFECT (Lucifron - Dominate Mind)*/
+/* ============================================= */
+
+/* Mind Control frame - pulsing purple glow */
+.raid-frame.has-mind-control {
+  border-color: #9932cc !important;
+  box-shadow: 0 0 15px rgba(153, 50, 204, 0.9), inset 0 0 10px rgba(153, 50, 204, 0.4);
+  animation: mind-control-pulse 0.6s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes mind-control-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(153, 50, 204, 0.7), inset 0 0 8px rgba(153, 50, 204, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(180, 80, 255, 1), inset 0 0 15px rgba(180, 80, 255, 0.5);
+  }
+}
+
+/* Mind Control raid warning */
+.mind-control-warning {
+  position: fixed;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(60, 0, 80, 0.95) 0%, rgba(30, 0, 40, 0.95) 100%);
+  border: 3px solid #9932cc;
+  border-radius: 8px;
+  padding: 16px 32px;
+  z-index: 2000;
+  pointer-events: none;
+  animation: mind-control-warning-flash 0.4s ease-in-out infinite;
+}
+
+.mind-control-warning-text {
+  color: #cc66ff;
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(180, 80, 255, 0.8), 0 0 40px rgba(153, 50, 204, 0.6);
+  text-align: center;
+}
+
+.mind-control-warning-sub {
+  color: #ff6666;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 8px;
+  text-shadow: 0 0 10px rgba(255, 100, 100, 0.6);
+}
+
+@keyframes mind-control-warning-flash {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(153, 50, 204, 0.6), inset 0 0 10px rgba(153, 50, 204, 0.2);
+    border-color: #9932cc;
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(180, 80, 255, 0.9), inset 0 0 20px rgba(180, 80, 255, 0.3);
+    border-color: #cc66ff;
+  }
+}
+
+/* ============================================= */
+/* LAVA BOMB EFFECT (Magmadar)                  */
+/* ============================================= */
+
+/* Lava Bomb frame - pulsing orange glow for players who didn't move */
+.raid-frame.has-lava-bomb {
+  border-color: #ff6600 !important;
+  box-shadow: 0 0 15px rgba(255, 102, 0, 0.9), inset 0 0 10px rgba(255, 102, 0, 0.4);
+  animation: lava-bomb-pulse 0.5s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes lava-bomb-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 102, 0, 0.7), inset 0 0 8px rgba(255, 102, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 150, 50, 1), inset 0 0 15px rgba(255, 150, 50, 0.5);
+  }
+}
+
+/* Lava Bomb raid warning */
+.lava-bomb-warning {
+  position: fixed;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(100, 50, 0, 0.95) 0%, rgba(50, 25, 0, 0.95) 100%);
+  border: 3px solid #ff6600;
+  border-radius: 8px;
+  padding: 16px 32px;
+  z-index: 2000;
+  pointer-events: none;
+  animation: lava-bomb-warning-flash 0.4s ease-in-out infinite;
+}
+
+.lava-bomb-warning-text {
+  color: #ffaa00;
+  font-size: 28px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px rgba(255, 150, 0, 0.8), 0 0 40px rgba(255, 100, 0, 0.6);
+  text-align: center;
+}
+
+@keyframes lava-bomb-warning-flash {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 100, 0, 0.6), inset 0 0 10px rgba(255, 100, 0, 0.2);
+    border-color: #ff6600;
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 150, 0, 0.9), inset 0 0 20px rgba(255, 150, 0, 0.3);
+    border-color: #ffaa00;
+  }
+}
+
+/* ============================================= */
+/* TANK SWAP WARNING (Golemagg)                 */
+/* ============================================= */
+
+.tank-swap-warning {
+  position: fixed;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(80, 40, 0, 0.95) 0%, rgba(40, 20, 0, 0.95) 100%);
+  border: 3px solid #ff6600;
+  border-radius: 8px;
+  padding: 14px 28px;
+  z-index: 2000;
+  pointer-events: none;
+  animation: tank-swap-flash 0.5s ease-in-out infinite;
+}
+
+.tank-swap-warning.tank-swap-swap {
+  border-color: #44ff44;
+  background: linear-gradient(180deg, rgba(20, 60, 20, 0.95) 0%, rgba(10, 40, 10, 0.95) 100%);
+  animation: tank-swap-success 0.3s ease-out;
+}
+
+.tank-swap-warning.tank-swap-late_swap {
+  border-color: #ff4444;
+  background: linear-gradient(180deg, rgba(80, 20, 20, 0.95) 0%, rgba(50, 10, 10, 0.95) 100%);
+  animation: tank-swap-late 0.3s ease-in-out infinite;
+}
+
+.tank-swap-warning-text {
+  color: #ff9944;
+  font-size: 24px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 15px rgba(255, 150, 0, 0.8), 0 0 30px rgba(255, 100, 0, 0.6);
+  text-align: center;
+}
+
+.tank-swap-warning.tank-swap-swap .tank-swap-warning-text {
+  color: #88ff88;
+  text-shadow: 0 0 15px rgba(100, 255, 100, 0.8);
+}
+
+.tank-swap-warning.tank-swap-late_swap .tank-swap-warning-text {
+  color: #ff8888;
+  text-shadow: 0 0 15px rgba(255, 100, 100, 0.8);
+}
+
+@keyframes tank-swap-flash {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 100, 0, 0.6);
+    border-color: #ff6600;
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 150, 0, 0.9);
+    border-color: #ffaa00;
+  }
+}
+
+@keyframes tank-swap-success {
+  0% {
+    transform: translateX(-50%) scale(1.1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes tank-swap-late {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(255, 50, 50, 0.7);
+    border-color: #ff4444;
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 100, 100, 0.9);
+    border-color: #ff6666;
+  }
+}
+
+/* ============================================= */
+/* BOSS FRENZY EFFECT (Magmadar)                */
+/* ============================================= */
+
+/* Boss frame with frenzy - pulsing red glow */
+.boss-frame.frenzied,
+.mobile-boss-frame.frenzied {
+  border-color: #ff0000 !important;
+  box-shadow: 0 0 20px rgba(255, 0, 0, 0.8), inset 0 0 15px rgba(255, 0, 0, 0.3);
+  animation: boss-frenzy-pulse 0.3s ease-in-out infinite;
+}
+
+@keyframes boss-frenzy-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.7), inset 0 0 10px rgba(255, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 50, 0, 1), inset 0 0 20px rgba(255, 50, 0, 0.4);
+  }
+}
+
+/* Frenzy indicator text */
+.frenzy-indicator {
+  color: #ff3300;
+  font-size: 14px;
+  font-weight: bold;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 50, 0, 0.8), 0 0 20px rgba(255, 0, 0, 0.6);
+  animation: frenzy-text-pulse 0.3s ease-in-out infinite;
+}
+
+@keyframes frenzy-text-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* Safe Zone container */
@@ -829,6 +1250,24 @@ body {
 .debuff-icon.debuff-curse {
   background: #4a2a4a;
   border-color: #a4a;
+}
+
+.debuff-icon.debuff-physical {
+  background: #3a3a3a;
+  border-color: #888;
+}
+
+/* Stacking debuffs (like Magma Splash) */
+.debuff-icon.has-stacks {
+  background: linear-gradient(180deg, #5a2a0a 0%, #3a1a05 100%);
+  border-color: #ff6600;
+  box-shadow: 0 0 6px rgba(255, 102, 0, 0.6);
+}
+
+.debuff-stacks {
+  font-weight: bold;
+  color: #ff9944;
+  text-shadow: 0 0 4px #000, 0 0 8px rgba(255, 102, 0, 0.8);
 }
 
 /* Encounter Select */
@@ -3277,6 +3716,166 @@ body {
   color: #ffaaaa;
 }
 
+/* ===========================
+   GOLEMAGG TANK ASSIGNMENT MODAL
+   =========================== */
+
+.tank-assignment-modal {
+  position: relative;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border: 3px solid #ff6600;
+  border-radius: 8px;
+  padding: 0;
+  width: 420px;
+  max-width: 95vw;
+  box-shadow: 0 0 60px rgba(255, 102, 0, 0.4), 0 0 20px rgba(255, 102, 0, 0.2);
+  animation: dialog-pop-in 0.2s ease;
+  z-index: 10001;
+}
+
+.tank-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #4a2a0a 0%, #2a1a05 100%);
+  border-bottom: 2px solid #ff6600;
+  border-radius: 5px 5px 0 0;
+}
+
+.tank-modal-header h2 {
+  margin: 0;
+  color: #ff9944;
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(255, 102, 0, 0.5);
+}
+
+.tank-modal-content {
+  padding: 20px;
+}
+
+.tank-modal-description {
+  color: #ccc;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  border: 1px solid #3a3a4a;
+  border-radius: 4px;
+}
+
+.tank-modal-description strong {
+  color: #ff9944;
+}
+
+.tank-assignment-row {
+  margin-bottom: 16px;
+}
+
+.tank-assignment-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffd700;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.tank-role-icon {
+  font-size: 16px;
+}
+
+.tank-assignment-row select {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+  border: 2px solid #4a4a5a;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tank-assignment-row select:hover {
+  border-color: #6a6a7a;
+}
+
+.tank-assignment-row select:focus {
+  outline: none;
+  border-color: #ff9944;
+  box-shadow: 0 0 10px rgba(255, 153, 68, 0.3);
+}
+
+.tank-assignment-row select option {
+  background: #1a1a2e;
+  color: #fff;
+  padding: 8px;
+}
+
+.tank-assignment-row select option:disabled {
+  color: #666;
+  font-style: italic;
+}
+
+.tank-role-hint {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+}
+
+.tank-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+  border-top: 2px solid #3a3a4a;
+  border-radius: 0 0 5px 5px;
+}
+
+.tank-modal-cancel,
+.tank-modal-start {
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.tank-modal-cancel {
+  background: linear-gradient(180deg, #3a3a4a 0%, #2a2a3a 100%);
+  border: 2px solid #5a5a6a;
+  color: #ccc;
+}
+
+.tank-modal-cancel:hover {
+  background: linear-gradient(180deg, #4a4a5a 0%, #3a3a4a 100%);
+  color: #fff;
+}
+
+.tank-modal-start {
+  background: linear-gradient(180deg, #4a6a2a 0%, #3a5a1a 100%);
+  border: 2px solid #6a8a4a;
+  color: #aaffaa;
+}
+
+.tank-modal-start:hover:not(:disabled) {
+  background: linear-gradient(180deg, #5a7a3a 0%, #4a6a2a 100%);
+  border-color: #8aaa6a;
+  color: #ccffcc;
+}
+
+.tank-modal-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @keyframes status-fade-in {
   from {
     opacity: 0;
@@ -5505,6 +6104,31 @@ body {
   color: #888;
 }
 
+.admin-legendary-item .legendary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.test-legendary-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: linear-gradient(180deg, #ff8000 0%, #cc6600 100%);
+  border: 1px solid #ffaa00;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.test-legendary-btn:hover {
+  background: linear-gradient(180deg, #ffaa00 0%, #ff8000 100%);
+  box-shadow: 0 0 8px rgba(255, 128, 0, 0.5);
+}
+
 .legendary-crafting-status {
   display: flex;
   gap: 20px;
@@ -6866,6 +7490,100 @@ body {
 .quest-item-obtained .quest-item-sent {
   font-size: 12px;
   color: #ffd100;
+}
+
+/* Legendary Item Drop - EPIC STYLING */
+.legendary-item-obtained {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin: 0 16px 16px 16px;
+  background: linear-gradient(180deg, rgba(255, 128, 0, 0.25) 0%, rgba(180, 80, 0, 0.35) 100%);
+  border: 3px solid #ff8000;
+  border-radius: 8px;
+  animation: legendaryPulse 1.5s ease-in-out infinite;
+  overflow: hidden;
+}
+
+@keyframes legendaryPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 128, 0, 0.6), inset 0 0 20px rgba(255, 128, 0, 0.1);
+    border-color: #ff8000;
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 128, 0, 1), inset 0 0 30px rgba(255, 128, 0, 0.2);
+    border-color: #ffaa00;
+  }
+}
+
+
+.legendary-item-obtained .legendary-item-icon {
+  width: 56px;
+  height: 56px;
+  border: 3px solid #ff8000;
+  border-radius: 6px;
+  box-shadow: 0 0 12px rgba(255, 128, 0, 0.8);
+  z-index: 1;
+}
+
+.legendary-item-obtained .legendary-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 1;
+}
+
+.legendary-item-obtained .legendary-item-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffcc00;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(255, 200, 0, 0.8);
+  animation: legendaryLabelPulse 1s ease-in-out infinite;
+}
+
+@keyframes legendaryLabelPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.legendary-item-obtained .legendary-item-name {
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 128, 0, 0.8);
+}
+
+.legendary-text {
+  color: #ff8000 !important;
+}
+
+.legendary-item-obtained .legendary-item-desc {
+  font-size: 12px;
+  color: #ffcc88;
+  font-style: italic;
+}
+
+.legendary-send-to-bag-btn {
+  margin-left: auto;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, #ff9900 0%, #cc6600 100%);
+  border: 2px solid #ff8000;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 8px rgba(255, 128, 0, 0.5);
+  transition: all 0.2s;
+}
+
+.legendary-send-to-bag-btn:hover {
+  background: linear-gradient(180deg, #ffaa22 0%, #dd7700 100%);
+  box-shadow: 0 0 12px rgba(255, 128, 0, 0.8);
 }
 
 /* Phase Transition Alert */
@@ -8972,6 +9690,20 @@ body {
   border-color: #00d4ff;
   border-width: 2px;
   box-shadow: 0 0 6px rgba(0, 212, 255, 0.7);
+}
+
+.mobile-raid-frame.has-inferno {
+  border-color: #ff0000;
+  border-width: 2px;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
+  animation: inferno-pulse 0.5s ease-in-out infinite;
+}
+
+.mobile-raid-frame.has-lava-bomb {
+  border-color: #ff6600;
+  border-width: 2px;
+  box-shadow: 0 0 10px rgba(255, 102, 0, 0.8);
+  animation: lava-bomb-pulse 0.5s ease-in-out infinite;
 }
 
 .mobile-frame-health {

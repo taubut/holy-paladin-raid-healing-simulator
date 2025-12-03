@@ -9,16 +9,27 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_nightofthedead.jpg',
     maxDuration: 10,
     type: 'magic',
-    damagePerTick: 200, // Ticks once at end for big damage if not dispelled
-    tickInterval: 10,
+    damagePerTick: 0, // No tick damage - explodes at the end
+    explodesOnExpiry: true, // Explodes for 2000 shadow damage if not dispelled
+    explosionDamage: 2000,
   },
   lucifrons_curse: {
     id: 'lucifrons_curse',
     name: "Lucifron's Curse",
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_blackplague.jpg',
-    maxDuration: 15,
+    maxDuration: 20,
     type: 'curse',
-    damagePerTick: 0, // No damage, but represents mana cost increase
+    damagePerTick: 0, // No damage, but doubles mana costs - MUST dispel!
+    increasesManaCost: true, // Special flag for mana cost doubling
+  },
+  dominate_mind: {
+    id: 'dominate_mind',
+    name: 'Dominate Mind',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowworddominate.jpg',
+    maxDuration: 15,
+    type: 'magic',
+    damagePerTick: 0, // MC'd player attacks raid members
+    isMindControl: true, // Special flag for mind control behavior
   },
   // Magmadar
   panic: {
@@ -28,15 +39,48 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 0, // Fear effect - no healing during this
+    targetZones: ['melee', 'tank'] as const, // Only hits melee and tanks, not ranged healers
+  },
+  lava_bomb: {
+    id: 'lava_bomb',
+    name: 'Lava Bomb',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_selfdestruct.jpg',
+    maxDuration: 8,
+    type: 'magic',
+    dispellable: false, // Cannot be dispelled!
+    damagePerTick: 400, // 3200 total over 8 seconds = 400 per tick
+    tickInterval: 1,
+  },
+  magma_spit: {
+    id: 'magma_spit',
+    name: 'Magma Spit',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_meteorstorm.jpg',
+    maxDuration: 30,
+    type: 'magic',
+    damagePerTick: 75, // 75 fire damage every 3 seconds
+    tickInterval: 3,
+    damageType: 'fire' as const,
+    maxStacks: 3, // Can stack up to 3 times
+    targetZones: ['melee'] as const, // Only hits melee
+  },
+  frenzy: {
+    id: 'frenzy',
+    name: 'Frenzy',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_challangingroar.jpg',
+    maxDuration: 10, // Lasts until Tranq Shot (simulated after 2 seconds)
+    type: 'enrage', // Special type - applied to boss, not raid
+    damagePerTick: 0,
+    isBossDebuff: true, // This goes on the boss, not raid members
   },
   // Gehennas
   gehennas_curse: {
     id: 'gehennas_curse',
     name: "Gehennas' Curse",
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_curseofmannoroth.jpg',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_gathershadows.jpg',
     maxDuration: 30,
     type: 'curse',
-    damagePerTick: 0, // Reduces healing received by 75% - simulated as DoT
+    damagePerTick: 0,
+    healingReduction: 0.75, // Reduces ALL healing effects by 75%
   },
   rain_of_fire: {
     id: 'rain_of_fire',
@@ -44,28 +88,72 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_rainoffire.jpg',
     maxDuration: 6,
     type: 'magic',
-    damagePerTick: 150,
-    tickInterval: 1,
+    dispellable: false, // Cannot be dispelled!
+    damagePerTick: 700, // 700 damage every 2 seconds
+    tickInterval: 2,
+    damageType: 'fire' as const,
+  },
+  shadow_bolt: {
+    id: 'shadow_bolt',
+    name: 'Shadow Bolt',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowbolt.jpg',
+    maxDuration: 0, // Instant damage, no debuff
+    type: 'magic',
+    damagePerTick: 0,
   },
   // Garr
   magma_shackles: {
     id: 'magma_shackles',
     name: 'Magma Shackles',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball.jpg',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_earthbind.jpg',
     maxDuration: 15,
     type: 'magic',
     damagePerTick: 80,
     tickInterval: 3,
   },
+  eruption: {
+    id: 'eruption',
+    name: 'Eruption',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+    maxDuration: 0,
+    type: 'magic',
+    damagePerTick: 0,
+  },
+  antimagic_pulse: {
+    id: 'antimagic_pulse',
+    name: 'Antimagic Pulse',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_dispelmagic.jpg',
+    maxDuration: 0,
+    type: 'magic',
+    damagePerTick: 0,
+  },
   // Shazzrah
   shazzrahs_curse: {
     id: 'shazzrahs_curse',
     name: "Shazzrah's Curse",
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_curseofsargeras.jpg',
-    maxDuration: 20,
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_antishadow.jpg',
+    maxDuration: 300, // 5 minutes
     type: 'curse',
-    damagePerTick: 100, // Increases magic damage taken - simulated as DoT
-    tickInterval: 2,
+    damagePerTick: 0,
+    increasesMagicDamageTaken: 2.0, // DOUBLES magic damage taken
+  },
+  arcane_explosion: {
+    id: 'arcane_explosion',
+    name: 'Arcane Explosion',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_wispsplode.jpg',
+    maxDuration: 0, // Instant damage
+    type: 'magic',
+    damagePerTick: 0,
+  },
+  deaden_magic: {
+    id: 'deaden_magic',
+    name: 'Deaden Magic',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofsalvation.jpg',
+    maxDuration: 30,
+    type: 'magic', // Can be dispelled by priest or purged by shaman
+    damagePerTick: 0,
+    isBossDebuff: true, // This goes on the boss
+    reducesMagicDamage: 0.5, // Reduces magic damage Shazzrah takes by 50%
   },
   // Baron Geddon
   living_bomb: {
@@ -87,6 +175,16 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     damagePerTick: 200, // Burns mana and deals damage
     tickInterval: 1,
   },
+  inferno: {
+    id: 'inferno',
+    name: 'Inferno',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    maxDuration: 8,
+    type: 'magic',
+    dispellable: false, // Cannot be dispelled
+    damagePerTick: 1000, // 1000 fire damage per second
+    tickInterval: 1,
+  },
   // Sulfuron
   shadow_word_pain: {
     id: 'shadow_word_pain',
@@ -100,29 +198,48 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   hand_of_ragnaros: {
     id: 'hand_of_ragnaros',
     name: 'Hand of Ragnaros',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball02.jpg',
-    maxDuration: 4,
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball.jpg',
+    maxDuration: 2, // 2 second stun
     type: 'magic',
     damagePerTick: 0, // Stun effect
+  },
+  immolate: {
+    id: 'immolate',
+    name: 'Immolate',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_immolation.jpg',
+    maxDuration: 3,
+    type: 'magic',
+    damagePerTick: 133, // ~400 over 3 seconds
+    tickInterval: 1,
+    damageType: 'fire' as const,
   },
   // Golemagg
   magma_splash: {
     id: 'magma_splash',
     name: 'Magma Splash',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fire.jpg',
-    maxDuration: 10,
-    type: 'magic',
-    damagePerTick: 100, // Stacking armor debuff simulated as DoT
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_immolation.jpg',
+    maxDuration: 30, // Stacks last a while
+    type: 'physical', // NOT dispellable
+    damagePerTick: 150, // Per stack - stacking DoT
     tickInterval: 2,
   },
-  pyroblast: {
-    id: 'pyroblast',
+  golemagg_pyroblast: {
+    id: 'golemagg_pyroblast',
     name: 'Pyroblast',
     icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball02.jpg',
     maxDuration: 12,
-    type: 'magic',
-    damagePerTick: 175,
+    type: 'magic', // Dispellable
+    damagePerTick: 200,
     tickInterval: 3,
+  },
+  mangle: {
+    id: 'mangle',
+    name: 'Mangle',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_mangle2.jpg',
+    maxDuration: 20,
+    type: 'physical', // NOT dispellable
+    damagePerTick: 300,
+    tickInterval: 2,
   },
   // Majordomo
   blast_wave: {
@@ -133,6 +250,32 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     type: 'magic',
     damagePerTick: 200,
     tickInterval: 1,
+  },
+  majordomo_teleport: {
+    id: 'majordomo_teleport',
+    name: 'Teleport',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_blink.jpg',
+    maxDuration: 5,
+    type: 'magic',
+    damagePerTick: 350, // Fire damage in the pit
+    tickInterval: 1,
+    damageType: 'fire' as const,
+  },
+  majordomo_shadow_shock: {
+    id: 'majordomo_shadow_shock',
+    name: 'Shadow Shock',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowbolt.jpg',
+    maxDuration: 0, // Instant damage
+    type: 'magic',
+    damagePerTick: 0,
+  },
+  majordomo_fire_blast: {
+    id: 'majordomo_fire_blast',
+    name: 'Fire Blast',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball.jpg',
+    maxDuration: 0, // Instant damage
+    type: 'magic',
+    damagePerTick: 0,
   },
   // Ragnaros
   elemental_fire: {
@@ -554,7 +697,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
 // Molten Core encounters with authentic abilities
 export const ENCOUNTERS: Boss[] = [
   // Boss 1: Lucifron
-  // Signature: Impending Doom (dispel or take big damage), Lucifron's Curse (mana drain curse)
+  // Signature: Impending Doom (dispel or take big damage), Lucifron's Curse (doubles mana costs), Dominate Mind
   {
     id: 'lucifron',
     name: 'Lucifron',
@@ -563,13 +706,14 @@ export const ENCOUNTERS: Boss[] = [
     enrageTimer: 180,
     damageEvents: [
       { type: 'tank_damage', damage: 600, interval: 2, damageType: 'shadow' }, // Shadow Shock on tank
-      { type: 'debuff', damage: 0, interval: 15, debuffId: 'impending_doom' }, // Must dispel!
-      { type: 'debuff', damage: 0, interval: 20, debuffId: 'lucifrons_curse' }, // Curse on random
+      { type: 'debuff', damage: 0, interval: 12, debuffId: 'impending_doom' }, // Must dispel!
+      { type: 'debuff', damage: 0, interval: 20, debuffId: 'lucifrons_curse', targetCount: 3 }, // Curse on 3 random - doubles mana costs!
+      { type: 'debuff', damage: 0, interval: 18, debuffId: 'dominate_mind' }, // Mind control a player!
       { type: 'raid_damage', damage: 150, interval: 8, targetCount: 5, damageType: 'shadow' }, // Shadow Shock cleave
     ],
   },
   // Boss 2: Magmadar
-  // Signature: Panic (mass fear), Lava Bomb (fire patches), Frenzy (tank buster)
+  // Signature: Panic (mass fear on melee/tanks), Lava Bomb (undispellable fire DoT), Frenzy (tank buster), Magma Spit (melee stacking DoT)
   {
     id: 'magmadar',
     name: 'Magmadar',
@@ -578,14 +722,14 @@ export const ENCOUNTERS: Boss[] = [
     enrageTimer: 240,
     damageEvents: [
       { type: 'tank_damage', damage: 900, interval: 2 }, // Normal melee (physical)
-      { type: 'tank_damage', damage: 1800, interval: 25 }, // Frenzy burst (physical)
-      { type: 'debuff', damage: 0, interval: 30, debuffId: 'panic' }, // Mass fear
-      { type: 'raid_damage', damage: 350, interval: 8, targetCount: 8, damageType: 'fire' }, // Lava Bomb AoE
-      { type: 'random_target', damage: 500, interval: 6, damageType: 'fire' }, // Lava Bomb direct
+      { type: 'frenzy', damage: 0, interval: 25 }, // Frenzy - increases tank damage, hunters Tranq Shot after 2s
+      { type: 'debuff', damage: 0, interval: 25, debuffId: 'panic', targetCount: 15 }, // Mass fear on melee/tanks (not healers)
+      { type: 'lava_bomb', damage: 0, interval: 12 }, // Lava Bomb - undispellable DoT, random chance target doesn't move
+      { type: 'debuff', damage: 0, interval: 8, debuffId: 'magma_spit', targetCount: 2 }, // Magma Spit - stacking DoT on melee
     ],
   },
   // Boss 3: Gehennas
-  // Signature: Gehennas' Curse (75% healing reduction), Rain of Fire, Shadow Bolt
+  // Signature: Gehennas' Curse (75% healing reduction on entire raid), Rain of Fire (5 targets, player didn't move), Shadow Bolt
   {
     id: 'gehennas',
     name: 'Gehennas',
@@ -594,10 +738,9 @@ export const ENCOUNTERS: Boss[] = [
     enrageTimer: 180,
     damageEvents: [
       { type: 'tank_damage', damage: 700, interval: 2 }, // Melee (physical)
-      { type: 'debuff', damage: 0, interval: 12, debuffId: 'gehennas_curse' }, // Healing reduction curse
-      { type: 'debuff', damage: 0, interval: 10, debuffId: 'rain_of_fire' }, // Rain of Fire DoT
+      { type: 'debuff', damage: 0, interval: 15, debuffId: 'gehennas_curse', targetCount: 40 }, // Raid-wide curse - 75% healing reduction
+      { type: 'rain_of_fire', damage: 0, interval: 6 }, // Rain of Fire on 5 targets with "didn't move" mechanic
       { type: 'random_target', damage: 800, interval: 5, damageType: 'shadow' }, // Shadow Bolt
-      { type: 'raid_damage', damage: 250, interval: 8, targetCount: 6, damageType: 'fire' }, // Rain of Fire splash
     ],
   },
   // Boss 4: Garr
@@ -608,32 +751,26 @@ export const ENCOUNTERS: Boss[] = [
     maxHealth: 1500000,
     currentHealth: 1500000,
     enrageTimer: 300,
+    currentPhase: 1,
+    phaseTransitions: [
+      { phase: 2, healthPercent: 88.9, message: 'A Firesworn explodes!' },
+      { phase: 3, healthPercent: 77.8, message: 'A Firesworn explodes!' },
+      { phase: 4, healthPercent: 66.7, message: 'A Firesworn explodes!' },
+      { phase: 5, healthPercent: 55.6, message: 'A Firesworn explodes!' },
+      { phase: 6, healthPercent: 44.4, message: 'A Firesworn explodes!' },
+      { phase: 7, healthPercent: 33.3, message: 'A Firesworn explodes!' },
+      { phase: 8, healthPercent: 22.2, message: 'A Firesworn explodes!' },
+      { phase: 9, healthPercent: 11.1, message: 'The last Firesworn explodes! Garr is vulnerable!' },
+    ],
     damageEvents: [
       { type: 'tank_damage', damage: 800, interval: 2 }, // Melee (physical)
       { type: 'debuff', damage: 0, interval: 15, debuffId: 'magma_shackles' },
-      { type: 'raid_damage', damage: 600, interval: 20, targetCount: 12, damageType: 'fire' }, // Firesworn Explosion
-      { type: 'random_target', damage: 400, interval: 4, damageType: 'fire' }, // Add damage (fire)
-      { type: 'raid_damage', damage: 200, interval: 10, targetCount: 20, damageType: 'arcane' }, // Anti-magic Pulse
+      { type: 'antimagic_pulse', damage: 0, interval: 5 }, // Dispels 1 buff from all raiders
+      { type: 'random_target', damage: 400, interval: 4, damageType: 'fire', activeInPhases: [1, 2, 3, 4, 5, 6, 7, 8] }, // Add damage (fire) - only while adds alive
     ],
   },
-  // Boss 5: Shazzrah
-  // Signature: Blink (teleport + threat wipe), Arcane Explosion, Shazzrah's Curse (magic damage increase)
-  {
-    id: 'shazzrah',
-    name: 'Shazzrah',
-    maxHealth: 850000,
-    currentHealth: 850000,
-    enrageTimer: 180,
-    damageEvents: [
-      { type: 'tank_damage', damage: 500, interval: 1.5 }, // Fast melee (physical)
-      { type: 'debuff', damage: 0, interval: 10, debuffId: 'shazzrahs_curse' }, // Increases magic damage
-      { type: 'raid_damage', damage: 400, interval: 3, targetCount: 10, damageType: 'arcane' }, // Arcane Explosion spam
-      { type: 'tank_damage', damage: 1200, interval: 20 }, // Blink + new tank (physical)
-      { type: 'random_target', damage: 600, interval: 8, damageType: 'arcane' }, // Post-blink chaos
-    ],
-  },
-  // Boss 6: Baron Geddon
-  // Signature: Living Bomb (player explodes), Ignite Mana (mana burn), Inferno (pulsing AoE)
+  // Boss 5: Baron Geddon
+  // Signature: Living Bomb (player explodes), Ignite Mana (mana burn), Inferno (pulsing AoE - melee must move)
   {
     id: 'baron_geddon',
     name: 'Baron Geddon',
@@ -644,59 +781,139 @@ export const ENCOUNTERS: Boss[] = [
       { type: 'tank_damage', damage: 900, interval: 2, damageType: 'fire' }, // Fire elemental melee
       { type: 'debuff', damage: 0, interval: 20, debuffId: 'living_bomb' }, // LIVING BOMB! Run away!
       { type: 'debuff', damage: 0, interval: 15, debuffId: 'ignite_mana' }, // Mana burn
-      { type: 'raid_damage', damage: 500, interval: 10, targetCount: 15, damageType: 'fire' }, // Inferno pulse
-      { type: 'raid_damage', damage: 300, interval: 5, targetCount: 8, damageType: 'fire' }, // Inferno buildup
+      { type: 'inferno', damage: 0, interval: 30, damageType: 'fire' }, // INFERNO - melee must run away!
     ],
   },
-  // Boss 7: Sulfuron Harbinger
-  // Signature: 4 Flamewaker Priests (heal + SW:P), Hand of Ragnaros (stun)
+  // Boss 6: Shazzrah
+  // Signature: Blink (teleport + threat wipe), Arcane Explosion, Shazzrah's Curse (magic damage increase), Deaden Magic
   {
-    id: 'sulfuron',
-    name: 'Sulfuron Harbinger',
-    maxHealth: 1100000,
-    currentHealth: 1100000,
-    enrageTimer: 240,
+    id: 'shazzrah',
+    name: 'Shazzrah',
+    maxHealth: 850000,
+    currentHealth: 850000,
+    enrageTimer: 180,
     damageEvents: [
-      { type: 'tank_damage', damage: 750, interval: 2 }, // Melee (physical)
-      { type: 'debuff', damage: 0, interval: 8, debuffId: 'shadow_word_pain' }, // Priest SW:P
-      { type: 'debuff', damage: 0, interval: 25, debuffId: 'hand_of_ragnaros' }, // Stun tank
-      { type: 'tank_damage', damage: 1500, interval: 25, damageType: 'fire' }, // Dark Strike during stun
-      { type: 'raid_damage', damage: 300, interval: 6, targetCount: 8, damageType: 'fire' }, // Flamewaker damage
-      { type: 'random_target', damage: 450, interval: 5, damageType: 'shadow' }, // Shadow Bolt from priests
+      { type: 'tank_damage', damage: 500, interval: 1.5 }, // Fast melee (physical)
+      { type: 'shazzrah_curse', damage: 0, interval: 10 }, // Applies curse to entire raid - doubles magic damage taken for 5 min
+      { type: 'shazzrah_blink', damage: 800, interval: 10, damageType: 'arcane' }, // Blink every 10s + 800 arcane explosion to ENTIRE raid (1600 if cursed!)
+      { type: 'deaden_magic', damage: 0, interval: 45 }, // Boss gains 50% magic damage reduction buff
     ],
   },
-  // Boss 8: Golemagg the Incinerator
-  // Signature: Magma Splash (stacking armor debuff), Pyroblast, Two Core Rager dogs
+  // Boss 7: Golemagg the Incinerator
+  // Signature: 3-tank fight with tank swapping, Magma Splash stacking debuff, Core Ragers, Earthquake at 10%
   {
     id: 'golemagg',
     name: 'Golemagg the Incinerator',
     maxHealth: 2000000,
     currentHealth: 2000000,
     enrageTimer: 300,
+    requiresTankAssignment: true, // Requires tank assignment modal
+    currentPhase: 1, // 1 = normal, 2 = earthquake phase (<10%)
+    phaseTransitions: [
+      { phase: 2, healthPercent: 10, message: 'Golemagg begins to cause Earthquakes!' },
+    ],
     damageEvents: [
-      { type: 'tank_damage', damage: 800, interval: 2 }, // Melee (physical)
-      { type: 'debuff', damage: 0, interval: 12, debuffId: 'magma_splash' }, // Stacking debuff
-      { type: 'debuff', damage: 0, interval: 18, debuffId: 'pyroblast' }, // Pyroblast DoT
-      { type: 'tank_damage', damage: 1400, interval: 15, damageType: 'fire' }, // Fire damage from stacks
-      { type: 'raid_damage', damage: 400, interval: 10, targetCount: 8 }, // Earthquake (physical)
-      { type: 'random_target', damage: 600, interval: 7, damageType: 'fire' }, // Core Rager fire damage
+      // Golemagg melee on current assigned tank
+      { type: 'tank_damage', damage: 800, interval: 2 },
+
+      // Magma Splash - stacking debuff on Golemagg tanks, triggers tank swap
+      { type: 'golemagg_magma_splash', damage: 0, interval: 3 },
+
+      // Pyroblast - random raid member, instant + DoT
+      { type: 'golemagg_pyroblast', damage: 1500, interval: 18, damageType: 'fire' },
+
+      // Core Rager Mangle - DoT on dog tank
+      { type: 'core_rager_mangle', damage: 0, interval: 8 },
+
+      // Core Rager melee - constant damage on dog tank (2 dogs)
+      { type: 'core_rager_melee', damage: 500, interval: 2 },
+
+      // Earthquake - melee only, phase 2 only (10% health)
+      { type: 'golemagg_earthquake', damage: 1500, interval: 3, activeInPhases: [2] },
+    ],
+  },
+  // Boss 8: Sulfuron Harbinger
+  // Signature: 4 Flamewaker Priests (Dark Mending heal, Immolate, SW:P), Hand of Ragnaros (stun), Inspire
+  // Multi-add fight: All 4 priests visible with separate health bars, must die before Sulfuron is attackable
+  {
+    id: 'sulfuron',
+    name: 'Sulfuron Harbinger',
+    maxHealth: 800000, // Sulfuron's HP (only attackable after priests die)
+    currentHealth: 800000,
+    enrageTimer: 420, // 7 minutes - longer fight with adds
+    currentPhase: 1, // Phase 1 = priests alive, Phase 2 = Sulfuron phase
+    adds: [
+      { id: 'priest1', name: 'Flamewaker Priest', maxHealth: 200000, currentHealth: 200000, isAlive: true },
+      { id: 'priest2', name: 'Flamewaker Priest', maxHealth: 200000, currentHealth: 200000, isAlive: true },
+      { id: 'priest3', name: 'Flamewaker Priest', maxHealth: 200000, currentHealth: 200000, isAlive: true },
+      { id: 'priest4', name: 'Flamewaker Priest', maxHealth: 200000, currentHealth: 200000, isAlive: true },
+    ],
+    phaseTransitions: [
+      { phase: 2, healthPercent: 0, message: 'All Flamewaker Priests are dead! Sulfuron is vulnerable!' },
+    ],
+    damageEvents: [
+      // === SULFURON'S ABILITIES (all phases) ===
+      { type: 'tank_damage', damage: 600, interval: 2 }, // Sulfuron melee (physical)
+      { type: 'hand_of_ragnaros', damage: 900, interval: 12, damageType: 'fire' }, // AoE stun on melee/tanks
+
+      // === PRIEST ABILITIES (phase 1 only - stops when all priests dead) ===
+      { type: 'inspire', damage: 0, interval: 30, activeInPhases: [1] }, // Buff priests +25% damage
+      { type: 'dark_mending', damage: 0, interval: 15, activeInPhases: [1] }, // Interruptable heal
+      { type: 'sulfuron_immolate', damage: 800, interval: 8, damageType: 'fire', activeInPhases: [1] }, // Immolate
+      { type: 'debuff', damage: 0, interval: 10, debuffId: 'shadow_word_pain', activeInPhases: [1] }, // SW:P DoT
     ],
   },
   // Boss 9: Majordomo Executus
-  // Signature: 4 Elites + 4 Healers, Blast Wave, Teleport to fire pit, Magic Reflection
+  // Signature: 4 Flamewaker Elites + 4 Flamewaker Healers, Magic Reflection, Teleport
+  // Majordomo himself is NOT attackable - fight ends when all 8 adds die
+  // 5 tanks required: 1 for Majordomo, 4 for adds (each tanks 2 adds)
   {
     id: 'majordomo',
     name: 'Majordomo Executus',
-    maxHealth: 1600000,
-    currentHealth: 1600000,
-    enrageTimer: 240,
+    maxHealth: 666200, // Majordomo's HP - but he's not attackable!
+    currentHealth: 666200,
+    enrageTimer: 420, // 7 minutes - add fight takes time
+    requiresTankAssignment: true, // Requires 5-tank assignment modal
+    currentPhase: 1, // Phase 1 = adds alive, Phase 2 = victory (Majordomo submits)
+    adds: [
+      // 4 Flamewaker Elites (fire damage, melee)
+      { id: 'elite1', name: 'Flamewaker Elite', maxHealth: 180000, currentHealth: 180000, isAlive: true },
+      { id: 'elite2', name: 'Flamewaker Elite', maxHealth: 180000, currentHealth: 180000, isAlive: true },
+      { id: 'elite3', name: 'Flamewaker Elite', maxHealth: 180000, currentHealth: 180000, isAlive: true },
+      { id: 'elite4', name: 'Flamewaker Elite', maxHealth: 180000, currentHealth: 180000, isAlive: true },
+      // 4 Flamewaker Healers (shadow damage, can heal adds)
+      { id: 'healer1', name: 'Flamewaker Healer', maxHealth: 140000, currentHealth: 140000, isAlive: true },
+      { id: 'healer2', name: 'Flamewaker Healer', maxHealth: 140000, currentHealth: 140000, isAlive: true },
+      { id: 'healer3', name: 'Flamewaker Healer', maxHealth: 140000, currentHealth: 140000, isAlive: true },
+      { id: 'healer4', name: 'Flamewaker Healer', maxHealth: 140000, currentHealth: 140000, isAlive: true },
+    ],
+    phaseTransitions: [
+      { phase: 2, healthPercent: 0, message: 'All adds are dead! Majordomo Executus submits!' },
+    ],
     damageEvents: [
-      { type: 'tank_damage', damage: 700, interval: 2 }, // Elite melee (physical)
-      { type: 'debuff', damage: 0, interval: 10, debuffId: 'blast_wave' }, // Blast Wave
-      { type: 'debuff', damage: 0, interval: 15, debuffId: 'shadow_word_pain' }, // Healer SW:P
-      { type: 'raid_damage', damage: 350, interval: 5, targetCount: 8, damageType: 'fire' }, // Blast Wave fire
-      { type: 'random_target', damage: 800, interval: 12, damageType: 'fire' }, // Teleport fire damage
-      { type: 'tank_damage', damage: 1000, interval: 8 }, // Elite Shield Slam (physical)
+      // === MAJORDOMO'S TELEPORT ===
+      // Teleports his tank into the fire pit - fire damage DoT
+      { type: 'majordomo_teleport', damage: 0, interval: 20 },
+
+      // === FLAMEWAKER ELITE ABILITIES ===
+      // Tank damage from Elites (split across 4 add tanks)
+      { type: 'majordomo_elite_melee', damage: 400, interval: 2 },
+      // Fire Blast - instant fire damage on random targets
+      { type: 'majordomo_fire_blast', damage: 500, interval: 6, damageType: 'fire' },
+
+      // === FLAMEWAKER HEALER ABILITIES ===
+      // Shadow Shock - instant shadow damage
+      { type: 'majordomo_shadow_shock', damage: 450, interval: 5, damageType: 'shadow' },
+      // Shadow Bolt - interruptible shadow damage (usually kicked)
+      { type: 'majordomo_shadow_bolt', damage: 600, interval: 8, damageType: 'shadow' },
+      // Fireball - interruptible fire damage (usually kicked)
+      { type: 'majordomo_fireball', damage: 550, interval: 10, damageType: 'fire' },
+      // Dark Mending - heals adds if not interrupted (same as Sulfuron)
+      { type: 'majordomo_dark_mending', damage: 0, interval: 12 },
+
+      // === MAGIC REFLECTION ===
+      // All adds gain magic reflection shield (10 seconds) - DPS must stop!
+      { type: 'majordomo_magic_reflection', damage: 0, interval: 30 },
     ],
   },
   // Boss 10: Ragnaros (Final Boss)
