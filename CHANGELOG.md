@@ -2,6 +2,197 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.26.0] - 2025-12-03
+
+### Added
+- **Bench System**: Swap raiders for bench players to customize your raid composition for specific encounters
+- **Persistent Bench Gear**: Bench players keep their own gear between swaps
+- **5/10 Bench Slots**: 5 slots for 20-man raids, 10 slots for 40-man raids
+
+### Changed
+- **Bench Tab Redesign**: Two-panel layout with compact raid groups on left, dedicated bench area on right
+- **Drag & Drop**: Precise targeting with green highlight showing swap destination
+- **Click-to-Swap**: Works both directions - bench→raid or raid→bench
+- **Empty Slot Support**: Add bench players directly to empty group slots
+
+## [0.25.0] - 2025-12-03
+
+### Added
+- **Ragnaros Overhaul**: 2-tank swap mechanic, Elemental Fire DoT, Lava Burst splash, Submerge phase with Sons of Flame
+- **Majordomo Executus**: 5-tank add fight with Magic Reflection, Teleport, Blast Wave, and healing adds
+- **Sulfuron Harbinger**: 4 Flamewaker Priest adds with Inspire, Dark Mending, and Shadow Word: Pain
+- **Golemagg the Incinerator**: 3-tank fight with Magma Splash stacking debuff and Core Ragers
+- **Shazzrah Updates**: Arcane Explosion, Blink, Magic Grounding
+- **Baron Geddon**: Living Bomb mechanic with Safe Zone drag system
+- **Garr Updates**: 8 Firesworn adds that explode on death
+- **Gehennas Updates**: Rain of Fire and Gehennas' Curse (75% healing reduction)
+- **Tank Assignment Modals**: Assign specific tanks before boss encounters
+- **Tank Swap Alerts**: On-screen warnings when tank swaps are needed
+
+### Fixed
+- Combat log numbers now display as clean integers (no decimals)
+
+## [0.24.0] - 2025-12-02
+
+### Added
+- **Pre-Raid BiS Starting Gear**: New characters start with full pre-raid Best in Slot gear
+- **Missing Molten Core Loot**: Deep Earth Spaulders, Wristguards of True Flight, Core Forged Greaves, Helm of the Lifegiver, Shard of the Flame
+- **Missing BWL Loot**: Draconic Avenger, Draconic Maul, Doom's Edge, Band of Dark Dominion
+
+### Changed
+- **Styled Confirmation Dialogs**: Native browser popups replaced with WoW-themed dialogs
+- **Warning Highlights**: Destructive actions show clear yellow warning boxes
+
+## [0.23.0] - 2025-12-01
+
+### Added
+- **Enchanting System**: Buy enchants with Nexus Crystals from disenchanting
+- **Quest Rewards**: Boss quest items (Head of Onyxia, etc.) now usable for rewards
+- **Gear Inspection Redesign**: Two-column layout with clickable items and full stat breakdown
+- **Enchant Display**: Enchants show full stats in green text
+- **Accurate Bonus HPS**: Calculates healing power from gear + enchants
+
+### Changed
+- **100+ Icon Updates**: All items now use authentic WoW Classic icons
+
+## [0.22.0] - 2025-12-01
+
+### Added
+- **Disenchant All Button**: Disenchant all bag items at once
+- **Right-Click Disenchant**: Disenchant individual items
+- **Materials Bag Tab**: View enchanting materials like Nexus Crystals
+- **Smart Loot**: AI raid members only equip actual upgrades
+- **Pass to Player**: Unwanted items go to your bag instead of being lost
+
+### Fixed
+- **Quest Reward Limits**: AI raid members can't claim same reward twice
+- **Loot Table Overhaul**: Authentic Classic drops with correct item levels
+
+### Changed
+- Cloud saves trigger on quest turn-ins, legendary crafting, loot, and disenchanting
+
+## [0.21.0] - 2025-12-01
+
+### Changed
+- **Buff All Button**: Now applies raid buffs, consumables, AND world buffs
+
+### Fixed
+- **Paladin Auras**: Now correctly affect only your party (authentic Classic behavior)
+- **Cloud Save Duplicates**: Fixed saves creating duplicates
+
+## [0.20.0] - 2025-11-30
+
+### Added
+- **Cooldown Sweep Animation**: WoW-style clockwise sweep on spell icons
+- **GCD Visual Feedback**: Sweep animation on all GCD-affected spells
+- **Save on Creation**: New characters saved to cloud immediately
+
+### Fixed
+- **GCD Timing**: Now starts when casting begins (authentic WoW behavior)
+- **Multiple Characters**: Character selection shows all saved characters
+
+## [0.19.0] - 2025-11-30
+
+### Added
+- **Mouseover Healing Mode**: Toggle in Settings → Keybinds
+- **Hover to Heal**: Spells target whoever mouse is over (no clicking)
+- **Visual Indicator**: Cyan glow shows mouseover target
+- **AI Dispel Priority**: AI healers wait 2.5s before dispelling (player priority)
+- **AI Dispel Tracking**: AI healer dispels appear in Dispels meter
+
+### Fixed
+- **Auto-Save**: Game saves to cloud after boss defeat and loot close
+- **Character Name**: Now loads correctly from cloud saves
+
+## [0.18.0] - 2025-11-30
+
+### Added
+- **Landing Page**: Character creation with faction, class, and name selection
+- **Continue Button**: Returning players can jump back in with one click
+
+## [0.17.0] - 2025-11-29
+
+### Added
+- **Living Bomb Safe Zone**: Drag bombed raid members to Safe Zone to prevent splash damage
+- **Raid Warning**: Large on-screen warning with airhorn sound
+- **Auto Return**: Bombed players return to position after explosion
+
+### Changed
+- Living Bomb is now undispellable - must use Safe Zone
+
+## [0.16.0] - 2025-11-29
+
+### Added
+- **Google & Apple Sign-In**: Log in to sync progress across devices
+- **Automatic Cloud Sync**: Save/Load uses cloud storage when logged in
+- **PostHog Analytics**: Track player engagement to improve the game
+
+## [0.15.0] - 2025-11-29
+
+### Added
+- **AI Healer Mana System**: Class-specific mana pools and MP5 regeneration
+- **Smart Spell Selection**: Efficient heals for top-offs, big heals for emergencies
+- **OOM Behavior**: AI healers pause when low mana (except tank emergencies)
+- **Healer Mana Bars**: All healers show mana bars on raid frames
+- **AI Healer Dispelling**: Class-specific dispels with priority targeting
+
+### Changed
+- Mobile: Full action bar (was limited to 6 spells)
+- Mobile: Bag and LFG buttons now visible
+- Patch notes X button moved to top right corner
+
+## [0.14.0] - 2025-11-29
+
+### Added
+- **Encounter UI Redesign**: Visual progress bar for boss encounters
+- **Training Dummy**: Separated into practice section
+- **LFG Button**: Added to raid config strip
+- **Auto Mobile Detection**: With manual toggle in Admin Panel
+
+### Fixed
+- Keybinds no longer trigger while typing in input fields
+- Modal close buttons positioned inside panels
+
+## [0.13.0] - 2025-11-28
+
+### Added
+- **Multiplayer Co-op**: Room codes for up to 4 healers
+- **Real-time Healing Meter**: Shows all players' HPS
+- **DKP Loot Bidding**: With roll tie-breakers
+- **Host-Authoritative Sync**: 20Hz via Supabase Realtime
+- **Gear Score Display**: With host gear sharing feature
+
+### Changed
+- Priest and Druid greyed out in multiplayer (unavailable)
+
+## [0.12.0] - 2025-11-28
+
+### Added
+- **Blackwing Lair**: 8 new bosses (Razorgore, Vaelastrasz, Broodlord, Firemaw, Ebonroc, Flamegor, Chromaggus, Nefarian)
+- **Tier 2 Armor Sets**: Complete sets for all 8 classes
+- **BWL Non-Set Loot**: Ashkandi, Chromatically Tempered Sword, Lokamir, and more
+- **Prince Thunderaan**: Secret boss unlocks with both Bindings + Firemaw defeat
+- **Thunderfury Quest Chain**: Defeat Thunderaan to unlock crafting
+- **Warchief's Blessing**: Unlocks after defeating Nefarian (+300 HP, +15% attack speed, +10 mp5)
+
+### Fixed
+- Dead players can no longer cast spells
+- BWL loot: Removed trinkets/rings/necks with invalid slots
+- Admin panel: Toggling boss defeats triggers special unlocks
+
+## [0.11.0] - 2025-11-27
+
+### Added
+- **Dual Wield System**: Offhand slot for Warriors and Rogues
+- **Ranged Weapon Slot**: For Hunters
+- **Spec-Aware Loot**: Caster gear goes to caster specs, melee to melee
+- **Animated Patch Notes Button**: Blizzard blue pulse animation in header
+- **Patch Notes Modal**: Release history overlay
+
+### Changed
+- Protection Warriors can dual wield (Fury/Prot style)
+- Patch notes button auto-hides after viewing
+
 ## [0.10.0] - 2025-11-27
 
 ### Added
