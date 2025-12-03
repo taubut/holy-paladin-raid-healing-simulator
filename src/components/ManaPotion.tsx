@@ -45,7 +45,7 @@ export const ManaPotion: React.FC<ManaPotionProps> = ({ cooldown, onUse, keybind
       title={`Major Mana Potion (${keybind.toUpperCase()})\nRestores 1350-2250 mana\n2 minute cooldown`}
     >
       <img
-        src="https://wow.zamimg.com/images/wow/icons/large/inv_potion_76.jpg"
+        src="/icons/inv_potion_76.jpg"
         alt="Major Mana Potion"
         className="potion-icon"
       />

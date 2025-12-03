@@ -3,7 +3,7 @@
 
 import type { Spell } from './types';
 
-const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+const ICON_BASE = '/icons';
 
 // Healing Wave - Rank 10 (Max rank, big slow heal like Holy Light)
 export const HEALING_WAVE: Spell = {

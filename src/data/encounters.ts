@@ -5,7 +5,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   mortal_strike: {
     id: 'mortal_strike',
     name: 'Mortal Strike',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_savageblow.jpg',
+    icon: '/icons/ability_warrior_savageblow.jpg',
     maxDuration: 5,
     type: 'disease', // Cleansable
     damagePerTick: 0,
@@ -13,7 +13,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   burning_adrenaline: {
     id: 'burning_adrenaline',
     name: 'Burning Adrenaline',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_unholyfrenzy.jpg',
+    icon: '/icons/spell_shadow_unholyfrenzy.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 200,
@@ -22,7 +22,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shadow_word_pain: {
     id: 'shadow_word_pain',
     name: 'Shadow Word: Pain',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowwordpain.jpg',
+    icon: '/icons/spell_shadow_shadowwordpain.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 150,
@@ -31,7 +31,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   poison_bolt: {
     id: 'poison_bolt',
     name: 'Poison Bolt',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_corrosivebreath.jpg',
+    icon: '/icons/spell_nature_corrosivebreath.jpg',
     maxDuration: 10,
     type: 'poison',
     damagePerTick: 100,
@@ -40,7 +40,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   curse_of_doom: {
     id: 'curse_of_doom',
     name: 'Curse of Doom',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_auraofdarkness.jpg',
+    icon: '/icons/spell_shadow_auraofdarkness.jpg',
     maxDuration: 15,
     type: 'curse', // Paladin can't dispel curses in Classic
     damagePerTick: 0, // Explodes at end

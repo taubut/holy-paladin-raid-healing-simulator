@@ -14,7 +14,7 @@ export const PlayerFrame: React.FC<PlayerFrameProps> = ({ player, divineFavorAct
       <div className="player-portrait">
         {/* Paladin class icon */}
         <img
-          src="https://wow.zamimg.com/images/wow/icons/large/classicon_paladin.jpg"
+          src="/icons/classicon_paladin.jpg"
           alt="Paladin"
           className="portrait-image"
         />
@@ -50,7 +50,7 @@ export const PlayerFrame: React.FC<PlayerFrameProps> = ({ player, divineFavorAct
       {divineFavorActive && (
         <div className="divine-favor-indicator">
           <img
-            src="https://wow.zamimg.com/images/wow/icons/large/spell_holy_divineillumination.jpg"
+            src="/icons/spell_holy_divineillumination.jpg"
             alt="Divine Favor"
           />
           <span>Divine Favor Active!</span>

@@ -36,7 +36,7 @@ export const BossFrame: React.FC<BossFrameProps> = ({ boss, elapsedTime }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const portraitUrl = BOSS_PORTRAITS[boss.id] || 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg';
+  const portraitUrl = BOSS_PORTRAITS[boss.id] || '/icons/spell_fire_incinerate.jpg';
 
   return (
     <div className={`boss-frame ${isEnraging ? 'enraging' : ''}`}>

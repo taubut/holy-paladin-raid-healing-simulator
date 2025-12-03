@@ -10,7 +10,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   devotion_aura: {
     id: 'devotion_aura',
     name: 'Devotion Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_devotionaura.jpg',
+    icon: '/icons/spell_holy_devotionaura.jpg',
     providerClass: 'paladin',
     effect: { armorBonus: 735 },
     isAutomatic: false,
@@ -19,7 +19,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   concentration_aura: {
     id: 'concentration_aura',
     name: 'Concentration Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_mindsooth.jpg',
+    icon: '/icons/spell_holy_mindsooth.jpg',
     providerClass: 'paladin',
     effect: {}, // Interrupt resist - cosmetic for this sim
     isAutomatic: false,
@@ -28,7 +28,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   fire_resistance_aura: {
     id: 'fire_resistance_aura',
     name: 'Fire Resistance Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_sealoffire.jpg',
+    icon: '/icons/spell_fire_sealoffire.jpg',
     providerClass: 'paladin',
     effect: { fireResistance: 60 },
     isAutomatic: false,
@@ -37,7 +37,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   frost_resistance_aura: {
     id: 'frost_resistance_aura',
     name: 'Frost Resistance Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_wizardmark.jpg',
+    icon: '/icons/spell_frost_wizardmark.jpg',
     providerClass: 'paladin',
     effect: { frostResistance: 60 },
     isAutomatic: false,
@@ -46,7 +46,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   shadow_resistance_aura: {
     id: 'shadow_resistance_aura',
     name: 'Shadow Resistance Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_sealofkings.jpg',
+    icon: '/icons/spell_shadow_sealofkings.jpg',
     providerClass: 'paladin',
     effect: { shadowResistance: 60 },
     isAutomatic: false,
@@ -55,7 +55,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   retribution_aura: {
     id: 'retribution_aura',
     name: 'Retribution Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_auraoflight.jpg',
+    icon: '/icons/spell_holy_auraoflight.jpg',
     providerClass: 'paladin',
     effect: {}, // Holy damage on hit - cosmetic for healer sim
     isAutomatic: false,
@@ -64,7 +64,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   sanctity_aura: {
     id: 'sanctity_aura',
     name: 'Sanctity Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_mindvision.jpg',
+    icon: '/icons/spell_holy_mindvision.jpg',
     providerClass: 'paladin',
     effect: { healingPower: 50 }, // +10% holy damage approximated as healing power for healers
     isAutomatic: false,
@@ -75,7 +75,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   moonkin_aura: {
     id: 'moonkin_aura',
     name: 'Moonkin Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_moonglow.jpg',
+    icon: '/icons/spell_nature_moonglow.jpg',
     providerClass: 'druid',
     providerSpec: 'balance',  // Only Balance druids provide this
     effect: { spellCritBonus: 3 },
@@ -85,7 +85,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   leader_of_the_pack: {
     id: 'leader_of_the_pack',
     name: 'Leader of the Pack',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_unyeildingstamina.jpg',
+    icon: '/icons/spell_nature_unyeildingstamina.jpg',
     providerClass: 'druid',
     providerSpec: ['feral_tank', 'feral_dps'],  // Both Feral specs provide this
     effect: { meleeCritBonus: 3 },
@@ -97,7 +97,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   trueshot_aura: {
     id: 'trueshot_aura',
     name: 'Trueshot Aura',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_trueshot.jpg',
+    icon: '/icons/ability_trueshot.jpg',
     providerClass: 'hunter',
     providerSpec: 'marksmanship',  // Only Marksmanship hunters provide this
     effect: { attackPowerBonus: 100 },
@@ -110,7 +110,7 @@ export const PARTY_AURAS: Record<string, PartyAura> = {
   blood_pact: {
     id: 'blood_pact',
     name: 'Blood Pact',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_bloodboil.jpg',
+    icon: '/icons/spell_shadow_bloodboil.jpg',
     providerClass: 'warlock',
     // No spec requirement - all warlocks can summon an Imp
     effect: { staminaBonus: 42 }, // Rank 5 value

@@ -6,7 +6,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   impending_doom: {
     id: 'impending_doom',
     name: 'Impending Doom',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_nightofthedead.jpg',
+    icon: '/icons/spell_shadow_nightofthedead.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 0, // No tick damage - explodes at the end
@@ -16,7 +16,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   lucifrons_curse: {
     id: 'lucifrons_curse',
     name: "Lucifron's Curse",
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_blackplague.jpg',
+    icon: '/icons/spell_shadow_blackplague.jpg',
     maxDuration: 20,
     type: 'curse',
     damagePerTick: 0, // No damage, but doubles mana costs - MUST dispel!
@@ -25,7 +25,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   dominate_mind: {
     id: 'dominate_mind',
     name: 'Dominate Mind',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowworddominate.jpg',
+    icon: '/icons/spell_shadow_shadowworddominate.jpg',
     maxDuration: 15,
     type: 'magic',
     damagePerTick: 0, // MC'd player attacks raid members
@@ -35,7 +35,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   panic: {
     id: 'panic',
     name: 'Panic',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_deathscream.jpg',
+    icon: '/icons/spell_shadow_deathscream.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 0, // Fear effect - no healing during this
@@ -44,7 +44,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   lava_bomb: {
     id: 'lava_bomb',
     name: 'Lava Bomb',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_selfdestruct.jpg',
+    icon: '/icons/spell_fire_selfdestruct.jpg',
     maxDuration: 8,
     type: 'magic',
     dispellable: false, // Cannot be dispelled!
@@ -54,7 +54,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   magma_spit: {
     id: 'magma_spit',
     name: 'Magma Spit',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_meteorstorm.jpg',
+    icon: '/icons/spell_fire_meteorstorm.jpg',
     maxDuration: 30,
     type: 'magic',
     damagePerTick: 75, // 75 fire damage every 3 seconds
@@ -66,7 +66,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   frenzy: {
     id: 'frenzy',
     name: 'Frenzy',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_challangingroar.jpg',
+    icon: '/icons/ability_druid_challangingroar.jpg',
     maxDuration: 10, // Lasts until Tranq Shot (simulated after 2 seconds)
     type: 'enrage', // Special type - applied to boss, not raid
     damagePerTick: 0,
@@ -76,7 +76,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   gehennas_curse: {
     id: 'gehennas_curse',
     name: "Gehennas' Curse",
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_gathershadows.jpg',
+    icon: '/icons/spell_shadow_gathershadows.jpg',
     maxDuration: 30,
     type: 'curse',
     damagePerTick: 0,
@@ -85,7 +85,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   rain_of_fire: {
     id: 'rain_of_fire',
     name: 'Rain of Fire',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_rainoffire.jpg',
+    icon: '/icons/spell_shadow_rainoffire.jpg',
     maxDuration: 6,
     type: 'magic',
     dispellable: false, // Cannot be dispelled!
@@ -96,7 +96,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shadow_bolt: {
     id: 'shadow_bolt',
     name: 'Shadow Bolt',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowbolt.jpg',
+    icon: '/icons/spell_shadow_shadowbolt.jpg',
     maxDuration: 0, // Instant damage, no debuff
     type: 'magic',
     damagePerTick: 0,
@@ -105,7 +105,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   magma_shackles: {
     id: 'magma_shackles',
     name: 'Magma Shackles',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_earthbind.jpg',
+    icon: '/icons/spell_nature_earthbind.jpg',
     maxDuration: 15,
     type: 'magic',
     damagePerTick: 80,
@@ -114,7 +114,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   eruption: {
     id: 'eruption',
     name: 'Eruption',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+    icon: '/icons/spell_fire_volcano.jpg',
     maxDuration: 0,
     type: 'magic',
     damagePerTick: 0,
@@ -122,7 +122,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   antimagic_pulse: {
     id: 'antimagic_pulse',
     name: 'Antimagic Pulse',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_dispelmagic.jpg',
+    icon: '/icons/spell_holy_dispelmagic.jpg',
     maxDuration: 0,
     type: 'magic',
     damagePerTick: 0,
@@ -131,7 +131,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shazzrahs_curse: {
     id: 'shazzrahs_curse',
     name: "Shazzrah's Curse",
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_antishadow.jpg',
+    icon: '/icons/spell_shadow_antishadow.jpg',
     maxDuration: 300, // 5 minutes
     type: 'curse',
     damagePerTick: 0,
@@ -140,7 +140,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   arcane_explosion: {
     id: 'arcane_explosion',
     name: 'Arcane Explosion',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_wispsplode.jpg',
+    icon: '/icons/spell_nature_wispsplode.jpg',
     maxDuration: 0, // Instant damage
     type: 'magic',
     damagePerTick: 0,
@@ -148,7 +148,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   deaden_magic: {
     id: 'deaden_magic',
     name: 'Deaden Magic',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofsalvation.jpg',
+    icon: '/icons/spell_holy_sealofsalvation.jpg',
     maxDuration: 30,
     type: 'magic', // Can be dispelled by priest or purged by shaman
     damagePerTick: 0,
@@ -159,7 +159,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   living_bomb: {
     id: 'living_bomb',
     name: 'Living Bomb',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_selfdestruct.jpg',
+    icon: '/icons/spell_fire_selfdestruct.jpg',
     maxDuration: 8,
     type: 'magic',
     dispellable: false, // Cannot be dispelled - must be moved to safe zone
@@ -169,7 +169,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   ignite_mana: {
     id: 'ignite_mana',
     name: 'Ignite Mana',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    icon: '/icons/spell_fire_incinerate.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 200, // Burns mana and deals damage
@@ -178,7 +178,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   inferno: {
     id: 'inferno',
     name: 'Inferno',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    icon: '/icons/spell_fire_incinerate.jpg',
     maxDuration: 8,
     type: 'magic',
     dispellable: false, // Cannot be dispelled
@@ -189,7 +189,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shadow_word_pain: {
     id: 'shadow_word_pain',
     name: 'Shadow Word: Pain',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowwordpain.jpg',
+    icon: '/icons/spell_shadow_shadowwordpain.jpg',
     maxDuration: 18,
     type: 'magic',
     damagePerTick: 125,
@@ -198,7 +198,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   hand_of_ragnaros: {
     id: 'hand_of_ragnaros',
     name: 'Hand of Ragnaros',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball.jpg',
+    icon: '/icons/spell_fire_fireball.jpg',
     maxDuration: 2, // 2 second stun
     type: 'magic',
     damagePerTick: 0, // Stun effect
@@ -206,7 +206,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   immolate: {
     id: 'immolate',
     name: 'Immolate',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_immolation.jpg',
+    icon: '/icons/spell_fire_immolation.jpg',
     maxDuration: 3,
     type: 'magic',
     damagePerTick: 133, // ~400 over 3 seconds
@@ -217,7 +217,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   magma_splash: {
     id: 'magma_splash',
     name: 'Magma Splash',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_immolation.jpg',
+    icon: '/icons/spell_fire_immolation.jpg',
     maxDuration: 30, // Stacks last a while
     type: 'physical', // NOT dispellable
     damagePerTick: 150, // Per stack - stacking DoT
@@ -226,7 +226,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   golemagg_pyroblast: {
     id: 'golemagg_pyroblast',
     name: 'Pyroblast',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball02.jpg',
+    icon: '/icons/spell_fire_fireball02.jpg',
     maxDuration: 12,
     type: 'magic', // Dispellable
     damagePerTick: 200,
@@ -235,7 +235,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   mangle: {
     id: 'mangle',
     name: 'Mangle',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_mangle2.jpg',
+    icon: '/icons/ability_druid_mangle2.jpg',
     maxDuration: 20,
     type: 'physical', // NOT dispellable
     damagePerTick: 300,
@@ -245,7 +245,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   blast_wave: {
     id: 'blast_wave',
     name: 'Blast Wave',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_excorcism_02.jpg',
+    icon: '/icons/spell_holy_excorcism_02.jpg',
     maxDuration: 6,
     type: 'magic',
     damagePerTick: 200,
@@ -254,7 +254,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   majordomo_teleport: {
     id: 'majordomo_teleport',
     name: 'Teleport',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_blink.jpg',
+    icon: '/icons/spell_arcane_blink.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 350, // Fire damage in the pit
@@ -264,7 +264,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   majordomo_shadow_shock: {
     id: 'majordomo_shadow_shock',
     name: 'Shadow Shock',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowbolt.jpg',
+    icon: '/icons/spell_shadow_shadowbolt.jpg',
     maxDuration: 0, // Instant damage
     type: 'magic',
     damagePerTick: 0,
@@ -272,7 +272,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   majordomo_fire_blast: {
     id: 'majordomo_fire_blast',
     name: 'Fire Blast',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball.jpg',
+    icon: '/icons/spell_fire_fireball.jpg',
     maxDuration: 0, // Instant damage
     type: 'magic',
     damagePerTick: 0,
@@ -281,7 +281,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   elemental_fire: {
     id: 'elemental_fire',
     name: 'Elemental Fire',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flametounge.jpg',
+    icon: '/icons/spell_fire_flametounge.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 300,
@@ -291,7 +291,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   wrath_of_ragnaros: {
     id: 'wrath_of_ragnaros',
     name: 'Wrath of Ragnaros',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_soulburn.jpg',
+    icon: '/icons/spell_fire_soulburn.jpg',
     maxDuration: 10,
     type: 'magic',
     dispellable: false, // Cannot be dispelled - tank must swap
@@ -301,7 +301,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   magma_blast: {
     id: 'magma_blast',
     name: 'Magma Blast',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+    icon: '/icons/spell_fire_flameshock.jpg',
     maxDuration: 0, // Instant damage
     type: 'magic',
     damagePerTick: 0,
@@ -309,7 +309,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   lava_burst: {
     id: 'lava_burst',
     name: 'Lava Burst',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+    icon: '/icons/spell_fire_volcano.jpg',
     maxDuration: 6,
     type: 'magic',
     damagePerTick: 200,
@@ -320,7 +320,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   flame_breath: {
     id: 'flame_breath',
     name: 'Flame Breath',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fire.jpg',
+    icon: '/icons/spell_fire_fire.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 150,
@@ -329,7 +329,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   bellowing_roar: {
     id: 'bellowing_roar',
     name: 'Bellowing Roar',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warstomp.jpg',
+    icon: '/icons/ability_warstomp.jpg',
     maxDuration: 3,
     type: 'magic',
     damagePerTick: 0, // Fear effect - causes lava eruptions in P3
@@ -337,7 +337,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   deep_breath: {
     id: 'deep_breath',
     name: 'Deep Breath',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_mage_firestarter.jpg',
+    icon: '/icons/ability_mage_firestarter.jpg',
     maxDuration: 4,
     type: 'magic',
     damagePerTick: 500, // MASSIVE fire damage - the iconic Onyxia ability
@@ -346,7 +346,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   tail_sweep: {
     id: 'tail_sweep',
     name: 'Tail Sweep',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_monsterscales_05.jpg',
+    icon: '/icons/inv_misc_monsterscales_05.jpg',
     maxDuration: 2,
     type: 'magic',
     damagePerTick: 0, // Knockback effect - initial damage handled separately
@@ -354,7 +354,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   wing_buffet: {
     id: 'wing_buffet',
     name: 'Wing Buffet',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_dragonflightblue_wingbuffet.jpg',
+    icon: '/icons/ability_dragonflightblue_wingbuffet.jpg',
     maxDuration: 2,
     type: 'magic',
     damagePerTick: 0, // Knockback + threat reduction
@@ -362,7 +362,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   cleave: {
     id: 'cleave',
     name: 'Cleave',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_cleave.jpg',
+    icon: '/icons/ability_warrior_cleave.jpg',
     maxDuration: 1,
     type: 'magic',
     damagePerTick: 0, // Instant damage to tank and nearby
@@ -370,7 +370,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   onyxia_fireball: {
     id: 'onyxia_fireball',
     name: 'Fireball',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flamebolt.jpg',
+    icon: '/icons/spell_fire_flamebolt.jpg',
     maxDuration: 6,
     type: 'magic',
     damagePerTick: 100, // Burning from fireball impact
@@ -379,7 +379,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   lava_eruption: {
     id: 'lava_eruption',
     name: 'Lava Eruption',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+    icon: '/icons/spell_fire_volcano.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 175, // Standing in lava crack
@@ -394,7 +394,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   conflagration: {
     id: 'conflagration',
     name: 'Conflagration',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    icon: '/icons/spell_fire_incinerate.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 150,
@@ -405,7 +405,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   burning_adrenaline: {
     id: 'burning_adrenaline',
     name: 'Burning Adrenaline',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_unholyfrenzy.jpg',
+    icon: '/icons/spell_shadow_unholyfrenzy.jpg',
     maxDuration: 20,
     type: 'magic', // Undispellable in reality, but magic for consistency
     damagePerTick: 500, // Increasing damage until death
@@ -414,7 +414,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   essence_of_the_red: {
     id: 'essence_of_the_red',
     name: 'Essence of the Red',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_red.jpg',
+    icon: '/icons/inv_misc_head_dragon_red.jpg',
     maxDuration: 180,
     type: 'magic',
     damagePerTick: 0, // Buff that gives unlimited mana - no damage
@@ -424,7 +424,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   mortal_strike: {
     id: 'mortal_strike',
     name: 'Mortal Strike',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_savageblow.jpg',
+    icon: '/icons/ability_warrior_savageblow.jpg',
     maxDuration: 5,
     type: 'disease', // Cleansable
     damagePerTick: 0, // 50% healing reduction effect - simulated
@@ -432,7 +432,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   blast_wave_broodlord: {
     id: 'blast_wave_broodlord',
     name: 'Blast Wave',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_excorcism_02.jpg',
+    icon: '/icons/spell_holy_excorcism_02.jpg',
     maxDuration: 6,
     type: 'magic',
     damagePerTick: 100,
@@ -441,7 +441,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   knock_away: {
     id: 'knock_away',
     name: 'Knock Away',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_gauntlets_05.jpg',
+    icon: '/icons/inv_gauntlets_05.jpg',
     maxDuration: 2,
     type: 'magic',
     damagePerTick: 0, // Threat reduction
@@ -451,7 +451,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   wing_buffet_bwl: {
     id: 'wing_buffet_bwl',
     name: 'Wing Buffet',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_dragonflightblue_wingbuffet.jpg',
+    icon: '/icons/ability_dragonflightblue_wingbuffet.jpg',
     maxDuration: 3,
     type: 'magic',
     damagePerTick: 0, // Knockback + threat reduction
@@ -459,7 +459,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   flame_buffet: {
     id: 'flame_buffet',
     name: 'Flame Buffet',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+    icon: '/icons/spell_fire_flameshock.jpg',
     maxDuration: 20,
     type: 'magic',
     damagePerTick: 150, // Stacking fire vulnerability
@@ -468,7 +468,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shadow_flame: {
     id: 'shadow_flame',
     name: 'Shadow Flame',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    icon: '/icons/spell_fire_incinerate.jpg',
     maxDuration: 4,
     type: 'magic',
     damagePerTick: 1000, // MASSIVE damage - need Onyxia Scale Cloak!
@@ -477,7 +477,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shadow_of_ebonroc: {
     id: 'shadow_of_ebonroc',
     name: 'Shadow of Ebonroc',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_gathershadows.jpg',
+    icon: '/icons/spell_shadow_gathershadows.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 0, // Heals the boss when tank is healed - tank swap!
@@ -485,7 +485,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   frenzy_bwl: {
     id: 'frenzy_bwl',
     name: 'Frenzy',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_challangingroar.jpg',
+    icon: '/icons/ability_druid_challangingroar.jpg',
     maxDuration: 10,
     type: 'magic', // Hunter can Tranq Shot
     damagePerTick: 0, // Increased attack speed/damage
@@ -495,7 +495,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   incinerate: {
     id: 'incinerate',
     name: 'Incinerate',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flamebolt.jpg',
+    icon: '/icons/spell_fire_flamebolt.jpg',
     maxDuration: 6,
     type: 'magic',
     damagePerTick: 400,
@@ -504,7 +504,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   corrosive_acid: {
     id: 'corrosive_acid',
     name: 'Corrosive Acid',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_acid_01.jpg',
+    icon: '/icons/spell_nature_acid_01.jpg',
     maxDuration: 15,
     type: 'magic',
     damagePerTick: 175, // Also reduces armor
@@ -513,7 +513,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   frost_burn: {
     id: 'frost_burn',
     name: 'Frost Burn',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_chillingblast.jpg',
+    icon: '/icons/spell_frost_chillingblast.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 75, // Also slows attack/cast speed
@@ -522,7 +522,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   ignite_flesh: {
     id: 'ignite_flesh',
     name: 'Ignite Flesh',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fire.jpg',
+    icon: '/icons/spell_fire_fire.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 300,
@@ -531,7 +531,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   time_lapse: {
     id: 'time_lapse',
     name: 'Time Lapse',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_portalironforge.jpg',
+    icon: '/icons/spell_arcane_portalironforge.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 0, // Stun + reduces health/mana
@@ -540,7 +540,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   brood_affliction_red: {
     id: 'brood_affliction_red',
     name: 'Brood Affliction: Red',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_red.jpg',
+    icon: '/icons/inv_misc_head_dragon_red.jpg',
     maxDuration: 60,
     type: 'disease',
     damagePerTick: 50,
@@ -549,7 +549,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   brood_affliction_green: {
     id: 'brood_affliction_green',
     name: 'Brood Affliction: Green',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_green.jpg',
+    icon: '/icons/inv_misc_head_dragon_green.jpg',
     maxDuration: 60,
     type: 'poison',
     damagePerTick: 100, // Nature damage, heals Chromaggus
@@ -558,7 +558,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   brood_affliction_blue: {
     id: 'brood_affliction_blue',
     name: 'Brood Affliction: Blue',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_blue.jpg',
+    icon: '/icons/inv_misc_head_dragon_blue.jpg',
     maxDuration: 60,
     type: 'magic',
     damagePerTick: 0, // Drains mana, slows cast speed
@@ -566,7 +566,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   brood_affliction_black: {
     id: 'brood_affliction_black',
     name: 'Brood Affliction: Black',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_black.jpg',
+    icon: '/icons/inv_misc_head_dragon_black.jpg',
     maxDuration: 60,
     type: 'curse',
     damagePerTick: 75, // Fire damage + increases fire damage taken
@@ -575,7 +575,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   brood_affliction_bronze: {
     id: 'brood_affliction_bronze',
     name: 'Brood Affliction: Bronze',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_bronze.jpg',
+    icon: '/icons/inv_misc_head_dragon_bronze.jpg',
     maxDuration: 4,
     type: 'magic', // 4 second stun
     damagePerTick: 0,
@@ -585,7 +585,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   shadowflame_nef: {
     id: 'shadowflame_nef',
     name: 'Shadowflame',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_incinerate.jpg',
+    icon: '/icons/spell_fire_incinerate.jpg',
     maxDuration: 4,
     type: 'magic',
     damagePerTick: 800, // Massive if no Onyxia Scale Cloak!
@@ -594,7 +594,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   veil_of_shadow: {
     id: 'veil_of_shadow',
     name: 'Veil of Shadow',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_gathershadows.jpg',
+    icon: '/icons/spell_shadow_gathershadows.jpg',
     maxDuration: 30,
     type: 'magic',
     damagePerTick: 0, // 75% healing reduction - MUST dispel!
@@ -602,7 +602,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   fear_nef: {
     id: 'fear_nef',
     name: 'Fear',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_possession.jpg',
+    icon: '/icons/spell_shadow_possession.jpg',
     maxDuration: 4,
     type: 'magic',
     damagePerTick: 0,
@@ -611,7 +611,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_warrior: {
     id: 'class_call_warrior',
     name: 'Warrior Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_sunder.jpg',
+    icon: '/icons/ability_warrior_sunder.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 0, // Forces Berserker Stance (take 10% more damage)
@@ -619,7 +619,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_paladin: {
     id: 'class_call_paladin',
     name: 'Paladin Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofwisdom.jpg',
+    icon: '/icons/spell_holy_sealofwisdom.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 0, // Bubbles Nefarian, healing him
@@ -627,7 +627,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_priest: {
     id: 'class_call_priest',
     name: 'Priest Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_guardianspirit.jpg',
+    icon: '/icons/spell_holy_guardianspirit.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 100, // Direct heals hurt targets instead
@@ -636,7 +636,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_druid: {
     id: 'class_call_druid',
     name: 'Druid Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_catform.jpg',
+    icon: '/icons/ability_druid_catform.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 0, // Forces cat form, stuck
@@ -644,7 +644,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_mage: {
     id: 'class_call_mage',
     name: 'Mage Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_icestorm.jpg',
+    icon: '/icons/spell_frost_icestorm.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 0, // Polymorphs raid members
@@ -652,7 +652,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_warlock: {
     id: 'class_call_warlock',
     name: 'Warlock Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_demonictactics.jpg',
+    icon: '/icons/spell_shadow_demonictactics.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 150, // Hellfire effect - damages self and nearby
@@ -661,7 +661,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_hunter: {
     id: 'class_call_hunter',
     name: 'Hunter Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_pet_goto.jpg',
+    icon: '/icons/ability_hunter_pet_goto.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 0, // Ranged weapons break
@@ -669,7 +669,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   class_call_rogue: {
     id: 'class_call_rogue',
     name: 'Rogue Call',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_rogue_ambush.jpg',
+    icon: '/icons/ability_rogue_ambush.jpg',
     maxDuration: 5,
     type: 'magic',
     damagePerTick: 0, // Teleports rogues to Nefarian
@@ -681,7 +681,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   chain_lightning: {
     id: 'chain_lightning',
     name: 'Chain Lightning',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_chainlightning.jpg',
+    icon: '/icons/spell_nature_chainlightning.jpg',
     maxDuration: 4,
     type: 'magic',
     damagePerTick: 250,
@@ -690,7 +690,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   thunderclap_thunderaan: {
     id: 'thunderclap_thunderaan',
     name: 'Thunderclap',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_thunderclap.jpg',
+    icon: '/icons/spell_nature_thunderclap.jpg',
     maxDuration: 6,
     type: 'magic',
     damagePerTick: 0, // Stun + initial burst
@@ -698,7 +698,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   storm_cloud: {
     id: 'storm_cloud',
     name: 'Storm Cloud',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_eyeofthestorm.jpg',
+    icon: '/icons/spell_nature_eyeofthestorm.jpg',
     maxDuration: 10,
     type: 'magic',
     damagePerTick: 175,
@@ -707,7 +707,7 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   winds_of_the_windlord: {
     id: 'winds_of_the_windlord',
     name: 'Winds of the Windlord',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_cyclone.jpg',
+    icon: '/icons/spell_nature_cyclone.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 200,

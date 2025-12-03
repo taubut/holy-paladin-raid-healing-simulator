@@ -4,7 +4,7 @@
 
 import type { Totem, TotemElement } from './types';
 
-const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+const ICON_BASE = '/icons';
 
 // ============================================
 // WATER TOTEMS - Mana and healing focused

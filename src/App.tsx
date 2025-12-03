@@ -1685,7 +1685,7 @@ function App() {
           name: 'Blink',
           type: 'arcane',
           description: `Shazzrah teleports to a random raid member every ${event.interval} seconds and immediately casts Arcane Explosion.`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_blink.jpg',
+          icon: '/icons/spell_arcane_blink.jpg',
           interval: event.interval,
         });
         abilities.push({
@@ -1720,7 +1720,7 @@ function App() {
           name: 'Inspire',
           type: 'enrage',
           description: `Sulfuron rallies the Flamewaker Priests, increasing their damage by 25% for 10 seconds. Tanks will take significantly more damage during this window!`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_battleshout.jpg',
+          icon: '/icons/ability_warrior_battleshout.jpg',
           interval: event.interval,
         });
       } else if (event.type === 'dark_mending') {
@@ -1728,7 +1728,7 @@ function App() {
           name: 'Dark Mending',
           type: 'shadow',
           description: `A Flamewaker Priest attempts to heal another priest for 15% of their health. AI DPS have a 70% chance to interrupt. If the heal goes through, the fight lasts longer!`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_chilltouch.jpg',
+          icon: '/icons/spell_shadow_chilltouch.jpg',
           interval: event.interval,
         });
       } else if (event.type === 'sulfuron_immolate') {
@@ -1765,7 +1765,7 @@ function App() {
           name: 'Earthquake',
           type: 'physical',
           description: `At 10% health, Golemagg causes Earthquakes that hit all melee players (tanks, Warriors, Rogues, Feral/Ret/Enh) for 1388-1612 damage every 3 seconds. Intense healing phase!`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_earthquake.jpg',
+          icon: '/icons/spell_nature_earthquake.jpg',
           damage: event.damage,
           interval: event.interval,
         });
@@ -1828,7 +1828,7 @@ function App() {
           name: 'Shadow Bolt',
           type: 'shadow',
           description: `Flamewaker Healers hurl shadow bolts at random raid members, dealing 1100-1200 shadow damage.`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowbolt.jpg',
+          icon: '/icons/spell_shadow_shadowbolt.jpg',
           damage: event.damage,
           interval: event.interval,
         });
@@ -1837,7 +1837,7 @@ function App() {
           name: 'Fireball',
           type: 'fire',
           description: `Flamewaker Elites cast fireballs at random raid members, dealing 950-1050 fire damage.`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flamebolt.jpg',
+          icon: '/icons/spell_fire_flamebolt.jpg',
           damage: event.damage,
           interval: event.interval,
         });
@@ -1846,7 +1846,7 @@ function App() {
           name: 'Dark Mending',
           type: 'shadow',
           description: `A Flamewaker Healer attempts to heal an add for 15% of their health. AI DPS have a 70% chance to interrupt. If the heal goes through, the fight lasts longer!`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_chilltouch.jpg',
+          icon: '/icons/spell_shadow_chilltouch.jpg',
           interval: event.interval,
         });
       } else if (event.type === 'majordomo_magic_reflection') {
@@ -1854,7 +1854,7 @@ function App() {
           name: 'Magic Reflection',
           type: 'arcane',
           description: `All 8 adds gain a Magic Reflection shield for 10 seconds. DPS must STOP attacking or take reflected damage! Health bars turn blue during this phase. 1-2 DPS always forget and hurt themselves.`,
-          icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_frostshock.jpg',
+          icon: '/icons/spell_frost_frostshock.jpg',
           interval: event.interval,
         });
       }
@@ -1878,7 +1878,7 @@ function App() {
         name: '3-Tank Fight',
         type: 'physical',
         description: 'This fight requires 3 tanks! Before the fight starts, assign 2 tanks for Golemagg (who will swap) and 1 tank for the Core Ragers (2 dogs). A DPS Warrior can serve as the dog tank.',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg',
+        icon: '/icons/ability_warrior_defensivestance.jpg',
         interval: 0,
       });
     }
@@ -1890,7 +1890,7 @@ function App() {
         name: 'Flamewaker Priests',
         type: 'physical',
         description: '4 Flamewaker Priests accompany Sulfuron. All priests must be killed before Sulfuron becomes attackable. DPS cleaves all priests simultaneously.',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_prayerofhealing.jpg',
+        icon: '/icons/spell_holy_prayerofhealing.jpg',
         interval: 0,
       });
     }
@@ -1901,7 +1901,7 @@ function App() {
         name: '5-Tank Add Fight',
         type: 'physical',
         description: 'Majordomo is immune to damage! Kill all 8 adds (4 Elites, 4 Healers) to win. Assign 1 tank for Majordomo, and 4 tanks for adds (each tanks 2 adds). Warriors and Feral Druids can serve as add tanks.',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg',
+        icon: '/icons/ability_warrior_defensivestance.jpg',
         interval: 0,
       });
     }
@@ -1912,42 +1912,42 @@ function App() {
         name: '2-Tank Swap Fight',
         type: 'physical',
         description: 'Ragnaros requires 2 tanks that swap when Wrath of Ragnaros is cast. After 3 minutes, Ragnaros submerges and 8 Sons of Flame spawn. Kill all Sons within 90 seconds or Ragnaros re-emerges with Sons still alive!',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg',
+        icon: '/icons/ability_warrior_defensivestance.jpg',
         interval: 0,
       });
       abilities.push({
         name: 'Wrath of Ragnaros',
         type: 'fire',
         description: 'Knocks back the current tank and applies a debuff. Forces an immediate tank swap. The off-tank must taunt immediately!',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_soulburn.jpg',
+        icon: '/icons/spell_fire_soulburn.jpg',
         interval: 25,
       });
       abilities.push({
         name: 'Elemental Fire',
         type: 'fire',
         description: 'Applies a fire DoT to the current tank dealing 300 fire damage per second for 8 seconds. Keep tanks topped off!',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flametounge.jpg',
+        icon: '/icons/spell_fire_flametounge.jpg',
         interval: 10,
       });
       abilities.push({
         name: 'Lava Burst',
         type: 'fire',
         description: 'Hits a random ranged player for 800 fire damage and splashes nearby players in the same group for 50% damage. Applies a burning DoT.',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+        icon: '/icons/spell_fire_volcano.jpg',
         interval: 12,
       });
       abilities.push({
         name: 'Magma Blast',
         type: 'fire',
         description: 'WIPE MECHANIC! If both tanks are dead, Ragnaros casts Magma Blast on the entire raid for 4000 fire damage every 3 seconds!',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+        icon: '/icons/spell_fire_flameshock.jpg',
         interval: 3,
       });
       abilities.push({
         name: 'Submerge Phase',
         type: 'physical',
         description: 'At 3 minutes, Ragnaros submerges and 8 Sons of Flame spawn. They attack random raid members. Kill all Sons within 90 seconds or face Ragnaros + remaining Sons!',
-        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_elemental_totem.jpg',
+        icon: '/icons/spell_fire_elemental_totem.jpg',
         interval: 180,
       });
     }
@@ -2474,7 +2474,7 @@ function App() {
             <div className="player-frame raid-leader-frame">
               <div className="player-portrait">
                 <img
-                  src="https://wow.zamimg.com/images/wow/icons/large/classic_temp.jpg"
+                  src="/icons/classic_temp.jpg"
                   alt="Raid Leader"
                   className="player-class-icon"
                 />
@@ -2500,7 +2500,7 @@ function App() {
                     onClick={() => setShowInventory(true)}
                   >
                     <span className="icon-tooltip">Bags (B)</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
+                    <img src="/icons/inv_misc_bag_08.jpg" alt="Bags" />
                     <span className="keybind-text">B</span>
                     {state.legendaryMaterials.length > 0 && (
                       <span className="mini-badge">{state.legendaryMaterials.length}</span>
@@ -2511,7 +2511,7 @@ function App() {
                     onClick={() => engine.openAuctionHouse()}
                   >
                     <span className="icon-tooltip">Auction House</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg" alt="Enchants" />
+                    <img src="/icons/inv_misc_coin_01.jpg" alt="Enchants" />
                     {state.materialsBag.nexus_crystal > 0 && (
                       <span className="mini-badge crystal">{state.materialsBag.nexus_crystal}</span>
                     )}
@@ -2521,7 +2521,7 @@ function App() {
                     onClick={() => setShowRaidGroupManager(true)}
                   >
                     <span className="icon-tooltip">Manage Raid</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/achievement_guildperk_everybodysfriend.jpg" alt="Raid" />
+                    <img src="/icons/achievement_guildperk_everybodysfriend.jpg" alt="Raid" />
                   </div>
                   <div className="utility-icon-separator" />
                   <div
@@ -2529,21 +2529,21 @@ function App() {
                     onClick={() => setShowSaveModal(true)}
                   >
                     <span className="icon-tooltip">Save</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_note_01.jpg" alt="Save" />
+                    <img src="/icons/inv_misc_note_01.jpg" alt="Save" />
                   </div>
                   <div
                     className="utility-mini-btn has-tooltip"
                     onClick={() => setShowLoadModal(true)}
                   >
                     <span className="icon-tooltip">Load</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_book_09.jpg" alt="Load" />
+                    <img src="/icons/inv_misc_book_09.jpg" alt="Load" />
                   </div>
                   <div
                     className="utility-mini-btn has-tooltip"
                     onClick={() => setShowSettings(true)}
                   >
                     <span className="icon-tooltip">Settings</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/trade_engineering.jpg" alt="Settings" />
+                    <img src="/icons/trade_engineering.jpg" alt="Settings" />
                   </div>
                   <div
                     className="utility-mini-btn has-tooltip"
@@ -2553,14 +2553,14 @@ function App() {
                     }}
                   >
                     <span className="icon-tooltip">Admin</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_key_03.jpg" alt="Admin" />
+                    <img src="/icons/inv_misc_key_03.jpg" alt="Admin" />
                   </div>
                   <div
                     className={`utility-mini-btn has-tooltip ${currentUser ? 'logged-in' : ''}`}
                     onClick={() => setShowAuthModal(true)}
                   >
                     <span className="icon-tooltip">{currentUser ? currentUser.email?.split('@')[0] || 'Account' : 'Sign In'}</span>
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_human_01.jpg" alt="Account" />
+                    <img src="/icons/inv_misc_head_human_01.jpg" alt="Account" />
                     {currentUser && <span className="logged-in-indicator">✓</span>}
                   </div>
                 </div>
@@ -2571,8 +2571,8 @@ function App() {
             <div className="player-portrait">
               <img
                 src={state.playerClass === 'shaman'
-                  ? "https://wow.zamimg.com/images/wow/icons/large/spell_nature_magicimmunity.jpg"
-                  : "https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg"}
+                  ? "/icons/spell_nature_magicimmunity.jpg"
+                  : "/icons/spell_holy_holybolt.jpg"}
                 alt={state.playerClass === 'shaman' ? "Restoration Shaman" : "Holy Paladin"}
                 className="player-class-icon"
               />
@@ -2652,7 +2652,7 @@ function App() {
                       onClick={() => setShowInventory(true)}
                     >
                       <span className="icon-tooltip">Bags (B)</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
+                      <img src="/icons/inv_misc_bag_08.jpg" alt="Bags" />
                       <span className="keybind-text">B</span>
                       {state.legendaryMaterials.length > 0 && (
                         <span className="mini-badge">{state.legendaryMaterials.length}</span>
@@ -2663,7 +2663,7 @@ function App() {
                       onClick={() => engine.openAuctionHouse()}
                     >
                       <span className="icon-tooltip">Auction House</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg" alt="Enchants" />
+                      <img src="/icons/inv_misc_coin_01.jpg" alt="Enchants" />
                       {state.materialsBag.nexus_crystal > 0 && (
                         <span className="mini-badge crystal">{state.materialsBag.nexus_crystal}</span>
                       )}
@@ -2673,7 +2673,7 @@ function App() {
                       onClick={() => setShowRaidGroupManager(true)}
                     >
                       <span className="icon-tooltip">Manage Raid</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/achievement_guildperk_everybodysfriend.jpg" alt="Raid" />
+                      <img src="/icons/achievement_guildperk_everybodysfriend.jpg" alt="Raid" />
                     </div>
                     <div className="utility-icon-separator" />
                     <div
@@ -2681,21 +2681,21 @@ function App() {
                       onClick={() => setShowSaveModal(true)}
                     >
                       <span className="icon-tooltip">Save</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_note_01.jpg" alt="Save" />
+                      <img src="/icons/inv_misc_note_01.jpg" alt="Save" />
                     </div>
                     <div
                       className="utility-mini-btn has-tooltip"
                       onClick={() => setShowLoadModal(true)}
                     >
                       <span className="icon-tooltip">Load</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_book_09.jpg" alt="Load" />
+                      <img src="/icons/inv_misc_book_09.jpg" alt="Load" />
                     </div>
                     <div
                       className="utility-mini-btn has-tooltip"
                       onClick={() => setShowSettings(true)}
                     >
                       <span className="icon-tooltip">Settings</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/trade_engineering.jpg" alt="Settings" />
+                      <img src="/icons/trade_engineering.jpg" alt="Settings" />
                     </div>
                     <div
                       className="utility-mini-btn has-tooltip"
@@ -2705,14 +2705,14 @@ function App() {
                       }}
                     >
                       <span className="icon-tooltip">Admin</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_key_03.jpg" alt="Admin" />
+                      <img src="/icons/inv_misc_key_03.jpg" alt="Admin" />
                     </div>
                     <div
                       className={`utility-mini-btn has-tooltip ${currentUser ? 'logged-in' : ''}`}
                       onClick={() => setShowAuthModal(true)}
                     >
                       <span className="icon-tooltip">{currentUser ? currentUser.email?.split('@')[0] || 'Account' : 'Sign In'}</span>
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_human_01.jpg" alt="Account" />
+                      <img src="/icons/inv_misc_head_human_01.jpg" alt="Account" />
                       {currentUser && <span className="logged-in-indicator">✓</span>}
                     </div>
                   </div>
@@ -3514,7 +3514,7 @@ function App() {
               onClick={() => engine.useManaPotion()}
               title={`Major Mana Potion (${keybinds.manaPotion.toUpperCase()})`}
             >
-              <img src="https://wow.zamimg.com/images/wow/icons/large/inv_potion_76.jpg" alt="Mana Potion" />
+              <img src="/icons/inv_potion_76.jpg" alt="Mana Potion" />
               <div className="spell-keybind">{keybinds.manaPotion.toUpperCase()}</div>
               {state.manaPotionCooldown > 0 && (
                 <div className="cooldown-overlay">
@@ -3851,8 +3851,8 @@ function App() {
             <div className="mobile-player-info">
               <img
                 src={state.playerClass === 'shaman'
-                  ? "https://wow.zamimg.com/images/wow/icons/large/spell_nature_magicimmunity.jpg"
-                  : "https://wow.zamimg.com/images/wow/icons/large/spell_holy_holybolt.jpg"}
+                  ? "/icons/spell_nature_magicimmunity.jpg"
+                  : "/icons/spell_holy_holybolt.jpg"}
                 alt={state.playerClass === 'shaman' ? "Shaman" : "Paladin"}
                 className="mobile-class-icon"
               />
@@ -4253,7 +4253,7 @@ function App() {
                     className={`mobile-spell ${state.manaPotionCooldown > 0 ? 'disabled' : ''}`}
                     onClick={() => engine.useManaPotion()}
                   >
-                    <img src="https://wow.zamimg.com/images/wow/icons/large/inv_potion_76.jpg" alt="Mana Potion" />
+                    <img src="/icons/inv_potion_76.jpg" alt="Mana Potion" />
                     {state.manaPotionCooldown > 0 && (
                       <div className="mobile-cooldown">{Math.ceil(state.manaPotionCooldown)}</div>
                     )}
@@ -4264,7 +4264,7 @@ function App() {
                       className={`mobile-spell mobile-bag-btn ${state.legendaryMaterials.length > 0 ? 'has-items' : ''}`}
                       onClick={() => setShowInventory(true)}
                     >
-                      <img src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg" alt="Bags" />
+                      <img src="/icons/inv_misc_bag_08.jpg" alt="Bags" />
                       {state.legendaryMaterials.length > 0 && (
                         <div className="mobile-bag-count">{state.legendaryMaterials.length}</div>
                       )}
@@ -7731,7 +7731,7 @@ function App() {
             <div className="inventory-header">
               <div className="inventory-title">
                 <img
-                  src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_bag_08.jpg"
+                  src="/icons/inv_misc_bag_08.jpg"
                   alt="Bag"
                   className="inventory-title-icon"
                 />
@@ -8134,7 +8134,7 @@ function App() {
                 <div className={`craft-card ${engine.canCraftSulfuras() ? 'available' : 'unavailable'}`}>
                   <div className="craft-card-header">
                     <img
-                      src="https://wow.zamimg.com/images/wow/icons/large/inv_hammer_unique_sulfuras.jpg"
+                      src="/icons/inv_hammer_unique_sulfuras.jpg"
                       alt="Sulfuras"
                       className="craft-card-icon"
                     />
@@ -8184,7 +8184,7 @@ function App() {
                 <div className={`craft-card ${engine.canCraftThunderfury() ? 'available' : engine.hasThunderfuryMaterialsButNeedsThunderaan() ? 'needs-boss' : 'unavailable'}`}>
                   <div className="craft-card-header">
                     <img
-                      src="https://wow.zamimg.com/images/wow/icons/large/inv_sword_39.jpg"
+                      src="/icons/inv_sword_39.jpg"
                       alt="Thunderfury"
                       className="craft-card-icon"
                     />
@@ -8256,7 +8256,7 @@ function App() {
             <div className="ah-header">
               <div className="ah-title">
                 <img
-                  src="https://wow.zamimg.com/images/wow/icons/large/inv_misc_coin_01.jpg"
+                  src="/icons/inv_misc_coin_01.jpg"
                   alt="AH"
                   className="ah-title-icon"
                 />

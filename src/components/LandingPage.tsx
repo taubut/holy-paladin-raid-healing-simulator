@@ -57,7 +57,7 @@ const FACTION_CLASSES: Record<Faction, HealerClass[]> = {
 const PLAYABLE_CLASSES: HealerClass[] = ['paladin', 'shaman'];
 
 // Class icons from Wowhead CDN
-const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+const ICON_BASE = '/icons';
 const CLASS_ICONS: Record<HealerClass, string> = {
   paladin: `${ICON_BASE}/classicon_paladin.jpg`,
   priest: `${ICON_BASE}/classicon_priest.jpg`,

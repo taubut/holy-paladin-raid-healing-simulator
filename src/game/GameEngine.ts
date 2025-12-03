@@ -133,7 +133,7 @@ export const RAID_BUFFS = {
   power_word_fortitude: {
     id: 'power_word_fortitude',
     name: 'Prayer of Fortitude',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_prayeroffortitude.jpg',
+    icon: '/icons/spell_holy_prayeroffortitude.jpg',
     duration: 3600,
     maxDuration: 3600,
     effect: { staminaBonus: 54 },
@@ -142,7 +142,7 @@ export const RAID_BUFFS = {
   divine_spirit: {
     id: 'divine_spirit',
     name: 'Prayer of Spirit',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_divinespirit.jpg',
+    icon: '/icons/spell_holy_divinespirit.jpg',
     duration: 3600,
     maxDuration: 3600,
     effect: { spiritBonus: 40 },
@@ -152,7 +152,7 @@ export const RAID_BUFFS = {
   arcane_intellect: {
     id: 'arcane_intellect',
     name: 'Arcane Brilliance',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_arcaneintellect.jpg',
+    icon: '/icons/spell_holy_arcaneintellect.jpg',
     duration: 3600,
     maxDuration: 3600,
     effect: { intellectBonus: 31 },
@@ -162,7 +162,7 @@ export const RAID_BUFFS = {
   mark_of_the_wild: {
     id: 'mark_of_the_wild',
     name: 'Gift of the Wild',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_giftofthewild.jpg',
+    icon: '/icons/spell_nature_giftofthewild.jpg',
     duration: 3600,
     maxDuration: 3600,
     effect: { allStatsBonus: 12, armorBonus: 285 },
@@ -172,7 +172,7 @@ export const RAID_BUFFS = {
   blessing_of_wisdom: {
     id: 'blessing_of_wisdom',
     name: 'Greater Blessing of Wisdom',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_greaterblessingofwisdom.jpg',
+    icon: '/icons/spell_holy_greaterblessingofwisdom.jpg',
     duration: 900,
     maxDuration: 900,
     effect: { manaRegenBonus: 33 },
@@ -182,7 +182,7 @@ export const RAID_BUFFS = {
   blessing_of_kings: {
     id: 'blessing_of_kings',
     name: 'Greater Blessing of Kings',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_magic_greaterblessingofkings.jpg',
+    icon: '/icons/spell_magic_greaterblessingofkings.jpg',
     duration: 900,
     maxDuration: 900,
     effect: { allStatsBonus: 10 }, // 10% but we'll treat as flat for simplicity
@@ -192,7 +192,7 @@ export const RAID_BUFFS = {
   blessing_of_might: {
     id: 'blessing_of_might',
     name: 'Greater Blessing of Might',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_greaterblessingofkings.jpg',
+    icon: '/icons/spell_holy_greaterblessingofkings.jpg',
     duration: 900,
     maxDuration: 900,
     effect: { attackPowerBonus: 185 },
@@ -202,7 +202,7 @@ export const RAID_BUFFS = {
   blessing_of_light: {
     id: 'blessing_of_light_buff',
     name: 'Greater Blessing of Light',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_prayerofhealing02.jpg',
+    icon: '/icons/spell_holy_prayerofhealing02.jpg',
     duration: 900,
     maxDuration: 900,
     effect: { healingReceivedBonus: 400 }, // +400 to Holy Light heals received
@@ -212,7 +212,7 @@ export const RAID_BUFFS = {
   blessing_of_salvation: {
     id: 'blessing_of_salvation',
     name: 'Greater Blessing of Salvation',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofsalvation.jpg',
+    icon: '/icons/spell_holy_sealofsalvation.jpg',
     duration: 900,
     maxDuration: 900,
     effect: {}, // Reduces threat by 30% - not mechanically relevant here but thematic
@@ -229,7 +229,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   flask_of_distilled_wisdom: {
     id: 'flask_of_distilled_wisdom',
     name: 'Flask of Distilled Wisdom',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_97.jpg',
+    icon: '/icons/inv_potion_97.jpg',
     duration: 7200,
     effect: { mana: 2000 },
     role: 'healer',
@@ -237,7 +237,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   mageblood_potion: {
     id: 'mageblood_potion',
     name: 'Mageblood Potion',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_45.jpg',
+    icon: '/icons/inv_potion_45.jpg',
     duration: 3600,
     effect: { manaRegenBonus: 12 },
     role: 'healer',
@@ -245,7 +245,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   nightfin_soup: {
     id: 'nightfin_soup',
     name: 'Nightfin Soup',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_fish_21.jpg',
+    icon: '/icons/inv_misc_fish_21.jpg',
     duration: 900,
     effect: { manaRegenBonus: 8 },
     role: 'healer',
@@ -253,7 +253,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   brilliant_mana_oil: {
     id: 'brilliant_mana_oil',
     name: 'Brilliant Mana Oil',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_100.jpg',
+    icon: '/icons/inv_potion_100.jpg',
     duration: 1800,
     effect: { manaRegenBonus: 12, healingPower: 25 },
     role: 'healer',
@@ -261,7 +261,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   greater_arcane_elixir: {
     id: 'greater_arcane_elixir',
     name: 'Greater Arcane Elixir',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_25.jpg',
+    icon: '/icons/inv_potion_25.jpg',
     duration: 3600,
     effect: { healingPower: 35 },
     role: 'healer',
@@ -270,7 +270,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   flask_of_supreme_power: {
     id: 'flask_of_supreme_power',
     name: 'Flask of Supreme Power',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_41.jpg',
+    icon: '/icons/inv_potion_41.jpg',
     duration: 7200,
     effect: { healingPower: 150 }, // +150 Spell Power
     role: 'dps',
@@ -278,7 +278,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   mongoose_elixir: {
     id: 'mongoose_elixir',
     name: 'Elixir of the Mongoose',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_32.jpg',
+    icon: '/icons/inv_potion_32.jpg',
     duration: 3600,
     effect: { spellCritBonus: 2 }, // +25 Agi, +2% Crit simplified
     role: 'dps',
@@ -286,7 +286,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   winterfall_firewater: {
     id: 'winterfall_firewater',
     name: 'Winterfall Firewater',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_92.jpg',
+    icon: '/icons/inv_potion_92.jpg',
     duration: 1200,
     effect: { attackPowerBonus: 35 },
     role: 'dps',
@@ -294,7 +294,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   juju_power: {
     id: 'juju_power',
     name: 'Juju Power',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_monsterscales_11.jpg',
+    icon: '/icons/inv_misc_monsterscales_11.jpg',
     duration: 1800,
     effect: { attackPowerBonus: 30 },
     role: 'dps',
@@ -302,7 +302,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   grilled_squid: {
     id: 'grilled_squid',
     name: 'Grilled Squid',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_fish_13.jpg',
+    icon: '/icons/inv_misc_fish_13.jpg',
     duration: 900,
     effect: { spellCritBonus: 1 }, // +10 Agility simplified
     role: 'dps',
@@ -311,7 +311,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   flask_of_the_titans: {
     id: 'flask_of_the_titans',
     name: 'Flask of the Titans',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_62.jpg',
+    icon: '/icons/inv_potion_62.jpg',
     duration: 7200,
     effect: { staminaBonus: 120 }, // +1200 HP = ~120 sta
     role: 'tank',
@@ -319,7 +319,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   elixir_of_fortitude: {
     id: 'elixir_of_fortitude',
     name: 'Elixir of Fortitude',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_43.jpg',
+    icon: '/icons/inv_potion_43.jpg',
     duration: 3600,
     effect: { staminaBonus: 12 }, // +120 HP = ~12 sta
     role: 'tank',
@@ -327,7 +327,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   elixir_of_superior_defense: {
     id: 'elixir_of_superior_defense',
     name: 'Elixir of Superior Defense',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_potion_86.jpg',
+    icon: '/icons/inv_potion_86.jpg',
     duration: 3600,
     effect: { armorBonus: 450 },
     role: 'tank',
@@ -335,7 +335,7 @@ export const CONSUMABLES: Record<string, ConsumableBuff> = {
   rumsey_rum_black_label: {
     id: 'rumsey_rum_black_label',
     name: 'Rumsey Rum Black Label',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_drink_04.jpg',
+    icon: '/icons/inv_drink_04.jpg',
     duration: 900,
     effect: { staminaBonus: 15 },
     role: 'tank',
@@ -350,7 +350,7 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
   songflower_serenade: {
     id: 'songflower_serenade',
     name: 'Songflower Serenade',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_mindvision.jpg',
+    icon: '/icons/spell_holy_mindvision.jpg',
     duration: 7200,
     effect: { allStatsBonus: 15, spellCritBonus: 5 },
     unlockBoss: undefined, // Always available
@@ -358,7 +358,7 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
   dire_maul_tribute: {
     id: 'dire_maul_tribute',
     name: 'Dire Maul Tribute',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_lesserheal02.jpg',
+    icon: '/icons/spell_holy_lesserheal02.jpg',
     duration: 7200,
     effect: { staminaBonus: 15, spellCritBonus: 3 }, // 15% HP simplified as stamina
     unlockBoss: undefined, // Always available
@@ -367,7 +367,7 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
   rallying_cry_dragonslayer: {
     id: 'rallying_cry_dragonslayer',
     name: 'Rallying Cry of the Dragonslayer',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_misc_head_dragon_01.jpg',
+    icon: '/icons/inv_misc_head_dragon_01.jpg',
     duration: 7200,
     effect: { spellCritBonus: 10, attackPowerBonus: 140 },
     unlockBoss: 'onyxia',  // Requires first kill of Onyxia
@@ -377,7 +377,7 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
   warchiefs_blessing: {
     id: 'warchiefs_blessing',
     name: "Warchief's Blessing",
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_arcane_teleportorgrimmar.jpg',
+    icon: '/icons/spell_arcane_teleportorgrimmar.jpg',
     duration: 7200,
     effect: { staminaBonus: 30, manaRegenBonus: 10, attackSpeedBonus: 15 }, // 300 HP = ~30 sta, 15% atk speed, 10 mp5
     unlockBoss: 'nefarian',
@@ -387,7 +387,7 @@ export const WORLD_BUFFS: Record<string, WorldBuff> = {
   spirit_of_zandalar: {
     id: 'spirit_of_zandalar',
     name: 'Spirit of Zandalar',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_creature_poison_05.jpg',
+    icon: '/icons/ability_creature_poison_05.jpg',
     duration: 7200,
     effect: { allStatsBonus: 10 }, // 10% all stats simplified
     unlockBoss: 'hakkar',

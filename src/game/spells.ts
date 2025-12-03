@@ -1,7 +1,7 @@
 import type { Spell } from './types';
 
 // Classic WoW Holy Paladin Spells - Vanilla Only
-const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+const ICON_BASE = '/icons';
 
 // Spell tooltip descriptions - Authentic Vanilla WoW from Wowhead
 export interface SpellTooltip {

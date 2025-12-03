@@ -50,7 +50,7 @@ export const ENCHANTING_MATERIALS: Record<EnchantingMaterialId, EnchantingMateri
   nexus_crystal: {
     id: 'nexus_crystal',
     name: 'Nexus Crystal',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_enchant_shardnexuslarge.jpg',
+    icon: '/icons/inv_enchant_shardnexuslarge.jpg',
     description: 'A powerful enchanting reagent obtained from disenchanting epic gear.',
   },
 };
@@ -100,7 +100,7 @@ export interface Enchant {
   role: EnchantRole;
 }
 
-const ENCHANT_ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+const ENCHANT_ICON_BASE = '/icons';
 
 export const ENCHANTS: Record<EnchantId, Enchant> = {
   // ===========================================
@@ -594,7 +594,7 @@ export interface GearItem {
   armorType?: ArmorType;  // For armor pieces: cloth, leather, mail, plate
 }
 
-const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large';
+const ICON_BASE = '/icons';
 
 // =============================================================================
 // PALADIN TIER 1 - LAWBRINGER ARMOR
