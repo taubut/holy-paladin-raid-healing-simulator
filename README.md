@@ -1,6 +1,6 @@
 # Classic WoW Raid Simulator
 
-A browser-based Classic WoW (Vanilla) raid healing simulator. Experience the nostalgia of healing Molten Core and Onyxia's Lair with authentic spell mechanics, boss abilities, and raid management systems.
+A browser-based Classic WoW (Vanilla) raid healing simulator. Experience the nostalgia of healing through Molten Core, Blackwing Lair, and Onyxia's Lair with authentic boss mechanics, multiplayer co-op, and full raid management.
 
 ![Game Screenshot](screenshots/screenshot.png)
 
@@ -14,66 +14,53 @@ A browser-based Classic WoW (Vanilla) raid healing simulator. Experience the nos
 
 No download required - play directly in your browser!
 
-## Features
+## Key Features
 
-### Playable Classes
-- **Holy Paladin** (Alliance) - 9 spells including Holy Light, Flash of Light, Holy Shock, Lay on Hands, Divine Favor, Cleanse, and Blessing of Light
-- **Restoration Shaman** (Horde) - Chain Heal, Healing Wave, Lesser Healing Wave, Earth Shield, and more
-- More classes coming soon!
+### 19 Raid Bosses with Authentic Mechanics
+- **Molten Core** - All 10 bosses including Ragnaros with voiced cinematic RP intro
+- **Blackwing Lair** - 8 bosses from Razorgore to Nefarian with Tier 2 loot
+- **Onyxia's Lair** - 3-phase dragon encounter with Deep Breath and whelps
+- **Prince Thunderaan** - Secret boss unlocked with both Bindings of the Windseeker
+- Tank swap mechanics, add management, phase transitions, Living Bomb safe zones, and more
 
-### Raid Content
-- **Molten Core** - All 10 bosses with authentic abilities
-  - Lucifron, Magmadar, Gehennas, Garr, Shazzrah, Baron Geddon, Sulfuron Harbinger, Golemagg, Majordomo Executus, and Ragnaros
-- **Onyxia's Lair** - 3-phase dragon encounter
-  - Ground phase with Cleave, Tail Sweep, and Flame Breath
-  - Air phase with Deep Breath, Fireballs, and Whelp swarms
-  - Chaos phase with Bellowing Roar fear and Lava Eruptions
-- **Training Dummy** - Practice your healing rotation without pressure
+### Multiplayer Co-op (Up to 4 Healers)
+- Create or join rooms with room codes
+- Real-time healing meter showing all players' HPS
+- DKP loot bidding with roll tie-breakers
+- Host-authoritative sync at 20Hz via Supabase Realtime
 
-### Boss Mechanics
-- Tank damage, raid-wide AoE, and random target abilities
-- Dispellable debuffs (Magic, Poison, Disease, Curse indicators)
-- Phase transitions (Onyxia)
-- Enrage timers
-- Living Bomb safe zone mechanic
-- Encounter Journal with boss abilities and healer tips
+### Raid Leader Mode
+- Manage your entire 40-man raid's gear progression
+- Loot council simulation - assign drops to any raid member
+- Bench system to swap raiders in and out for specific encounters
+- Tank assignment modals for multi-tank fights
 
-### Raid Management
-- **20-man or 40-man raids** - Adjustable raid size
-- **8 WoW classes** represented with authentic class colors
-- **Role system** - Tanks, Healers, and DPS with appropriate health pools
-- **Other healers toggle** - Enable/disable AI healing from other raid healers
-- **Raid buff system** - Paladin Blessings, class buffs (Arcane Intellect, Mark of the Wild, etc.)
+### Cloud Saves & Mobile Support
+- Google & Apple Sign-In to sync progress across devices
+- Automatic cloud save on boss kills and loot
+- Full mobile-optimized UI (dedicated mobile interface, not just responsive)
+- Touch-friendly action bars and raid frames
 
-### Progression Systems
-- **DKP (Dragon Kill Points)** - Earn points for boss kills, spend on loot
-- **Loot drops** - Epic gear with stats (Intellect, Spell Power, Healing Power, MP5, Crit)
-- **Equipment system** - 9 gear slots per character
-- **Gear Score** - Track your raid's power level
-- **Bad Luck Protection** - Guaranteed loot after consecutive unlucky drops
+### Progression & Loot Systems
+- **Legendary Crafting** - Thunderfury, Blessed Blade of the Windseeker and Sulfuras, Hand of Ragnaros
+- **Enchanting** - Disenchant epics for Nexus Crystals, purchase enchants for your gear
+- **DKP System** - Earn Dragon Kill Points for boss kills, bid on loot drops
+- **200+ Items** - Authentic Classic loot with correct stats, icons, and item levels
+- **Tier Sets** - Complete Tier 1 and Tier 2 armor sets for all 8 classes
 
-### Legendary Crafting
-- **Sulfuras, Hand of Ragnaros** - Collect Eye of Sulfuras from Ragnaros
-- **Thunderfury, Blessed Blade of the Windseeker** - Collect both Bindings from Garr and Baron Geddon
-
-### Consumables & World Buffs
-- **Consumables** - Mana potions, Flask of Distilled Wisdom, Mageblood Elixir, and more
-- **World Buffs** - Rallying Cry of the Dragonslayer (unlocked by defeating Onyxia)
-
-### Multiplayer Co-op
-- **Room codes** - Create or join lobbies with up to 4 healers
-- **Real-time healing meter** - See everyone's HPS
-- **DKP loot bidding** - Bid on drops with your raid team
-
-### Cloud Saves
-- **Google & Apple Sign-In** - Sync your progress across devices
-- **Automatic cloud sync** - Never lose your character again
+### Authentic Healing Gameplay
+- Multiple healer classes: Holy Paladin (Alliance), Restoration Shaman (Horde), more coming
+- Five-Second Rule mana regeneration and Illumination talent
+- Mouseover healing mode (like real WoW healing addons)
+- AI healers with mana management, smart spell selection, and dispelling
+- Complete Paladin aura and Shaman totem systems
 
 ### Quality of Life
-- **Save/Load system** - Multiple save slots with import/export
-- **Admin Panel** - Manage loot, DKP, progression, and raid composition
-- **Combat Log** - Real-time logging of heals, damage, and events
-- **Keyboard shortcuts** - Number keys 1-9 for spells, M for mana potion, B for bags, ESC to cancel
+- Encounter Journal with boss abilities, mechanics, and loot tables
+- Combat log with real-time HPS meters and dispel tracking
+- Save/Load system with multiple slots and JSON import/export
+- Admin Panel for testing progression, loot, and raid composition
+- 20-man or 40-man raid sizes
 
 ## Controls
 
@@ -89,7 +76,7 @@ No download required - play directly in your browser!
 - **React 19** - UI framework
 - **TypeScript** - Type safety
 - **Vite** - Build tool
-- **Supabase** - Auth & database
+- **Supabase** - Auth, database, and realtime multiplayer
 
 ## Acknowledgments
 
