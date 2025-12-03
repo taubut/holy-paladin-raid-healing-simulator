@@ -25,7 +25,22 @@ import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, o
 import type { User } from '@supabase/supabase-js';
 import posthog from 'posthog-js';
 import './App.css';
+import RagDomoImage from './assets/Rag_Domo.png';
+import Majordomo1Audio from './assets/Majordomo_1.ogg';
+import Majordomo2Audio from './assets/Majordomo_2.ogg';
+import Ragnaros1Audio from './assets/Ragnaros_1.ogg';
+import Ragnaros2Audio from './assets/Ragnaros_2.ogg';
+import Ragnaros3Audio from './assets/Ragnaros_3.ogg';
 
+// Ragnaros RP Dialogue Data with audio and durations
+const RAGNAROS_RP_DIALOGUE = [
+  { speaker: 'Majordomo Executus', text: 'Behold Ragnaros, the Firelord! He who was ancient when this world was young! Bow before him, mortals! Bow before your ending!', audio: Majordomo1Audio, duration: 13 },
+  { speaker: 'Ragnaros', text: 'TOO SOON! YOU HAVE AWAKENED ME TOO SOON, EXECUTUS! What is the meaning of this intrusion?', audio: Ragnaros1Audio, duration: 13 },
+  { speaker: 'Majordomo Executus', text: 'These mortal infidels, my lord! They have invaded your sanctum, and seek to steal your secrets!', audio: Majordomo2Audio, duration: 7 },
+  { speaker: 'Ragnaros', text: 'FOOL! You allowed these insects to run rampant through the hallowed core? You have failed me, Executus! Justice shall be met indeed!', audio: Ragnaros2Audio, duration: 20 },
+  { speaker: 'Ragnaros', text: 'Now for you, insects. Boldly you sought the power of Ragnaros. Now you shall see it firsthand!', audio: Ragnaros3Audio, duration: 12 },
+];
+const RP_DURATION = 13 + 13 + 7 + 20 + 12; // 65 seconds total
 
 function App() {
   const engineRef = useRef<GameEngine | null>(null);
@@ -89,6 +104,7 @@ function App() {
   } | null>(null);
   const previousLivingBombTargetsRef = useRef<Set<string>>(new Set());
   const airhornRef = useRef<HTMLAudioElement | null>(null);
+  const ragnarosRPAudioRef = useRef<HTMLAudioElement | null>(null);
   // Raid management state
   const [showRaidGroupManager, setShowRaidGroupManager] = useState(false);
   const [selectedPaladinForAura, setSelectedPaladinForAura] = useState<string | null>(null);
@@ -113,7 +129,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.27.0';
+  const CURRENT_PATCH_VERSION = '0.28.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -179,6 +195,11 @@ function App() {
   const [showRagnarosTankModal, setShowRagnarosTankModal] = useState(false);
   const [ragnarosTank1, setRagnarosTank1] = useState<string>(''); // Main tank
   const [ragnarosTank2, setRagnarosTank2] = useState<string>(''); // Off-tank (swap on Wrath)
+
+  // Ragnaros RP intro state
+  const [showRagnarosRP, setShowRagnarosRP] = useState(false);
+  const [ragnarosRPDialogueIndex, setRagnarosRPDialogueIndex] = useState(0);
+  const [ragnarosRPTimeRemaining, setRagnarosRPTimeRemaining] = useState(RP_DURATION);
 
   // Default keybinds
   const DEFAULT_KEYBINDS = {
@@ -535,6 +556,7 @@ function App() {
 
     if (encounter?.requiresTankAssignment && encounterId === 'ragnaros') {
       // Ragnaros requires 2 tanks for tank swap on Wrath of Ragnaros
+      // Show tank assignment first, then RP, then fight starts
       const state = engine.getState();
       const tanks = state.raid.filter(m => m.role === 'tank' && m.isAlive);
 
@@ -631,11 +653,40 @@ function App() {
     });
   };
 
-  // Start Ragnaros with assigned tanks
-  const startRagnarosWithTanks = () => {
+  // Ragnaros RP complete handler - start the fight with saved tank assignments
+  const handleRagnarosRPComplete = () => {
+    setShowRagnarosRP(false);
+    // Start the encounter with the tank assignments saved earlier
     const engine = engineRef.current;
-    if (!engine) return;
+    if (engine && ragnarosTank1 && ragnarosTank2) {
+      engine.startEncounter('ragnaros', {
+        ragnarosTanks: {
+          tank1Id: ragnarosTank1,
+          tank2Id: ragnarosTank2,
+          currentMainTank: 1,
+          wrathKnockbackUntil: 0,
+          submergeTime: 180, // 3 minutes until submerge
+          sonsTimer: -1, // Not active until submerge
+          sonsKilled: 0,
+          hasSubmerged: false,
+          healthBeforeSubmerge: 0,
+        }
+      });
+    }
+  };
 
+  // Ragnaros RP skip handler
+  const handleRagnarosRPSkip = () => {
+    // Stop audio when skipping
+    if (ragnarosRPAudioRef.current) {
+      ragnarosRPAudioRef.current.pause();
+      ragnarosRPAudioRef.current = null;
+    }
+    handleRagnarosRPComplete();
+  };
+
+  // Start Ragnaros with assigned tanks - shows RP first, then fight starts
+  const startRagnarosWithTanks = () => {
     if (!ragnarosTank1 || !ragnarosTank2) {
       alert('Please assign both tanks before starting the fight.');
       return;
@@ -646,21 +697,12 @@ function App() {
       return;
     }
 
-    // Close modal and start the encounter with tank assignments
+    // Close tank modal and show RP sequence
+    // Tank assignments are saved in state and will be used when RP completes
     setShowRagnarosTankModal(false);
-    engine.startEncounter('ragnaros', {
-      ragnarosTanks: {
-        tank1Id: ragnarosTank1,
-        tank2Id: ragnarosTank2,
-        currentMainTank: 1,
-        wrathKnockbackUntil: 0,
-        submergeTime: 180, // 3 minutes until submerge
-        sonsTimer: -1, // Not active until submerge
-        sonsKilled: 0,
-        hasSubmerged: false,
-        healthBeforeSubmerge: 0,
-      }
-    });
+    setShowRagnarosRP(true);
+    setRagnarosRPDialogueIndex(0);
+    setRagnarosRPTimeRemaining(RP_DURATION);
   };
 
   // Handle starting the game from landing page
@@ -1295,6 +1337,74 @@ function App() {
     }
   }, [state.elapsedTime, evacuatedMembers]);
 
+  // Ragnaros RP timer - countdown and dialogue progression with audio
+  useEffect(() => {
+    if (!showRagnarosRP) return;
+
+    // Calculate cumulative start times for each dialogue
+    const dialogueStartTimes: number[] = [];
+    let cumulative = 0;
+    for (const d of RAGNAROS_RP_DIALOGUE) {
+      dialogueStartTimes.push(cumulative);
+      cumulative += d.duration;
+    }
+
+    // Play first audio immediately
+    const firstAudio = new Audio(RAGNAROS_RP_DIALOGUE[0].audio);
+    ragnarosRPAudioRef.current = firstAudio;
+    firstAudio.play().catch(() => {}); // Ignore autoplay restrictions
+
+    let lastDialogueIndex = 0;
+
+    const timer = setInterval(() => {
+      setRagnarosRPTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (ragnarosRPAudioRef.current) {
+            ragnarosRPAudioRef.current.pause();
+            ragnarosRPAudioRef.current = null;
+          }
+          handleRagnarosRPComplete();
+          return 0;
+        }
+
+        // Calculate elapsed time and find current dialogue index
+        const elapsed = RP_DURATION - prev + 1;
+        let newIndex = 0;
+        for (let i = 0; i < dialogueStartTimes.length; i++) {
+          if (elapsed >= dialogueStartTimes[i]) {
+            newIndex = i;
+          }
+        }
+        newIndex = Math.min(newIndex, RAGNAROS_RP_DIALOGUE.length - 1);
+
+        // If dialogue changed, play new audio
+        if (newIndex !== lastDialogueIndex) {
+          lastDialogueIndex = newIndex;
+          setRagnarosRPDialogueIndex(newIndex);
+
+          // Stop previous audio and play new one
+          if (ragnarosRPAudioRef.current) {
+            ragnarosRPAudioRef.current.pause();
+          }
+          const newAudio = new Audio(RAGNAROS_RP_DIALOGUE[newIndex].audio);
+          ragnarosRPAudioRef.current = newAudio;
+          newAudio.play().catch(() => {});
+        }
+
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(timer);
+      if (ragnarosRPAudioRef.current) {
+        ragnarosRPAudioRef.current.pause();
+        ragnarosRPAudioRef.current = null;
+      }
+    };
+  }, [showRagnarosRP]);
+
   // Clear evacuated members when encounter ends
   useEffect(() => {
     if (!state.isRunning) {
@@ -1916,6 +2026,20 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.28.0 - Ragnaros Pre-Fight RP</h3>
+                  <span className="patch-date">December 3, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Ragnaros Pre-Fight RP</h4>
+                  <ul>
+                    <li><strong>Cinematic Intro</strong>: Experience the iconic Majordomo Executus and Ragnaros dialogue before the fight begins</li>
+                    <li><strong>Voice Acting</strong>: Full voice lines synced with subtitles for an immersive experience</li>
+                    <li><strong>Skippable</strong>: Press "Skip RP" if you want to jump straight into the action</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.27.0 - Raid Leader Mode</h3>
                   <span className="patch-date">December 3, 2025</span>
                 </div>
@@ -5378,6 +5502,45 @@ function App() {
                 Start Fight
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ragnaros RP Intro Modal */}
+      {showRagnarosRP && (
+        <div className="ragnaros-rp-overlay">
+          <div className="ragnaros-rp-container">
+            <img
+              src={RagDomoImage}
+              alt="Ragnaros and Majordomo Executus"
+              className="ragnaros-rp-image"
+            />
+
+            {/* Subtitle */}
+            <div className="ragnaros-rp-subtitle" key={ragnarosRPDialogueIndex}>
+              <span className={`rp-speaker ${RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].speaker === 'Ragnaros' ? 'ragnaros' : 'majordomo'}`}>
+                {RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].speaker} yells:
+              </span>
+              <span className="rp-text">
+                "{RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].text}"
+              </span>
+            </div>
+
+            {/* Countdown Bar */}
+            <div className="ragnaros-rp-countdown">
+              <div className="countdown-label">Ragnaros engages in {ragnarosRPTimeRemaining}s</div>
+              <div className="countdown-bar">
+                <div
+                  className="countdown-fill"
+                  style={{ width: `${((RP_DURATION - ragnarosRPTimeRemaining) / RP_DURATION) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Skip Button */}
+            <button className="ragnaros-rp-skip" onClick={handleRagnarosRPSkip}>
+              Skip RP
+            </button>
           </div>
         </div>
       )}
