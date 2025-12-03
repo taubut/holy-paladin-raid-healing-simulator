@@ -485,6 +485,151 @@ body {
   color: #888;
 }
 
+/* Ragnaros Submerge Timer */
+.submerge-timer-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 100, 0, 0.2);
+  border: 1px solid #ff6600;
+  border-radius: 4px;
+}
+
+.submerge-timer-label {
+  color: #ff8800;
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.submerge-timer-bar-bg {
+  flex: 1;
+  height: 12px;
+  background: #222;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.submerge-timer-bar-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #ff6600 0%, #cc4400 100%);
+  transition: width 0.1s linear;
+}
+
+.submerge-timer-text {
+  color: #ffaa00;
+  font-size: 12px;
+  font-weight: bold;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Ragnaros Sons of Flame Phase */
+.sons-of-flame-container {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid #ff4400;
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.sons-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sons-title {
+  color: #ff6600;
+  font-weight: bold;
+  font-size: 14px;
+  text-shadow: 0 0 6px #ff4400;
+}
+
+.sons-timer-text {
+  color: #ffaa00;
+  font-weight: bold;
+  font-size: 12px;
+  animation: sons-timer-pulse 1s ease-in-out infinite;
+}
+
+@keyframes sons-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.sons-timer-bar-bg {
+  height: 8px;
+  background: #222;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.sons-timer-bar-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #ff4400 0%, #cc2200 100%);
+  transition: width 0.1s linear;
+}
+
+.sons-health-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.son-health-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+
+.son-health-bar.dead {
+  opacity: 0.4;
+}
+
+.son-name {
+  color: #ff8844;
+  font-size: 9px;
+  width: 35px;
+  white-space: nowrap;
+}
+
+.son-health-bg {
+  flex: 1;
+  height: 10px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.son-health-fill {
+  height: 100%;
+  background: linear-gradient(180deg, #ff6600 0%, #cc4400 100%);
+}
+
+.son-health-text {
+  color: #fff;
+  font-size: 9px;
+  width: 30px;
+  text-align: right;
+}
+
+.ragnaros-submerged-health {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #444;
+  color: #888;
+  font-size: 11px;
+  text-align: center;
+}
+
 /* Raid Grid */
 .raid-grid {
   display: grid;

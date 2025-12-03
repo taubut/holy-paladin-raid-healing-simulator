@@ -281,19 +281,40 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
   elemental_fire: {
     id: 'elemental_fire',
     name: 'Elemental Fire',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flametounge.jpg',
     maxDuration: 8,
     type: 'magic',
     damagePerTick: 300,
     tickInterval: 1,
+    damageType: 'fire' as const,
   },
   wrath_of_ragnaros: {
     id: 'wrath_of_ragnaros',
     name: 'Wrath of Ragnaros',
-    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_fireball02.jpg',
-    maxDuration: 1,
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_soulburn.jpg',
+    maxDuration: 10,
     type: 'magic',
-    damagePerTick: 0, // Knockback effect - burst damage handled separately
+    dispellable: false, // Cannot be dispelled - tank must swap
+    damagePerTick: 0, // Knockback effect - forces tank swap
+    forcesTankSwap: true, // Custom flag for tank swap mechanic
+  },
+  magma_blast: {
+    id: 'magma_blast',
+    name: 'Magma Blast',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+    maxDuration: 0, // Instant damage
+    type: 'magic',
+    damagePerTick: 0,
+  },
+  lava_burst: {
+    id: 'lava_burst',
+    name: 'Lava Burst',
+    icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+    maxDuration: 6,
+    type: 'magic',
+    damagePerTick: 200,
+    tickInterval: 2,
+    damageType: 'fire' as const,
   },
   // Onyxia
   flame_breath: {
@@ -917,21 +938,53 @@ export const ENCOUNTERS: Boss[] = [
     ],
   },
   // Boss 10: Ragnaros (Final Boss)
-  // Signature: Wrath of Ragnaros (knockback), Elemental Fire, Magma Blast, Sons of Flame submerge
+  // Signature: Wrath of Ragnaros (tank swap knockback), Elemental Fire, Magma Blast, Lava Burst
+  // Submerge Phase: After 3 minutes, Ragnaros submerges and 8 Sons of Flame spawn
+  // Sons must be killed within 90 seconds or Ragnaros re-emerges with Sons still alive
+  // 2-tank fight with tank swap on Wrath of Ragnaros
   {
     id: 'ragnaros',
     name: 'Ragnaros',
     maxHealth: 3500000,
     currentHealth: 3500000,
     enrageTimer: 480,
+    requiresTankAssignment: true, // Requires 2-tank assignment for tank swap
+    currentPhase: 1, // Phase 1 = fighting Ragnaros, Phase 2 = submerged (Sons), Phase 3 = Ragnaros returns
+    adds: [
+      // 8 Sons of Flame - spawn during submerge phase
+      { id: 'son1', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son2', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son3', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son4', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son5', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son6', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son7', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+      { id: 'son8', name: 'Son of Flame', maxHealth: 80000, currentHealth: 80000, isAlive: false },
+    ],
+    phaseTransitions: [
+      { phase: 2, healthPercent: -1, message: 'Ragnaros submerges! Sons of Flame emerge!' }, // Special trigger - time based
+      { phase: 3, healthPercent: -1, message: 'Ragnaros re-emerges from the lava!' }, // Triggered when Sons die or 90s timer
+    ],
     damageEvents: [
-      { type: 'tank_damage', damage: 1200, interval: 2.5, damageType: 'fire' }, // Massive fire melee
-      { type: 'debuff', damage: 0, interval: 12, debuffId: 'elemental_fire' }, // Fire DoT on tank
-      { type: 'debuff', damage: 0, interval: 30, debuffId: 'wrath_of_ragnaros' }, // Knockback
-      { type: 'raid_damage', damage: 600, interval: 8, targetCount: 10, damageType: 'fire' }, // Wrath splash damage
-      { type: 'random_target', damage: 1500, interval: 15, damageType: 'fire' }, // Magma Blast (if no melee)
-      { type: 'raid_damage', damage: 400, interval: 60, targetCount: 20, damageType: 'fire' }, // Sons of Flame phase
-      { type: 'tank_damage', damage: 2000, interval: 45, damageType: 'fire' }, // Lava Splash burst
+      // === PHASE 1 & 3: RAGNAROS ACTIVE ===
+      // Massive fire melee on tank
+      { type: 'ragnaros_melee', damage: 1200, interval: 2.5, damageType: 'fire', activeInPhases: [1, 3] },
+
+      // Elemental Fire - Fire DoT on current tank
+      { type: 'ragnaros_elemental_fire', damage: 0, interval: 10, activeInPhases: [1, 3] },
+
+      // Wrath of Ragnaros - Knockback, forces tank swap (heavy damage to knocked tank)
+      { type: 'ragnaros_wrath', damage: 2500, interval: 25, damageType: 'fire', activeInPhases: [1, 3] },
+
+      // Lava Burst - Random ranged + splash damage to nearby players
+      { type: 'ragnaros_lava_burst', damage: 1500, interval: 12, damageType: 'fire', activeInPhases: [1, 3] },
+
+      // Magma Blast - Only if no tank in melee (both tanks dead)
+      { type: 'ragnaros_magma_blast', damage: 4000, interval: 3, damageType: 'fire', activeInPhases: [1, 3] },
+
+      // === PHASE 2: SONS OF FLAME (Ragnaros submerged) ===
+      // Sons of Flame melee random raid members
+      { type: 'sons_of_flame_melee', damage: 350, interval: 2, activeInPhases: [2] },
     ],
   },
 ];

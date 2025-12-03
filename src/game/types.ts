@@ -291,6 +291,8 @@ export interface Debuff {
   increasesMagicDamageTaken?: number;
   // Deaden Magic - reduces magic damage taken by boss (0.5 = 50% reduction)
   reducesMagicDamage?: number;
+  // Wrath of Ragnaros - forces tank swap (can't be dispelled)
+  forcesTankSwap?: boolean;
 }
 
 // Equipment slots for gear (17 slots total - authentic WoW Classic)
@@ -395,7 +397,7 @@ export interface Spell {
 export type DamageType = 'physical' | 'fire' | 'frost' | 'shadow' | 'nature' | 'arcane';
 
 export interface DamageEvent {
-  type: 'tank_damage' | 'raid_damage' | 'random_target' | 'debuff' | 'inferno' | 'frenzy' | 'lava_bomb' | 'rain_of_fire' | 'antimagic_pulse' | 'shazzrah_curse' | 'shazzrah_blink' | 'deaden_magic' | 'hand_of_ragnaros' | 'inspire' | 'dark_mending' | 'sulfuron_immolate' | 'golemagg_magma_splash' | 'golemagg_pyroblast' | 'golemagg_earthquake' | 'core_rager_mangle' | 'core_rager_melee' | 'majordomo_teleport' | 'majordomo_elite_melee' | 'majordomo_fire_blast' | 'majordomo_shadow_shock' | 'majordomo_shadow_bolt' | 'majordomo_fireball' | 'majordomo_dark_mending' | 'majordomo_magic_reflection';
+  type: 'tank_damage' | 'raid_damage' | 'random_target' | 'debuff' | 'inferno' | 'frenzy' | 'lava_bomb' | 'rain_of_fire' | 'antimagic_pulse' | 'shazzrah_curse' | 'shazzrah_blink' | 'deaden_magic' | 'hand_of_ragnaros' | 'inspire' | 'dark_mending' | 'sulfuron_immolate' | 'golemagg_magma_splash' | 'golemagg_pyroblast' | 'golemagg_earthquake' | 'core_rager_mangle' | 'core_rager_melee' | 'majordomo_teleport' | 'majordomo_elite_melee' | 'majordomo_fire_blast' | 'majordomo_shadow_shock' | 'majordomo_shadow_bolt' | 'majordomo_fireball' | 'majordomo_dark_mending' | 'majordomo_magic_reflection' | 'ragnaros_melee' | 'ragnaros_elemental_fire' | 'ragnaros_wrath' | 'ragnaros_lava_burst' | 'ragnaros_magma_blast' | 'sons_of_flame_melee';
   damage: number;
   interval: number;
   targetCount?: number;
@@ -483,6 +485,18 @@ export interface Boss {
     looseTarget3b: string | null; // Target for add 6 when loose
     looseTarget4a: string | null; // Target for add 7 when loose
     looseTarget4b: string | null; // Target for add 8 when loose
+  };
+  // Ragnaros tank assignments and phase tracking
+  ragnarosTanks?: {
+    tank1Id: string; // Main tank
+    tank2Id: string; // Off-tank for Wrath swaps
+    currentMainTank: 1 | 2; // Which tank is currently tanking
+    wrathKnockbackUntil: number; // Time until current tank recovers from Wrath
+    submergeTime: number; // Time when Ragnaros will submerge (180s after combat start)
+    sonsTimer: number; // Time remaining to kill Sons (90s countdown, -1 if not active)
+    sonsKilled: number; // How many Sons have been killed
+    hasSubmerged: boolean; // True if Ragnaros has already submerged this fight
+    healthBeforeSubmerge: number; // Store Ragnaros health when he submerges
   };
 }
 

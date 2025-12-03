@@ -162,6 +162,11 @@ function App() {
   const [majordomoAddTank3, setMajordomoAddTank3] = useState<string>(''); // Adds 5 & 6
   const [majordomoAddTank4, setMajordomoAddTank4] = useState<string>(''); // Adds 7 & 8
 
+  // Ragnaros tank assignment modal (2 tanks for tank swap)
+  const [showRagnarosTankModal, setShowRagnarosTankModal] = useState(false);
+  const [ragnarosTank1, setRagnarosTank1] = useState<string>(''); // Main tank
+  const [ragnarosTank2, setRagnarosTank2] = useState<string>(''); // Off-tank (swap on Wrath)
+
   // Default keybinds
   const DEFAULT_KEYBINDS = {
     actionBar: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
@@ -511,6 +516,19 @@ function App() {
       return;
     }
 
+    if (encounter?.requiresTankAssignment && encounterId === 'ragnaros') {
+      // Ragnaros requires 2 tanks for tank swap on Wrath of Ragnaros
+      const state = engine.getState();
+      const tanks = state.raid.filter(m => m.role === 'tank' && m.isAlive);
+
+      // Pre-select defaults if available
+      if (tanks.length >= 1) setRagnarosTank1(tanks[0].id);
+      if (tanks.length >= 2) setRagnarosTank2(tanks[1].id);
+
+      setShowRagnarosTankModal(true);
+      return;
+    }
+
     // Normal encounter start
     engine.startEncounter(encounterId);
   };
@@ -592,6 +610,38 @@ function App() {
         looseTarget3b: null,
         looseTarget4a: null,
         looseTarget4b: null,
+      }
+    });
+  };
+
+  // Start Ragnaros with assigned tanks
+  const startRagnarosWithTanks = () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+
+    if (!ragnarosTank1 || !ragnarosTank2) {
+      alert('Please assign both tanks before starting the fight.');
+      return;
+    }
+
+    if (ragnarosTank1 === ragnarosTank2) {
+      alert('Each tank role must be assigned to a different raid member.');
+      return;
+    }
+
+    // Close modal and start the encounter with tank assignments
+    setShowRagnarosTankModal(false);
+    engine.startEncounter('ragnaros', {
+      ragnarosTanks: {
+        tank1Id: ragnarosTank1,
+        tank2Id: ragnarosTank2,
+        currentMainTank: 1,
+        wrathKnockbackUntil: 0,
+        submergeTime: 180, // 3 minutes until submerge
+        sonsTimer: -1, // Not active until submerge
+        sonsKilled: 0,
+        hasSubmerged: false,
+        healthBeforeSubmerge: 0,
       }
     });
   };
@@ -1703,6 +1753,52 @@ function App() {
       });
     }
 
+    // Add Ragnaros fight structure info
+    if (boss.id === 'ragnaros') {
+      abilities.unshift({
+        name: '2-Tank Swap Fight',
+        type: 'physical',
+        description: 'Ragnaros requires 2 tanks that swap when Wrath of Ragnaros is cast. After 3 minutes, Ragnaros submerges and 8 Sons of Flame spawn. Kill all Sons within 90 seconds or Ragnaros re-emerges with Sons still alive!',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_defensivestance.jpg',
+        interval: 0,
+      });
+      abilities.push({
+        name: 'Wrath of Ragnaros',
+        type: 'fire',
+        description: 'Knocks back the current tank and applies a debuff. Forces an immediate tank swap. The off-tank must taunt immediately!',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_soulburn.jpg',
+        interval: 25,
+      });
+      abilities.push({
+        name: 'Elemental Fire',
+        type: 'fire',
+        description: 'Applies a fire DoT to the current tank dealing 300 fire damage per second for 8 seconds. Keep tanks topped off!',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flametounge.jpg',
+        interval: 10,
+      });
+      abilities.push({
+        name: 'Lava Burst',
+        type: 'fire',
+        description: 'Hits a random ranged player for 800 fire damage and splashes nearby players in the same group for 50% damage. Applies a burning DoT.',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_volcano.jpg',
+        interval: 12,
+      });
+      abilities.push({
+        name: 'Magma Blast',
+        type: 'fire',
+        description: 'WIPE MECHANIC! If both tanks are dead, Ragnaros casts Magma Blast on the entire raid for 4000 fire damage every 3 seconds!',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_flameshock.jpg',
+        interval: 3,
+      });
+      abilities.push({
+        name: 'Submerge Phase',
+        type: 'physical',
+        description: 'At 3 minutes, Ragnaros submerges and 8 Sons of Flame spawn. They attack random raid members. Kill all Sons within 90 seconds or face Ragnaros + remaining Sons!',
+        icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_elemental_totem.jpg',
+        interval: 180,
+      });
+    }
+
     return abilities;
   };
 
@@ -2363,8 +2459,8 @@ function App() {
                   </div>
                 )}
 
-                {/* Standard boss health bar for non-Sulfuron/Majordomo bosses */}
-                {state.boss.id !== 'sulfuron' && state.boss.id !== 'majordomo' && (
+                {/* Standard boss health bar for non-Sulfuron/Majordomo/Ragnaros-phase-2 bosses */}
+                {state.boss.id !== 'sulfuron' && state.boss.id !== 'majordomo' && !(state.boss.id === 'ragnaros' && state.boss.currentPhase === 2) && (
                   <div className="boss-health-container">
                     <div
                       className="boss-health-bar"
@@ -2372,6 +2468,63 @@ function App() {
                     />
                     <div className="boss-health-text">
                       {Math.floor((state.boss.currentHealth / state.boss.maxHealth) * 100)}%
+                    </div>
+                  </div>
+                )}
+
+                {/* Ragnaros submerge timer (Phase 1 - countdown to submerge) */}
+                {state.boss.id === 'ragnaros' && state.boss.currentPhase === 1 && state.boss.ragnarosTanks && !state.boss.ragnarosTanks.hasSubmerged && (
+                  <div className="submerge-timer-container">
+                    <div className="submerge-timer-label">Submerge in:</div>
+                    <div className="submerge-timer-bar-bg">
+                      <div
+                        className="submerge-timer-bar-fill"
+                        style={{ width: `${Math.max(0, ((state.boss.ragnarosTanks.submergeTime - state.elapsedTime) / 180) * 100)}%` }}
+                      />
+                    </div>
+                    <div className="submerge-timer-text">
+                      {formatTime(Math.max(0, state.boss.ragnarosTanks.submergeTime - state.elapsedTime))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Ragnaros Sons of Flame phase (Phase 2) */}
+                {state.boss.id === 'ragnaros' && state.boss.currentPhase === 2 && state.boss.adds && (
+                  <div className="sons-of-flame-container">
+                    <div className="sons-header">
+                      <span className="sons-title">Sons of Flame</span>
+                      <span className="sons-timer-text">
+                        Time left: {state.boss.ragnarosTanks && formatTime(Math.max(0, state.boss.ragnarosTanks.sonsTimer))}
+                      </span>
+                    </div>
+                    <div className="sons-timer-bar-bg">
+                      <div
+                        className="sons-timer-bar-fill"
+                        style={{ width: `${state.boss.ragnarosTanks ? Math.max(0, (state.boss.ragnarosTanks.sonsTimer / 90) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <div className="sons-health-grid">
+                      {state.boss.adds.map((son, index) => (
+                        <div
+                          key={son.id}
+                          className={`son-health-bar ${!son.isAlive ? 'dead' : ''}`}
+                        >
+                          <span className="son-name">Son {index + 1}</span>
+                          <div className="son-health-bg">
+                            <div
+                              className="son-health-fill"
+                              style={{ width: `${(son.currentHealth / son.maxHealth) * 100}%` }}
+                            />
+                          </div>
+                          <span className="son-health-text">
+                            {son.isAlive ? `${Math.round(son.currentHealth / 1000)}k` : 'DEAD'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Ragnaros health reminder (submerged) */}
+                    <div className="ragnaros-submerged-health">
+                      <span>Ragnaros: {state.boss.ragnarosTanks ? Math.floor((state.boss.ragnarosTanks.healthBeforeSubmerge / state.boss.maxHealth) * 100) : 0}% (Submerged)</span>
                     </div>
                   </div>
                 )}
@@ -4487,13 +4640,21 @@ function App() {
                 </label>
                 <select
                   value={golemaggTank1}
-                  onChange={e => setGolemaggTank1(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    if (newValue === golemaggTank2) {
+                      setGolemaggTank2(golemaggTank1);
+                    } else if (newValue === coreRagerTank) {
+                      setCoreRagerTank(golemaggTank1);
+                    }
+                    setGolemaggTank1(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.role === 'tank' && m.isAlive)
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={t.id === golemaggTank2 || t.id === coreRagerTank}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class})
                       </option>
                     ))}
@@ -4507,13 +4668,21 @@ function App() {
                 </label>
                 <select
                   value={golemaggTank2}
-                  onChange={e => setGolemaggTank2(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    if (newValue === golemaggTank1) {
+                      setGolemaggTank1(golemaggTank2);
+                    } else if (newValue === coreRagerTank) {
+                      setCoreRagerTank(golemaggTank2);
+                    }
+                    setGolemaggTank2(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.role === 'tank' && m.isAlive)
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={t.id === golemaggTank1 || t.id === coreRagerTank}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class})
                       </option>
                     ))}
@@ -4527,13 +4696,21 @@ function App() {
                 </label>
                 <select
                   value={coreRagerTank}
-                  onChange={e => setCoreRagerTank(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    if (newValue === golemaggTank1) {
+                      setGolemaggTank1(coreRagerTank);
+                    } else if (newValue === golemaggTank2) {
+                      setGolemaggTank2(coreRagerTank);
+                    }
+                    setCoreRagerTank(newValue);
+                  }}
                 >
                   <option value="">-- Select Warrior --</option>
                   {state.raid
                     .filter(m => m.class === 'warrior' && m.isAlive)
                     .map(w => (
-                      <option key={w.id} value={w.id} disabled={w.id === golemaggTank1 || w.id === golemaggTank2}>
+                      <option key={w.id} value={w.id}>
                         {w.name} ({w.role === 'tank' ? 'Tank' : 'DPS'})
                       </option>
                     ))}
@@ -4581,13 +4758,21 @@ function App() {
                 </label>
                 <select
                   value={majordomoTank}
-                  onChange={e => setMajordomoTank(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    const oldValue = majordomoTank;
+                    if (newValue === majordomoAddTank1) setMajordomoAddTank1(oldValue);
+                    else if (newValue === majordomoAddTank2) setMajordomoAddTank2(oldValue);
+                    else if (newValue === majordomoAddTank3) setMajordomoAddTank3(oldValue);
+                    else if (newValue === majordomoAddTank4) setMajordomoAddTank4(oldValue);
+                    setMajordomoTank(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.role === 'tank' && m.isAlive)
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={[majordomoAddTank1, majordomoAddTank2, majordomoAddTank3, majordomoAddTank4].includes(t.id)}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class})
                       </option>
                     ))}
@@ -4602,13 +4787,21 @@ function App() {
                 </label>
                 <select
                   value={majordomoAddTank1}
-                  onChange={e => setMajordomoAddTank1(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    const oldValue = majordomoAddTank1;
+                    if (newValue === majordomoTank) setMajordomoTank(oldValue);
+                    else if (newValue === majordomoAddTank2) setMajordomoAddTank2(oldValue);
+                    else if (newValue === majordomoAddTank3) setMajordomoAddTank3(oldValue);
+                    else if (newValue === majordomoAddTank4) setMajordomoAddTank4(oldValue);
+                    setMajordomoAddTank1(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank2, majordomoAddTank3, majordomoAddTank4].includes(t.id)}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
                       </option>
                     ))}
@@ -4622,13 +4815,21 @@ function App() {
                 </label>
                 <select
                   value={majordomoAddTank2}
-                  onChange={e => setMajordomoAddTank2(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    const oldValue = majordomoAddTank2;
+                    if (newValue === majordomoTank) setMajordomoTank(oldValue);
+                    else if (newValue === majordomoAddTank1) setMajordomoAddTank1(oldValue);
+                    else if (newValue === majordomoAddTank3) setMajordomoAddTank3(oldValue);
+                    else if (newValue === majordomoAddTank4) setMajordomoAddTank4(oldValue);
+                    setMajordomoAddTank2(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank1, majordomoAddTank3, majordomoAddTank4].includes(t.id)}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
                       </option>
                     ))}
@@ -4642,13 +4843,21 @@ function App() {
                 </label>
                 <select
                   value={majordomoAddTank3}
-                  onChange={e => setMajordomoAddTank3(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    const oldValue = majordomoAddTank3;
+                    if (newValue === majordomoTank) setMajordomoTank(oldValue);
+                    else if (newValue === majordomoAddTank1) setMajordomoAddTank1(oldValue);
+                    else if (newValue === majordomoAddTank2) setMajordomoAddTank2(oldValue);
+                    else if (newValue === majordomoAddTank4) setMajordomoAddTank4(oldValue);
+                    setMajordomoAddTank3(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank1, majordomoAddTank2, majordomoAddTank4].includes(t.id)}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
                       </option>
                     ))}
@@ -4662,13 +4871,21 @@ function App() {
                 </label>
                 <select
                   value={majordomoAddTank4}
-                  onChange={e => setMajordomoAddTank4(e.target.value)}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    const oldValue = majordomoAddTank4;
+                    if (newValue === majordomoTank) setMajordomoTank(oldValue);
+                    else if (newValue === majordomoAddTank1) setMajordomoAddTank1(oldValue);
+                    else if (newValue === majordomoAddTank2) setMajordomoAddTank2(oldValue);
+                    else if (newValue === majordomoAddTank3) setMajordomoAddTank3(oldValue);
+                    setMajordomoAddTank4(newValue);
+                  }}
                 >
                   <option value="">-- Select Tank --</option>
                   {state.raid
                     .filter(m => m.isAlive && (m.class === 'warrior' || (m.class === 'druid' && (m.spec === 'feral_tank' || m.spec === 'feral_dps'))))
                     .map(t => (
-                      <option key={t.id} value={t.id} disabled={[majordomoTank, majordomoAddTank1, majordomoAddTank2, majordomoAddTank3].includes(t.id)}>
+                      <option key={t.id} value={t.id}>
                         {t.name} ({t.class} - {t.role === 'tank' ? 'Tank' : t.role})
                       </option>
                     ))}
@@ -4686,6 +4903,93 @@ function App() {
                 className="tank-modal-start"
                 onClick={startMajordomoWithTanks}
                 disabled={!majordomoTank || !majordomoAddTank1 || !majordomoAddTank2 || !majordomoAddTank3 || !majordomoAddTank4}
+              >
+                Start Fight
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ragnaros Tank Assignment Modal */}
+      {showRagnarosTankModal && (
+        <div className="modal-overlay" onClick={() => setShowRagnarosTankModal(false)}>
+          <div className="tank-assignment-modal" onClick={e => e.stopPropagation()}>
+            <div className="tank-modal-header">
+              <h2>Ragnaros Tank Assignment</h2>
+              <button className="close-inspection" onClick={() => setShowRagnarosTankModal(false)}>X</button>
+            </div>
+            <div className="tank-modal-content">
+              <p className="tank-modal-description">
+                This fight requires <strong>2 tanks</strong> that swap on Wrath of Ragnaros.
+                After 3 minutes, Ragnaros submerges and 8 Sons of Flame spawn. Kill them within 90 seconds!
+              </p>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">🛡️</span>
+                  Main Tank:
+                </label>
+                <select
+                  value={ragnarosTank1}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    if (newValue === ragnarosTank2) {
+                      setRagnarosTank2(ragnarosTank1);
+                    }
+                    setRagnarosTank1(newValue);
+                  }}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.role === 'tank' && m.isAlive)
+                    .map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.class})
+                      </option>
+                    ))}
+                </select>
+                <p className="tank-role-hint">Primary tank - starts the fight</p>
+              </div>
+
+              <div className="tank-assignment-row">
+                <label>
+                  <span className="tank-role-icon">🔄</span>
+                  Off-Tank (Wrath Swap):
+                </label>
+                <select
+                  value={ragnarosTank2}
+                  onChange={e => {
+                    const newValue = e.target.value;
+                    if (newValue === ragnarosTank1) {
+                      setRagnarosTank1(ragnarosTank2);
+                    }
+                    setRagnarosTank2(newValue);
+                  }}
+                >
+                  <option value="">-- Select Tank --</option>
+                  {state.raid
+                    .filter(m => m.role === 'tank' && m.isAlive)
+                    .map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.class})
+                      </option>
+                    ))}
+                </select>
+                <p className="tank-role-hint">Taunts when Main Tank gets Wrath of Ragnaros</p>
+              </div>
+            </div>
+            <div className="tank-modal-actions">
+              <button
+                className="tank-modal-cancel"
+                onClick={() => setShowRagnarosTankModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="tank-modal-start"
+                onClick={startRagnarosWithTanks}
+                disabled={!ragnarosTank1 || !ragnarosTank2}
               >
                 Start Fight
               </button>

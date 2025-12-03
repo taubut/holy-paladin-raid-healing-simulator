@@ -1383,7 +1383,7 @@ export class GameEngine {
     this.notify();
   }
 
-  startEncounter(encounterId: string, options?: { golemaggTanks?: Boss['golemaggTanks']; majordomoTanks?: Boss['majordomoTanks'] }) {
+  startEncounter(encounterId: string, options?: { golemaggTanks?: Boss['golemaggTanks']; majordomoTanks?: Boss['majordomoTanks']; ragnarosTanks?: Boss['ragnarosTanks'] }) {
     if (this.state.isRunning) return;
 
     // Get encounters for current raid
@@ -1451,7 +1451,8 @@ export class GameEngine {
       ...encounter,
       currentHealth: encounter.maxHealth,
       ...(options?.golemaggTanks && { golemaggTanks: options.golemaggTanks }),
-      ...(options?.majordomoTanks && { majordomoTanks: options.majordomoTanks })
+      ...(options?.majordomoTanks && { majordomoTanks: options.majordomoTanks }),
+      ...(options?.ragnarosTanks && { ragnarosTanks: options.ragnarosTanks })
     };
     this.state.isRunning = true;
     this.state.elapsedTime = 0;
@@ -2163,8 +2164,8 @@ export class GameEngine {
       target.lastCritHealTime = Date.now();
     }
 
-    const actualHeal = Math.min(totalHeal, target.maxHealth - target.currentHealth);
-    const overheal = totalHeal - actualHeal;
+    const actualHeal = Math.round(Math.min(totalHeal, target.maxHealth - target.currentHealth));
+    const overheal = Math.round(totalHeal - actualHeal);
 
     // Find target index for multiplayer sync
     const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
@@ -2293,8 +2294,8 @@ export class GameEngine {
       healAmount = Math.floor(healAmount * (1 - healingReductionDebuff.healingReduction));
     }
 
-    const actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
-    const overheal = healAmount - actualHeal;
+    const actualHeal = Math.round(Math.min(healAmount, target.maxHealth - target.currentHealth));
+    const overheal = Math.round(healAmount - actualHeal);
 
     target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
     this.state.healingDone += actualHeal;
@@ -4275,9 +4276,326 @@ export class GameEngine {
               }
               break;
             }
+
+            // =====================================================
+            // RAGNAROS DAMAGE EVENTS
+            // =====================================================
+            case 'ragnaros_melee': {
+              // Massive fire melee on current tank
+              if (!this.state.boss?.ragnarosTanks) break;
+
+              const tanks = this.state.boss.ragnarosTanks;
+              const currentTankId = tanks.currentMainTank === 1 ? tanks.tank1Id : tanks.tank2Id;
+              const tank = this.state.raid.find(m => m.id === currentTankId && m.isAlive);
+
+              if (tank) {
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(tank, damage, 'fire');
+                tank.currentHealth -= damage;
+
+                if (tank.currentHealth <= 0) {
+                  tank.currentHealth = 0;
+                  this.handleMemberDeath(tank);
+                }
+              } else {
+                // No tank alive - trigger Magma Blast instead (handled separately)
+              }
+              break;
+            }
+
+            case 'ragnaros_elemental_fire': {
+              // Apply Elemental Fire DoT to current tank
+              if (!this.state.boss?.ragnarosTanks) break;
+
+              const tanks = this.state.boss.ragnarosTanks;
+              const currentTankId = tanks.currentMainTank === 1 ? tanks.tank1Id : tanks.tank2Id;
+              const tank = this.state.raid.find(m => m.id === currentTankId && m.isAlive);
+
+              if (tank) {
+                // Check if already has the debuff
+                const hasDebuff = tank.debuffs.some(d => d.id === 'elemental_fire');
+                if (!hasDebuff) {
+                  const debuffDef = DEBUFFS.elemental_fire;
+                  tank.debuffs.push({
+                    ...debuffDef,
+                    duration: debuffDef.maxDuration || 8,
+                    icon: debuffDef.icon || '',
+                  });
+
+                  this.addCombatLogEntry({
+                    message: `${tank.name} is afflicted by Elemental Fire!`,
+                    type: 'debuff'
+                  });
+                }
+              }
+              break;
+            }
+
+            case 'ragnaros_wrath': {
+              // Wrath of Ragnaros - knockback current tank, force swap
+              if (!this.state.boss?.ragnarosTanks) break;
+
+              const tanks = this.state.boss.ragnarosTanks;
+              const currentTankId = tanks.currentMainTank === 1 ? tanks.tank1Id : tanks.tank2Id;
+              const otherTankId = tanks.currentMainTank === 1 ? tanks.tank2Id : tanks.tank1Id;
+              const currentTank = this.state.raid.find(m => m.id === currentTankId && m.isAlive);
+              const otherTank = this.state.raid.find(m => m.id === otherTankId && m.isAlive);
+
+              if (currentTank) {
+                // Deal knockback damage to current tank
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(currentTank, damage, 'fire');
+                currentTank.currentHealth -= damage;
+
+                // Apply Wrath debuff (can't be dispelled)
+                const debuffDef = DEBUFFS.wrath_of_ragnaros;
+                currentTank.debuffs = currentTank.debuffs.filter(d => d.id !== 'wrath_of_ragnaros');
+                currentTank.debuffs.push({
+                  ...debuffDef,
+                  duration: debuffDef.maxDuration || 10,
+                  icon: debuffDef.icon || '',
+                });
+
+                this.addCombatLogEntry({
+                  message: `Ragnaros casts Wrath of Ragnaros! ${currentTank.name} is knocked back!`,
+                  type: 'damage',
+                  amount: damage
+                });
+
+                if (currentTank.currentHealth <= 0) {
+                  currentTank.currentHealth = 0;
+                  this.handleMemberDeath(currentTank);
+                }
+
+                // Tank swap
+                if (otherTank) {
+                  tanks.currentMainTank = tanks.currentMainTank === 1 ? 2 : 1;
+                  tanks.wrathKnockbackUntil = this.state.elapsedTime + 10; // 10s recovery
+
+                  this.state.tankSwapWarning = {
+                    message: `TANK SWAP! ${otherTank.name} now tanking Ragnaros!`,
+                    type: 'swap'
+                  };
+
+                  // Clear warning after 3 seconds
+                  setTimeout(() => {
+                    if (this.state.tankSwapWarning?.type === 'swap') {
+                      this.state.tankSwapWarning = null;
+                      this.notify();
+                    }
+                  }, 3000);
+
+                  this.addCombatLogEntry({
+                    message: `${otherTank.name} taunts Ragnaros!`,
+                    type: 'system'
+                  });
+                } else {
+                  // No other tank alive!
+                  this.state.tankSwapWarning = {
+                    message: 'OFF-TANK DEAD! NO ONE TO SWAP!',
+                    type: 'stacks_high'
+                  };
+                }
+              }
+              break;
+            }
+
+            case 'ragnaros_lava_burst': {
+              // Lava Burst - random ranged player + splash to nearby
+              const rangedPlayers = this.state.raid.filter(m =>
+                m.isAlive && (m.positionZone === 'ranged' || m.role === 'healer')
+              );
+
+              if (rangedPlayers.length === 0) break;
+
+              const target = rangedPlayers[Math.floor(Math.random() * rangedPlayers.length)];
+              let damage = event.damage * enrageMultiplier;
+              damage = this.calculateDamageReduction(target, damage, 'fire');
+              target.currentHealth -= damage;
+
+              // Apply Lava Burst DoT
+              const debuffDef = DEBUFFS.lava_burst;
+              target.debuffs = target.debuffs.filter(d => d.id !== 'lava_burst');
+              target.debuffs.push({
+                ...debuffDef,
+                duration: debuffDef.maxDuration || 6,
+                icon: debuffDef.icon || '',
+              });
+
+              this.addCombatLogEntry({
+                message: `Lava Burst hits ${target.name} for ${Math.round(damage)}!`,
+                type: 'damage',
+                amount: damage
+              });
+
+              if (target.currentHealth <= 0) {
+                target.currentHealth = 0;
+                this.handleMemberDeath(target);
+              }
+
+              // Splash damage to 2-3 nearby players in same group
+              const sameGroup = this.state.raid.filter(m =>
+                m.isAlive && m.id !== target.id && m.group === target.group
+              );
+              const splashTargets = sameGroup.slice(0, 2 + Math.floor(Math.random() * 2));
+
+              splashTargets.forEach(splash => {
+                let splashDmg = (event.damage * 0.5) * enrageMultiplier; // 50% splash
+                splashDmg = this.calculateDamageReduction(splash, splashDmg, 'fire');
+                splash.currentHealth -= splashDmg;
+
+                if (splash.currentHealth <= 0) {
+                  splash.currentHealth = 0;
+                  this.handleMemberDeath(splash);
+                }
+              });
+              break;
+            }
+
+            case 'ragnaros_magma_blast': {
+              // Magma Blast - only triggers if BOTH tanks are dead
+              if (!this.state.boss?.ragnarosTanks) break;
+
+              const tanks = this.state.boss.ragnarosTanks;
+              const tank1 = this.state.raid.find(m => m.id === tanks.tank1Id);
+              const tank2 = this.state.raid.find(m => m.id === tanks.tank2Id);
+
+              // Only fire if both tanks are dead
+              if ((tank1?.isAlive) || (tank2?.isAlive)) break;
+
+              // Massive raid-wide damage - basically a wipe mechanic
+              const aliveMembers = this.state.raid.filter(m => m.isAlive);
+
+              this.addCombatLogEntry({
+                message: `No tank! Ragnaros casts MAGMA BLAST on the raid!`,
+                type: 'damage'
+              });
+
+              aliveMembers.forEach(member => {
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(member, damage, 'fire');
+                member.currentHealth -= damage;
+
+                if (member.currentHealth <= 0) {
+                  member.currentHealth = 0;
+                  this.handleMemberDeath(member);
+                }
+              });
+              break;
+            }
+
+            case 'sons_of_flame_melee': {
+              // Sons of Flame melee random raid members
+              if (this.state.boss?.currentPhase !== 2) break;
+              if (!this.state.boss?.adds) break;
+
+              const aliveSons = this.state.boss.adds.filter(a => a.isAlive);
+              if (aliveSons.length === 0) break;
+
+              // Each Son attacks a random player
+              const aliveRaid = this.state.raid.filter(m => m.isAlive);
+              if (aliveRaid.length === 0) break;
+
+              aliveSons.forEach(() => {
+                const target = aliveRaid[Math.floor(Math.random() * aliveRaid.length)];
+                let damage = event.damage * enrageMultiplier;
+                damage = this.calculateDamageReduction(target, damage, 'fire');
+                target.currentHealth -= damage;
+
+                if (target.currentHealth <= 0) {
+                  target.currentHealth = 0;
+                  this.handleMemberDeath(target);
+                }
+              });
+              break;
+            }
           }
         }
       });
+
+      // =====================================================
+      // RAGNAROS PHASE MANAGEMENT
+      // =====================================================
+      if (this.state.boss?.id === 'ragnaros' && this.state.boss.ragnarosTanks) {
+        const tanks = this.state.boss.ragnarosTanks;
+
+        // Phase 1: Check if it's time to submerge (180 seconds = 3 minutes)
+        if (this.state.boss.currentPhase === 1 && !tanks.hasSubmerged) {
+          if (this.state.elapsedTime >= tanks.submergeTime) {
+            // Trigger submerge!
+            this.state.boss.currentPhase = 2;
+            tanks.hasSubmerged = true;
+            tanks.healthBeforeSubmerge = this.state.boss.currentHealth;
+            tanks.sonsTimer = 90; // 90 seconds to kill Sons
+            tanks.sonsKilled = 0;
+
+            // Spawn all 8 Sons of Flame
+            if (this.state.boss.adds) {
+              this.state.boss.adds.forEach(son => {
+                son.isAlive = true;
+                son.currentHealth = son.maxHealth;
+              });
+            }
+
+            this.addCombatLogEntry({
+              message: 'Ragnaros submerges! Sons of Flame emerge from the lava!',
+              type: 'system'
+            });
+
+            this.state.tankSwapWarning = {
+              message: 'RAGNAROS SUBMERGES! KILL THE SONS!',
+              type: 'swap'
+            };
+          }
+        }
+
+        // Phase 2: Sons phase - countdown timer and check for Sons deaths
+        if (this.state.boss.currentPhase === 2) {
+          // Decrement Sons timer
+          tanks.sonsTimer -= delta;
+
+          // Count alive Sons
+          const aliveSons = this.state.boss.adds?.filter(a => a.isAlive).length || 0;
+          tanks.sonsKilled = 8 - aliveSons;
+
+          // Check if all Sons are dead OR timer expired
+          if (aliveSons === 0 || tanks.sonsTimer <= 0) {
+            // Ragnaros re-emerges!
+            this.state.boss.currentPhase = 3;
+            tanks.sonsTimer = -1; // Disable timer
+
+            // Restore Ragnaros health (same as before submerge)
+            this.state.boss.currentHealth = tanks.healthBeforeSubmerge;
+
+            if (aliveSons === 0) {
+              this.addCombatLogEntry({
+                message: 'All Sons of Flame defeated! Ragnaros re-emerges from the lava!',
+                type: 'system'
+              });
+            } else {
+              this.addCombatLogEntry({
+                message: `Time's up! Ragnaros re-emerges with ${aliveSons} Sons still alive!`,
+                type: 'system'
+              });
+
+              // Kill remaining Sons (they merge back with Ragnaros)
+              this.state.boss.adds?.forEach(son => {
+                son.isAlive = false;
+              });
+            }
+
+            this.state.tankSwapWarning = {
+              message: 'RAGNAROS RE-EMERGES! TANKS PICK HIM UP!',
+              type: 'swap'
+            };
+          }
+        }
+
+        // Clear tank swap warning after 5 seconds
+        if (this.state.tankSwapWarning && this.state.elapsedTime % 5 < delta) {
+          // Clear periodically
+        }
+      }
 
       // Check for Deaden Magic ending (Priest Dispel or Shaman Purge)
       if (this.state.boss?.hasDeadenMagic && this.state.boss.deadenMagicEndTime) {
@@ -4719,6 +5037,29 @@ export class GameEngine {
           }
         }
         // Don't damage Sulfuron while priests are alive
+      } else if (this.state.boss.id === 'ragnaros' && this.state.boss.adds && this.state.boss.currentPhase === 2) {
+        // RAGNAROS PHASE 2: DPS goes to Sons of Flame, NOT Ragnaros (he's submerged)
+        const aliveSons = this.state.boss.adds.filter(a => a.isAlive);
+
+        if (aliveSons.length > 0) {
+          // Distribute DPS across all living Sons
+          const dpsPerSon = totalDps / aliveSons.length;
+
+          aliveSons.forEach(son => {
+            son.currentHealth -= dpsPerSon * delta;
+
+            if (son.currentHealth <= 0) {
+              son.currentHealth = 0;
+              son.isAlive = false;
+              this.addCombatLogEntry({
+                message: `${son.name} has been slain!`,
+                type: 'system'
+              });
+            }
+          });
+        }
+        // Ragnaros himself is NOT damaged during phase 2 - he's submerged
+        // Re-emergence is handled in the Ragnaros-specific phase handling above
       } else if (this.state.boss.id === 'majordomo' && this.state.boss.adds && this.state.boss.currentPhase === 1) {
         // MAJORDOMO: DPS goes to adds, NOT Majordomo (he's immune)
         const aliveAdds = this.state.boss.adds.filter(a => a.isAlive);
@@ -4873,6 +5214,9 @@ export class GameEngine {
     this.state.raid.forEach(member => {
       member.debuffs = [];
     });
+
+    // Clear tank swap warning
+    this.state.tankSwapWarning = null;
 
     // Clear boss frenzy state
     if (this.state.boss) {
