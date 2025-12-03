@@ -104,7 +104,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.24.0';
+  const CURRENT_PATCH_VERSION = '0.25.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -1873,6 +1873,74 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.25.0 - Molten Core Boss Overhaul</h3>
+                  <span className="patch-date">December 3, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Ragnaros - The Firelord</h4>
+                  <ul>
+                    <li><strong>2-Tank Swap Mechanic</strong>: Wrath of Ragnaros knocks back the current tank, forcing a tank swap</li>
+                    <li><strong>Elemental Fire</strong>: Fire DoT on the tank dealing 300 damage per second</li>
+                    <li><strong>Lava Burst</strong>: Random ranged target takes splash damage that hits nearby players</li>
+                    <li><strong>Magma Blast</strong>: If both tanks die, Ragnaros wipes the raid</li>
+                    <li><strong>Submerge Phase</strong>: At 3 minutes, Ragnaros submerges and spawns 8 Sons of Flame</li>
+                    <li><strong>Sons of Flame</strong>: Must be killed within 90 seconds or Ragnaros re-emerges with them still alive</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Majordomo Executus</h4>
+                  <ul>
+                    <li><strong>5-Tank Add Fight</strong>: Majordomo is immune - kill all 8 adds (4 Flamewaker Healers + 4 Elites) to win</li>
+                    <li><strong>Magic Reflection</strong>: Adds periodically reflect spells - stop DPS or take massive damage!</li>
+                    <li><strong>Teleport</strong>: Main tank gets teleported into the fire pit and takes DoT damage</li>
+                    <li><strong>Blast Wave</strong>: Healers channel AoE that damages nearby raid members</li>
+                    <li><strong>Dark Mending</strong>: Healer adds heal themselves and each other</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Sulfuron Harbinger</h4>
+                  <ul>
+                    <li><strong>Flamewaker Priests</strong>: 4 priest adds that must die first before Sulfuron becomes vulnerable</li>
+                    <li><strong>Inspire</strong>: Priests buff Sulfuron with increased damage while alive</li>
+                    <li><strong>Dark Mending</strong>: Priests heal each other, making kill order important</li>
+                    <li><strong>Shadow Word: Pain</strong>: DoT on random raid members</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Golemagg the Incinerator</h4>
+                  <ul>
+                    <li><strong>3-Tank Fight</strong>: 2 tanks swap on Golemagg, 1 tank handles both Core Ragers</li>
+                    <li><strong>Magma Splash</strong>: Stacking debuff on tank - must swap at high stacks</li>
+                    <li><strong>Core Ragers</strong>: Enrage at low health and heal if not killed quickly</li>
+                    <li><strong>Pyroblast</strong>: Random raid damage when Golemagg reaches low health</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Other Boss Updates</h4>
+                  <ul>
+                    <li><strong>Shazzrah</strong>: Arcane Explosion, Blink, Magic Grounding (absorbs spells)</li>
+                    <li><strong>Baron Geddon</strong>: Living Bomb mechanic - drag bombed players to Safe Zone!</li>
+                    <li><strong>Garr</strong>: 8 Firesworn adds that explode on death</li>
+                    <li><strong>Gehennas</strong>: Rain of Fire and Gehennas' Curse (75% healing reduction)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Quality of Life</h4>
+                  <ul>
+                    <li><strong>Tank Assignment Modals</strong>: Assign specific tanks to each role before boss fights</li>
+                    <li><strong>Tank Swap Alerts</strong>: On-screen warnings when tank swaps are needed</li>
+                    <li><strong>Encounter Journal</strong>: View boss abilities and mechanics before pulling</li>
+                    <li><strong>Combat Log Polish</strong>: All numbers now display as clean integers (no decimals)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.24.0 - Loot & UI Polish</h3>
                   <span className="patch-date">December 2, 2025</span>
                 </div>
@@ -5399,76 +5467,76 @@ function App() {
             </div>
             <div className="patch-notes-content">
               <div className="patch-version">
+                <h3>Version 0.25.0 - Molten Core Boss Overhaul</h3>
+                <span className="patch-date">December 3, 2025</span>
+              </div>
+
+              <div className="patch-section">
+                <h4>Ragnaros - The Firelord</h4>
+                <ul>
+                  <li><strong>2-Tank Swap Mechanic</strong>: Wrath of Ragnaros knocks back the current tank, forcing a tank swap</li>
+                  <li><strong>Elemental Fire</strong>: Fire DoT on the tank dealing 300 damage per second</li>
+                  <li><strong>Lava Burst</strong>: Random ranged target takes splash damage that hits nearby players</li>
+                  <li><strong>Magma Blast</strong>: If both tanks die, Ragnaros wipes the raid</li>
+                  <li><strong>Submerge Phase</strong>: At 3 minutes, Ragnaros submerges and spawns 8 Sons of Flame</li>
+                  <li><strong>Sons of Flame</strong>: Must be killed within 90 seconds or Ragnaros re-emerges with them still alive</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Majordomo Executus</h4>
+                <ul>
+                  <li><strong>5-Tank Add Fight</strong>: Majordomo is immune - kill all 8 adds (4 Flamewaker Healers + 4 Elites) to win</li>
+                  <li><strong>Magic Reflection</strong>: Adds periodically reflect spells - stop DPS or take massive damage!</li>
+                  <li><strong>Teleport</strong>: Main tank gets teleported into the fire pit and takes DoT damage</li>
+                  <li><strong>Blast Wave</strong>: Healers channel AoE that damages nearby raid members</li>
+                  <li><strong>Dark Mending</strong>: Healer adds heal themselves and each other</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Sulfuron Harbinger</h4>
+                <ul>
+                  <li><strong>Flamewaker Priests</strong>: 4 priest adds that must die first before Sulfuron becomes vulnerable</li>
+                  <li><strong>Inspire</strong>: Priests buff Sulfuron with increased damage while alive</li>
+                  <li><strong>Dark Mending</strong>: Priests heal each other, making kill order important</li>
+                  <li><strong>Shadow Word: Pain</strong>: DoT on random raid members</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Golemagg the Incinerator</h4>
+                <ul>
+                  <li><strong>3-Tank Fight</strong>: 2 tanks swap on Golemagg, 1 tank handles both Core Ragers</li>
+                  <li><strong>Magma Splash</strong>: Stacking debuff on tank - must swap at high stacks</li>
+                  <li><strong>Core Ragers</strong>: Enrage at low health and heal if not killed quickly</li>
+                  <li><strong>Pyroblast</strong>: Random raid damage when Golemagg reaches low health</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Other Boss Updates</h4>
+                <ul>
+                  <li><strong>Shazzrah</strong>: Arcane Explosion, Blink, Magic Grounding (absorbs spells)</li>
+                  <li><strong>Baron Geddon</strong>: Living Bomb mechanic - drag bombed players to Safe Zone!</li>
+                  <li><strong>Garr</strong>: 8 Firesworn adds that explode on death</li>
+                  <li><strong>Gehennas</strong>: Rain of Fire and Gehennas' Curse (75% healing reduction)</li>
+                </ul>
+              </div>
+
+              <div className="patch-section">
+                <h4>Quality of Life</h4>
+                <ul>
+                  <li><strong>Tank Assignment Modals</strong>: Assign specific tanks to each role before boss fights</li>
+                  <li><strong>Tank Swap Alerts</strong>: On-screen warnings when tank swaps are needed</li>
+                  <li><strong>Encounter Journal</strong>: View boss abilities and mechanics before pulling</li>
+                  <li><strong>Combat Log Polish</strong>: All numbers now display as clean integers (no decimals)</li>
+                </ul>
+              </div>
+
+              <div className="patch-version previous">
                 <h3>Version 0.24.0 - Loot & UI Polish</h3>
                 <span className="patch-date">December 2, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Pre-Raid BiS Starting Gear</h4>
-                <ul>
-                  <li><strong>New Characters</strong>: Players now start with full pre-raid Best in Slot gear for their class/spec</li>
-                  <li><strong>Ready to Raid</strong>: Jump straight into Molten Core without grinding dungeons first</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Loot Table Updates</h4>
-                <ul>
-                  <li><strong>Molten Core</strong>: Added 5 missing items (Deep Earth Spaulders, Wristguards of True Flight, Core Forged Greaves, Helm of the Lifegiver, Shard of the Flame)</li>
-                  <li><strong>Blackwing Lair</strong>: Added 4 missing items (Draconic Avenger, Draconic Maul, Doom's Edge, Band of Dark Dominion)</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>UI Improvements</h4>
-                <ul>
-                  <li><strong>Styled Confirmation Dialogs</strong>: Native browser popups replaced with WoW-themed confirmation dialogs</li>
-                  <li><strong>Warning Highlights</strong>: Destructive actions now show clear yellow warning boxes</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.18.0 - Landing Page Update</h3>
-                <span className="patch-date">November 30, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>New Landing Page</h4>
-                <ul>
-                  <li><strong>Character Creation</strong>: Choose your faction, class, and name your character before entering the game</li>
-                  <li><strong>Continue Button</strong>: Returning players can jump right back in with one click</li>
-                  <li><strong>Faction Preference</strong>: Your last faction choice is remembered for new characters</li>
-                  <li><strong>Real Icons</strong>: Authentic Alliance/Horde logos and WoW class icons</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>UI Improvements</h4>
-                <ul>
-                  <li><strong>LifeCraft Font</strong>: Classic WoW-style font for the game title</li>
-                  <li><strong>Loading Transition</strong>: "Entering Azeroth..." screen when starting the game</li>
-                  <li><strong>Keyboard Support</strong>: Press Enter to start the game when ready</li>
-                  <li><strong>Version Display</strong>: Current version now shown in footer</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.17.0 - Living Bomb Mechanic Update</h3>
-                <span className="patch-date">November 29, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Living Bomb Safe Zone</h4>
-                <ul>
-                  <li><strong>Drag to Safety</strong>: When a raid member gets Living Bomb, drag them to the Safe Zone to prevent splash damage</li>
-                  <li><strong>Raid Warning</strong>: Large on-screen warning with airhorn sound when Living Bomb is applied</li>
-                  <li><strong>Auto Return</strong>: Bombed players automatically return to their position after the bomb explodes</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.16.0 - Cloud Saves Update</h3>
-                <span className="patch-date">November 29, 2025</span>
               </div>
 
               <div className="patch-section">
