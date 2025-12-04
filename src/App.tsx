@@ -25,20 +25,22 @@ import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, o
 import type { User } from '@supabase/supabase-js';
 import posthog from 'posthog-js';
 import './App.css';
-import RagDomoImage from './assets/Rag_Domo.png';
+import RagDomoImage1 from './assets/Rag_Domo_1.png';
+import RagDomoImage2 from './assets/Rag_Domo_2.png';
+import RagDomoImage3 from './assets/Rag_Domo_3.png';
 import Majordomo1Audio from './assets/Majordomo_1.ogg';
 import Majordomo2Audio from './assets/Majordomo_2.ogg';
 import Ragnaros1Audio from './assets/Ragnaros_1.ogg';
 import Ragnaros2Audio from './assets/Ragnaros_2.ogg';
 import Ragnaros3Audio from './assets/Ragnaros_3.ogg';
 
-// Ragnaros RP Dialogue Data with audio and durations
+// Ragnaros RP Dialogue Data with audio, durations, and image transitions
 const RAGNAROS_RP_DIALOGUE = [
-  { speaker: 'Majordomo Executus', text: 'Behold Ragnaros, the Firelord! He who was ancient when this world was young! Bow before him, mortals! Bow before your ending!', audio: Majordomo1Audio, duration: 13 },
-  { speaker: 'Ragnaros', text: 'TOO SOON! YOU HAVE AWAKENED ME TOO SOON, EXECUTUS! What is the meaning of this intrusion?', audio: Ragnaros1Audio, duration: 13 },
-  { speaker: 'Majordomo Executus', text: 'These mortal infidels, my lord! They have invaded your sanctum, and seek to steal your secrets!', audio: Majordomo2Audio, duration: 7 },
-  { speaker: 'Ragnaros', text: 'FOOL! You allowed these insects to run rampant through the hallowed core? You have failed me, Executus! Justice shall be met indeed!', audio: Ragnaros2Audio, duration: 20 },
-  { speaker: 'Ragnaros', text: 'Now for you, insects. Boldly you sought the power of Ragnaros. Now you shall see it firsthand!', audio: Ragnaros3Audio, duration: 12 },
+  { speaker: 'Majordomo Executus', text: 'Behold Ragnaros, the Firelord! He who was ancient when this world was young! Bow before him, mortals! Bow before your ending!', audio: Majordomo1Audio, duration: 13, image: RagDomoImage1 },
+  { speaker: 'Ragnaros', text: 'TOO SOON! YOU HAVE AWAKENED ME TOO SOON, EXECUTUS! What is the meaning of this intrusion?', audio: Ragnaros1Audio, duration: 13, image: RagDomoImage1 },
+  { speaker: 'Majordomo Executus', text: 'These mortal infidels, my lord! They have invaded your sanctum, and seek to steal your secrets!', audio: Majordomo2Audio, duration: 7, image: RagDomoImage1 },
+  { speaker: 'Ragnaros', text: 'FOOL! You allowed these insects to run rampant through the hallowed core? You have failed me, Executus! Justice shall be met indeed!', audio: Ragnaros2Audio, duration: 20, image: RagDomoImage2 },
+  { speaker: 'Ragnaros', text: 'Now for you, insects. Boldly you sought the power of Ragnaros. Now you shall see it firsthand!', audio: Ragnaros3Audio, duration: 12, image: RagDomoImage3 },
 ];
 const RP_DURATION = 13 + 13 + 7 + 20 + 12; // 65 seconds total
 
@@ -721,13 +723,17 @@ function App() {
 
     const engine = engineRef.current;
 
+    // Set raid leader mode FIRST if selected (before switchFaction, which checks this)
+    if (config.isRaidLeaderMode) {
+      engine.setRaidLeaderMode(true);
+    }
+
     // Apply character config
     engine.setPlayerName(config.playerName);
     engine.switchFaction(config.faction);
 
-    // Set raid leader mode if selected
+    // Continue raid leader setup if selected
     if (config.isRaidLeaderMode) {
-      engine.setRaidLeaderMode(true);
       // For new raid leader characters, clear the raid completely (no player character)
       if (!config.isContinuing) {
         engine.clearRaidForRaidLeader();
@@ -5563,11 +5569,24 @@ function App() {
       {showRagnarosRP && (
         <div className="ragnaros-rp-overlay">
           <div className="ragnaros-rp-container">
-            <img
-              src={RagDomoImage}
-              alt="Ragnaros and Majordomo Executus"
-              className="ragnaros-rp-image"
-            />
+            {/* Image layers for crossfade effect */}
+            <div className="ragnaros-rp-image-container">
+              <img
+                src={RagDomoImage1}
+                alt="Ragnaros and Majordomo Executus"
+                className={`ragnaros-rp-image ${RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].image === RagDomoImage1 ? 'active' : ''}`}
+              />
+              <img
+                src={RagDomoImage2}
+                alt="Ragnaros and Majordomo Executus"
+                className={`ragnaros-rp-image ${RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].image === RagDomoImage2 ? 'active' : ''}`}
+              />
+              <img
+                src={RagDomoImage3}
+                alt="Ragnaros and Majordomo Executus"
+                className={`ragnaros-rp-image ${RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].image === RagDomoImage3 ? 'active' : ''}`}
+              />
+            </div>
 
             {/* Subtitle */}
             <div className="ragnaros-rp-subtitle" key={ragnarosRPDialogueIndex}>

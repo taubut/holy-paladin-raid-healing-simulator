@@ -1016,8 +1016,11 @@ export class GameEngine {
     if (player) {
       player.class = this.state.playerClass;
       player.spec = this.state.playerClass === 'paladin' ? 'holy_paladin' : 'restoration_shaman';
-      player.name = this.state.playerClass === 'paladin' ? 'Healadin' : 'Chainheal';
-      this.state.playerName = player.name;
+      // Only set default name if not in Raid Leader mode (where player has already set their name)
+      if (!this.state.isRaidLeaderMode) {
+        player.name = this.state.playerClass === 'paladin' ? 'Healadin' : 'Chainheal';
+        this.state.playerName = player.name;
+      }
     }
 
     // Switch action bar based on class
