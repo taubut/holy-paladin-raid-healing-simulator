@@ -8272,13 +8272,15 @@ function App() {
             <div className="ah-member-selector">
               <label>Enchanting gear for:</label>
               <select
-                value={ahSelectedMember || 'player'}
+                value={ahSelectedMember || (state.isRaidLeaderMode ? state.raid[0]?.id : 'player')}
                 onChange={e => {
                   setAhSelectedMember(e.target.value);
                   setAhSelectedSlot(null);
                 }}
               >
-                <option value="player">{state.playerName} (You)</option>
+                {!state.isRaidLeaderMode && (
+                  <option value="player">{state.playerName} (You)</option>
+                )}
                 {state.raid.filter(m => m.id !== 'player').map(m => (
                   <option key={m.id} value={m.id}>
                     {m.name} ({m.class}) - {m.role}
@@ -8294,9 +8296,11 @@ function App() {
                 <div className="ah-equipment-grid">
                   {(() => {
                     // Get equipment based on selected member
-                    const equipment: Equipment = ahSelectedMember === 'player' || !ahSelectedMember
+                    // In Raid Leader Mode, player doesn't have their own gear - use first raid member as default
+                    const effectiveMember = ahSelectedMember || (state.isRaidLeaderMode ? state.raid[0]?.id : 'player');
+                    const equipment: Equipment = effectiveMember === 'player'
                       ? state.playerEquipment
-                      : (state.raid.find(m => m.id === ahSelectedMember)?.equipment || {}) as Equipment;
+                      : (state.raid.find(m => m.id === effectiveMember)?.equipment || {}) as Equipment;
 
                     const slots: EquipmentSlot[] = ['head', 'shoulders', 'back', 'chest', 'wrist', 'hands', 'legs', 'feet', 'weapon', 'offhand'];
 
@@ -8327,9 +8331,11 @@ function App() {
                   })()}
                 </div>
                 {ahSelectedSlot && (() => {
-                  const equipment: Equipment = ahSelectedMember === 'player' || !ahSelectedMember
+                  // In Raid Leader Mode, player doesn't have their own gear - use first raid member as default
+                  const effectiveMember = ahSelectedMember || (state.isRaidLeaderMode ? state.raid[0]?.id : 'player');
+                  const equipment: Equipment = effectiveMember === 'player'
                     ? state.playerEquipment
-                    : (state.raid.find(m => m.id === ahSelectedMember)?.equipment || {}) as Equipment;
+                    : (state.raid.find(m => m.id === effectiveMember)?.equipment || {}) as Equipment;
                   const item = equipment[ahSelectedSlot];
                   if (!item) return null;
                   const enchant = item.enchantId ? ENCHANTS[item.enchantId] : null;
@@ -8381,10 +8387,12 @@ function App() {
                               className="ah-buy-btn"
                               disabled={!canAfford}
                               onClick={() => {
-                                if (ahSelectedMember === 'player' || !ahSelectedMember) {
+                                // In Raid Leader Mode, default to first raid member if none selected
+                                const effectiveMember = ahSelectedMember || (state.isRaidLeaderMode ? state.raid[0]?.id : 'player');
+                                if (effectiveMember === 'player') {
                                   engine.purchaseEnchant(enchant.id, ahSelectedSlot);
                                 } else {
-                                  engine.purchaseEnchantForMember(enchant.id, ahSelectedSlot, ahSelectedMember);
+                                  engine.purchaseEnchantForMember(enchant.id, ahSelectedSlot, effectiveMember);
                                 }
                               }}
                             >

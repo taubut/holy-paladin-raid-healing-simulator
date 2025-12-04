@@ -6299,6 +6299,12 @@ export class GameEngine {
 
   // Purchase and apply an enchant to player's equipment
   purchaseEnchant(enchantId: EnchantId, slot: EquipmentSlot): boolean {
+    // In Raid Leader Mode, player doesn't have their own gear to enchant
+    if (this.state.isRaidLeaderMode) {
+      this.addCombatLogEntry({ message: 'Cannot enchant your own gear in Raid Leader Mode', type: 'system' });
+      return false;
+    }
+
     const enchant = ENCHANTS[enchantId];
     if (!enchant) {
       this.addCombatLogEntry({ message: 'Invalid enchant', type: 'system' });
