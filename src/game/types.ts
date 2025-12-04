@@ -1,6 +1,6 @@
 // Classic WoW Holy Paladin Raid Healing Simulator Types
 
-import type { GearItem, LegendaryMaterialId, QuestMaterialId, EnchantingMaterialId } from './items';
+import type { GearItem, LegendaryMaterialId, QuestMaterialId, EnchantingMaterialId, EquipmentSlot } from './items';
 
 export type WoWClass =
   | 'warrior'
@@ -717,6 +717,14 @@ export interface GameState {
     memberName: string;
     mainHandItem: GearItem | null;
     offHandItem: GearItem | null;
+  } | null;
+  // Downgrade/sidegrade confirmation modal - warn before replacing better/equal gear
+  pendingDowngradeConfirmation: {
+    item: GearItem;
+    memberId: string;
+    memberName: string;
+    currentItem: GearItem;
+    slot: EquipmentSlot;
   } | null;
 }
 

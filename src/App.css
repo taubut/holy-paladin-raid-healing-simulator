@@ -3244,6 +3244,81 @@ body {
   color: #fff;
 }
 
+/* Downgrade Confirmation Modal */
+.downgrade-confirm-modal {
+  min-width: 450px;
+}
+
+.downgrade-comparison {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.downgrade-item {
+  flex: 1;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+}
+
+.downgrade-item.current {
+  border: 2px solid #4a8a4a;
+}
+
+.downgrade-item.new {
+  border: 2px solid #8a4a4a;
+}
+
+.downgrade-label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.downgrade-arrow {
+  font-size: 24px;
+  color: #ff6666;
+  font-weight: bold;
+}
+
+.downgrade-warning {
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 0, 0, 0.15);
+  border: 1px solid #8a4a4a;
+  border-radius: 4px;
+  color: #ff6666;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.weapon-slot-footer .confirm-btn {
+  padding: 8px 24px;
+  background: #333;
+  border: 2px solid #555;
+  border-radius: 4px;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 12px;
+}
+
+.weapon-slot-footer .confirm-btn.danger {
+  background: #5a2a2a;
+  border-color: #8a4a4a;
+  color: #ffaaaa;
+}
+
+.weapon-slot-footer .confirm-btn.danger:hover {
+  background: #8a3a3a;
+  border-color: #aa5a5a;
+  color: #fff;
+}
+
 /* Inspection Panel - Redesigned */
 .inspection-panel {
   background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);

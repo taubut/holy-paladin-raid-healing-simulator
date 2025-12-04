@@ -4831,6 +4831,59 @@ function App() {
         </div>
       )}
 
+      {/* Downgrade Confirmation Modal */}
+      {state.pendingDowngradeConfirmation && (
+        <div className="modal-overlay">
+          <div className="weapon-slot-modal downgrade-confirm-modal">
+            <div className="weapon-slot-header">
+              <h2>Replace Better Item?</h2>
+              <p><strong>{state.pendingDowngradeConfirmation.memberName}</strong> already has a better or equal item equipped.</p>
+            </div>
+            <div className="downgrade-comparison">
+              <div className="downgrade-item current">
+                <span className="downgrade-label">Currently Equipped:</span>
+                <div className="weapon-slot-item" style={{ borderColor: state.pendingDowngradeConfirmation.currentItem.rarity === 'epic' ? '#a335ee' : state.pendingDowngradeConfirmation.currentItem.rarity === 'rare' ? '#0070dd' : '#1eff00' }}>
+                  <img src={state.pendingDowngradeConfirmation.currentItem.icon} alt={state.pendingDowngradeConfirmation.currentItem.name} className="weapon-slot-icon" />
+                  <div className="weapon-slot-info">
+                    <span className="weapon-slot-name" style={{ color: state.pendingDowngradeConfirmation.currentItem.rarity === 'epic' ? '#a335ee' : state.pendingDowngradeConfirmation.currentItem.rarity === 'rare' ? '#0070dd' : '#1eff00' }}>
+                      {state.pendingDowngradeConfirmation.currentItem.name}
+                    </span>
+                    <span className="weapon-slot-ilvl">iLvl {state.pendingDowngradeConfirmation.currentItem.itemLevel}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="downgrade-arrow">→</div>
+              <div className="downgrade-item new">
+                <span className="downgrade-label">New Item:</span>
+                <div className="weapon-slot-item" style={{ borderColor: state.pendingDowngradeConfirmation.item.rarity === 'epic' ? '#a335ee' : state.pendingDowngradeConfirmation.item.rarity === 'rare' ? '#0070dd' : '#1eff00' }}>
+                  <img src={state.pendingDowngradeConfirmation.item.icon} alt={state.pendingDowngradeConfirmation.item.name} className="weapon-slot-icon" />
+                  <div className="weapon-slot-info">
+                    <span className="weapon-slot-name" style={{ color: state.pendingDowngradeConfirmation.item.rarity === 'epic' ? '#a335ee' : state.pendingDowngradeConfirmation.item.rarity === 'rare' ? '#0070dd' : '#1eff00' }}>
+                      {state.pendingDowngradeConfirmation.item.name}
+                    </span>
+                    <span className="weapon-slot-ilvl">iLvl {state.pendingDowngradeConfirmation.item.itemLevel}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="downgrade-warning">
+              {state.pendingDowngradeConfirmation.currentItem.itemLevel > state.pendingDowngradeConfirmation.item.itemLevel
+                ? `This is a DOWNGRADE (iLvl ${state.pendingDowngradeConfirmation.currentItem.itemLevel} → ${state.pendingDowngradeConfirmation.item.itemLevel})`
+                : `Same item level (iLvl ${state.pendingDowngradeConfirmation.item.itemLevel})`
+              }
+            </div>
+            <div className="weapon-slot-footer">
+              <button className="cancel-btn" onClick={() => engine.cancelDowngradeConfirmation()}>
+                Cancel
+              </button>
+              <button className="confirm-btn danger" onClick={() => engine.confirmDowngradeAssignment()}>
+                Replace Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inspection Panel */}
       {state.inspectedMember && (() => {
         // Build dynamic slot list based on class

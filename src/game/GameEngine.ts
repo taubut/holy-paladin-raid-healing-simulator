@@ -556,6 +556,8 @@ export class GameEngine {
       isRaidLeaderMode: false,
       // Weapon slot choice modal - for dual-wield classes when assigning weapons
       pendingWeaponAssignment: null,
+      // Downgrade/sidegrade confirmation modal
+      pendingDowngradeConfirmation: null,
     };
   }
 
@@ -6232,6 +6234,21 @@ export class GameEngine {
       return; // Don't equip yet - wait for slot choice
     }
 
+    // Check if member already has an item in this slot that's equal or better
+    const currentItem = member.equipment[item.slot];
+    if (currentItem && currentItem.itemLevel >= item.itemLevel) {
+      // Show confirmation modal for downgrade/sidegrade
+      this.state.pendingDowngradeConfirmation = {
+        item,
+        memberId: member.id,
+        memberName: member.name,
+        currentItem,
+        slot: item.slot,
+      };
+      this.notify();
+      return; // Don't equip yet - wait for confirmation
+    }
+
     // Equip the item on the member
     this.equipItemOnMember(member, item);
     this.state.pendingLoot.splice(itemIndex, 1);
@@ -6273,6 +6290,43 @@ export class GameEngine {
   // Cancel a pending weapon assignment
   cancelWeaponAssignment() {
     this.state.pendingWeaponAssignment = null;
+    this.notify();
+  }
+
+  // Confirm and complete a pending downgrade - user chose to replace better gear
+  confirmDowngradeAssignment() {
+    const pending = this.state.pendingDowngradeConfirmation;
+    if (!pending) return;
+
+    const member = this.state.raid.find(m => m.id === pending.memberId);
+    if (!member) {
+      this.state.pendingDowngradeConfirmation = null;
+      this.notify();
+      return;
+    }
+
+    // Remove from pending loot
+    const itemIndex = this.state.pendingLoot.findIndex(i => i.id === pending.item.id);
+    if (itemIndex !== -1) {
+      this.state.pendingLoot.splice(itemIndex, 1);
+    }
+
+    // Force equip the item (replacing the better one)
+    member.equipment[pending.slot] = pending.item;
+    member.gearScore = this.calculateGearScore(member.equipment);
+
+    this.addCombatLogEntry({
+      message: `Raid Leader awarded ${pending.item.name} to ${pending.memberName} (replaced ${pending.currentItem.name})`,
+      type: 'buff'
+    });
+
+    this.state.pendingDowngradeConfirmation = null;
+    this.notify();
+  }
+
+  // Cancel a pending downgrade confirmation
+  cancelDowngradeConfirmation() {
+    this.state.pendingDowngradeConfirmation = null;
     this.notify();
   }
 
