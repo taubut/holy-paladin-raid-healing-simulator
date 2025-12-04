@@ -11,8 +11,21 @@ import {
   updatePlayerEquipment,
 } from '../lib/supabase';
 import type { GameSession, SessionPlayer } from '../lib/supabase';
-import type { Equipment } from '../game/types';
+import type { Equipment, RaidMember } from '../game/types';
 import type { GearItem } from '../game/items';
+
+// Simplified raid member data for syncing (only persistent properties)
+export interface SyncableRaidMember {
+  id: string;
+  name: string;
+  class: RaidMember['class'];
+  spec: RaidMember['spec'];
+  role: RaidMember['role'];
+  group: number;
+  equipment: Equipment;
+  gearScore: number;
+  positionZone: RaidMember['positionZone'];
+}
 
 // Simple gear score calculation: sum of item levels
 function calculateGearScore(equipment: Equipment): number {
@@ -40,18 +53,22 @@ const CLASS_COLORS: Record<string, string> = {
 };
 
 interface MultiplayerLobbyProps {
-  onStartGame: (session: GameSession, players: SessionPlayer[], localPlayer: SessionPlayer) => void;
+  onStartGame: (session: GameSession, players: SessionPlayer[], localPlayer: SessionPlayer, hostSpectating?: boolean) => void;
   onCancel: () => void;
   initialPlayerName?: string;
   hostEquipment?: Equipment;  // Host's current equipment to share with others
+  hostRaid?: SyncableRaidMember[];  // Host's raid composition
+  onRaidSync?: (raid: SyncableRaidMember[]) => void;  // Callback when client accepts raid sync
+  faction?: 'alliance' | 'horde';  // Player's faction - determines available healer classes
 }
 
 type LobbyView = 'menu' | 'create' | 'join' | 'lobby';
 
-export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = '', hostEquipment }: MultiplayerLobbyProps) {
+export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = '', hostEquipment, hostRaid, onRaidSync, faction = 'alliance' }: MultiplayerLobbyProps) {
   const [view, setView] = useState<LobbyView>('menu');
   const [playerName, setPlayerName] = useState(initialPlayerName);
-  const [playerClass, setPlayerClass] = useState<SessionPlayer['player_class']>('paladin');
+  // Default to faction-appropriate class
+  const [playerClass, setPlayerClass] = useState<SessionPlayer['player_class']>(faction === 'horde' ? 'shaman' : 'paladin');
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,9 +78,52 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
   const [players, setPlayers] = useState<SessionPlayer[]>([]);
   const [localPlayer, setLocalPlayer] = useState<SessionPlayer | null>(null);
 
+  // Gear share confirmation state
+  const [showGearShareConfirm, setShowGearShareConfirm] = useState(false);
+  const [gearShareHostName, setGearShareHostName] = useState('');
+  const [gearSharePending, setGearSharePending] = useState(false); // Host waiting for responses
+  const [pendingRaidSync, setPendingRaidSync] = useState<SyncableRaidMember[] | null>(null);
+
+  // Spectator mode state (host only toggles this, clients receive it)
+  const [hostSpectating, setHostSpectating] = useState(false);
+  const [receivedHostSpectating, setReceivedHostSpectating] = useState<boolean | null>(null);
+
   // Refs for cleanup - so cleanup only runs on actual unmount, not on state changes
   const sessionRef = useRef<GameSession | null>(null);
   const localPlayerRef = useRef<SessionPlayer | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const channelRef = useRef<any>(null);
+  const onStartGameRef = useRef(onStartGame);
+  const hostEquipmentRef = useRef(hostEquipment);
+  const hostRaidRef = useRef(hostRaid);
+  const onRaidSyncRef = useRef(onRaidSync);
+  const hostSpectatingRef = useRef(hostSpectating);
+  const receivedHostSpectatingRef = useRef<boolean | null>(null);
+
+  // Keep callback refs in sync
+  useEffect(() => {
+    onStartGameRef.current = onStartGame;
+  }, [onStartGame]);
+
+  useEffect(() => {
+    hostEquipmentRef.current = hostEquipment;
+  }, [hostEquipment]);
+
+  useEffect(() => {
+    hostRaidRef.current = hostRaid;
+  }, [hostRaid]);
+
+  useEffect(() => {
+    onRaidSyncRef.current = onRaidSync;
+  }, [onRaidSync]);
+
+  useEffect(() => {
+    hostSpectatingRef.current = hostSpectating;
+  }, [hostSpectating]);
+
+  useEffect(() => {
+    receivedHostSpectatingRef.current = receivedHostSpectating;
+  }, [receivedHostSpectating]);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -83,7 +143,9 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
 
     // Subscribe to realtime changes
     const channel = supabase
-      .channel(`lobby:${session.id}`)
+      .channel(`lobby:${session.id}`, {
+        config: { broadcast: { self: false } },
+      })
       .on(
         'postgres_changes',
         {
@@ -109,20 +171,75 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
           const updatedSession = payload.new as GameSession;
           setSession(updatedSession);
 
-          // If game started, trigger callback
-          if (updatedSession.status === 'playing' && localPlayer) {
+          // If game started, trigger callback - use ref for current player
+          const currentPlayer = localPlayerRef.current;
+          if (updatedSession.status === 'playing' && currentPlayer) {
             getSessionPlayers(session.id).then((currentPlayers) => {
-              onStartGame(updatedSession, currentPlayers, localPlayer);
+              // Host uses their local hostSpectating, clients use the received value
+              const spectating = currentPlayer.is_host
+                ? hostSpectatingRef.current
+                : (receivedHostSpectatingRef.current ?? false);
+              onStartGameRef.current(updatedSession, currentPlayers, currentPlayer, spectating);
             });
+          }
+        }
+      )
+      // Listen for game start broadcast (contains hostSpectating info)
+      .on(
+        'broadcast',
+        { event: 'game_start' },
+        (payload) => {
+          // Clients receive hostSpectating from host's broadcast
+          if (payload.payload?.hostSpectating !== undefined) {
+            setReceivedHostSpectating(payload.payload.hostSpectating);
+          }
+        }
+      )
+      // Listen for gear share request from host
+      .on(
+        'broadcast',
+        { event: 'gear_share_request' },
+        (payload) => {
+          // Non-host players see confirmation modal
+          // Use ref to get current value
+          const currentPlayer = localPlayerRef.current;
+          if (!currentPlayer?.is_host && payload.payload?.hostName) {
+            setGearShareHostName(payload.payload.hostName);
+            // Store the raid data for when client accepts
+            if (payload.payload?.raid) {
+              setPendingRaidSync(payload.payload.raid as SyncableRaidMember[]);
+            }
+            setShowGearShareConfirm(true);
+          }
+        }
+      )
+      // Listen for gear share acceptance (host listens for this)
+      .on(
+        'broadcast',
+        { event: 'gear_share_response' },
+        (payload) => {
+          // Use ref to get current value
+          const currentPlayer = localPlayerRef.current;
+          const equipment = hostEquipmentRef.current;
+          if (currentPlayer?.is_host && payload.payload?.accepted && payload.payload?.playerId && equipment) {
+            // Update this specific player's gear
+            const gearScore = calculateGearScore(equipment);
+            const equipmentRecord = equipmentToRecord(equipment);
+            updatePlayerEquipment(payload.payload.playerId, equipmentRecord, gearScore);
           }
         }
       )
       .subscribe();
 
+    // Save channel ref for broadcasting
+    channelRef.current = channel;
+
     return () => {
       supabase.removeChannel(channel);
+      channelRef.current = null;
     };
-  }, [session, localPlayer, onStartGame]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id]); // Only re-subscribe when session changes
 
   // Cleanup on unmount only (empty dependency array)
   useEffect(() => {
@@ -199,6 +316,15 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
       return;
     }
 
+    // Broadcast game_start with hostSpectating info before updating session status
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'game_start',
+        payload: { hostSpectating }
+      });
+    }
+
     await updateSessionStatus(session.id, 'playing');
     // The realtime subscription will handle the transition
   };
@@ -223,31 +349,74 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
     }
   };
 
-  // Host shares their gear with all other players
+  // Host shares their raid setup with all other players (with confirmation)
   const handleShareGear = async () => {
     if (!localPlayer?.is_host || !hostEquipment) {
       setError('Only the host can share gear');
       return;
     }
 
-    const gearScore = calculateGearScore(hostEquipment);
-    const equipmentRecord = equipmentToRecord(hostEquipment);
-    setLoading(true);
-    setError(null);
-
-    try {
-      // Update all players (including host) with host's equipment
-      await Promise.all(
-        players.map(p =>
-          updatePlayerEquipment(p.id, equipmentRecord, gearScore)
-        )
-      );
-      // Update local state
+    // If there are other players, broadcast a request for confirmation
+    const otherPlayers = players.filter(p => !p.is_host);
+    if (otherPlayers.length > 0 && channelRef.current) {
+      setGearSharePending(true);
+      // Broadcast gear share request to all clients (including raid composition)
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'gear_share_request',
+        payload: {
+          hostName: localPlayer.player_name,
+          raid: hostRaid  // Include full raid composition
+        }
+      });
+      // Also update host's own gear immediately
+      const gearScore = calculateGearScore(hostEquipment);
+      const equipmentRecord = equipmentToRecord(hostEquipment);
+      await updatePlayerEquipment(localPlayer.id, equipmentRecord, gearScore);
       setLocalPlayer({ ...localPlayer, equipment: equipmentRecord, gear_score: gearScore });
-    } catch (err) {
-      setError('Failed to share gear. Try again.');
+    } else {
+      // No other players, just update host's gear
+      const gearScore = calculateGearScore(hostEquipment);
+      const equipmentRecord = equipmentToRecord(hostEquipment);
+      setLoading(true);
+      try {
+        await updatePlayerEquipment(localPlayer.id, equipmentRecord, gearScore);
+        setLocalPlayer({ ...localPlayer, equipment: equipmentRecord, gear_score: gearScore });
+      } catch {
+        setError('Failed to update gear. Try again.');
+      }
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  // Client accepts gear share
+  const handleAcceptGearShare = () => {
+    if (channelRef.current && localPlayer) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'gear_share_response',
+        payload: { playerId: localPlayer.id, accepted: true }
+      });
+    }
+    // Apply the raid sync if we have pending raid data
+    if (pendingRaidSync && onRaidSync) {
+      onRaidSync(pendingRaidSync);
+    }
+    setPendingRaidSync(null);
+    setShowGearShareConfirm(false);
+  };
+
+  // Client declines gear share
+  const handleDeclineGearShare = () => {
+    if (channelRef.current && localPlayer) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'gear_share_response',
+        payload: { playerId: localPlayer.id, accepted: false }
+      });
+    }
+    setPendingRaidSync(null);
+    setShowGearShareConfirm(false);
   };
 
   // Main menu
@@ -295,7 +464,14 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
 
             <label className="mp-label">Healer Class</label>
             <div className="mp-class-select">
-              {(['paladin', 'priest', 'druid', 'shaman'] as const).map((cls) => {
+              {(['paladin', 'priest', 'druid', 'shaman'] as const)
+                // Filter out wrong faction class: Alliance can't be Shaman, Horde can't be Paladin
+                .filter((cls) => {
+                  if (faction === 'alliance' && cls === 'shaman') return false;
+                  if (faction === 'horde' && cls === 'paladin') return false;
+                  return true;
+                })
+                .map((cls) => {
                 const isDisabled = cls === 'priest' || cls === 'druid';
                 return (
                   <button
@@ -358,7 +534,14 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
 
             <label className="mp-label">Healer Class</label>
             <div className="mp-class-select">
-              {(['paladin', 'priest', 'druid', 'shaman'] as const).map((cls) => {
+              {(['paladin', 'priest', 'druid', 'shaman'] as const)
+                // Filter out wrong faction class: Alliance can't be Shaman, Horde can't be Paladin
+                .filter((cls) => {
+                  if (faction === 'alliance' && cls === 'shaman') return false;
+                  if (faction === 'horde' && cls === 'paladin') return false;
+                  return true;
+                })
+                .map((cls) => {
                 const isDisabled = cls === 'priest' || cls === 'druid';
                 return (
                   <button
@@ -500,12 +683,21 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
                   <button
                     className="mp-btn mp-btn-secondary"
                     onClick={handleShareGear}
-                    disabled={loading}
+                    disabled={loading || gearSharePending}
                     title="Share your equipped gear with all players"
                   >
-                    {loading ? 'Sharing...' : 'Share Your Gear'}
+                    {gearSharePending ? 'Request Sent!' : loading ? 'Sharing...' : 'Share Your Gear'}
                   </button>
                 )}
+
+                <label className="mp-spectate-toggle" title="Watch the raid without playing - an AI healer will take your spot">
+                  <input
+                    type="checkbox"
+                    checked={hostSpectating}
+                    onChange={(e) => setHostSpectating(e.target.checked)}
+                  />
+                  <span className="mp-spectate-label">Spectate Only</span>
+                </label>
               </>
             )}
 
@@ -513,6 +705,33 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
               {localPlayer.is_host ? 'Close Room' : 'Leave'}
             </button>
           </div>
+
+          {/* Gear Share Confirmation Modal (shown to non-host players) */}
+          {showGearShareConfirm && (
+            <div className="gear-share-confirm-overlay">
+              <div className="gear-share-confirm-modal">
+                <div className="gear-share-icon">⚠️</div>
+                <h3 className="gear-share-title">Gear Sync Request</h3>
+                <p className="gear-share-message">
+                  <strong>{gearShareHostName}</strong> wants to sync their raid composition and gear with your save file.
+                </p>
+                <p className="gear-share-warning">
+                  This will <strong>COMPLETELY OVERWRITE</strong> your current raiders and their equipment!
+                </p>
+                <p className="gear-share-hint">
+                  Consider making a new character save for multiplayer if you want to keep your current progress.
+                </p>
+                <div className="gear-share-buttons">
+                  <button className="mp-btn mp-btn-danger" onClick={handleDeclineGearShare}>
+                    Decline
+                  </button>
+                  <button className="mp-btn mp-btn-primary" onClick={handleAcceptGearShare}>
+                    Accept & Sync
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

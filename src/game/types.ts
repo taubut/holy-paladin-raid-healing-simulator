@@ -631,6 +631,7 @@ export interface GameState {
   playerEquipment: Equipment;
   playerDKP: DKPState;
   pendingLoot: GearItem[];
+  lootAssignments: Record<string, string>; // itemId -> memberName (for showing who got loot in multiplayer)
   showLootModal: boolean;
   showAuctionHouse: boolean;  // Auction House modal for buying enchants
   inspectedMember: RaidMember | null;

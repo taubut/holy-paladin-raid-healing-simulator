@@ -431,6 +431,9 @@ export class GameEngine {
   public onMindControlWarning: ((mcPlayerName: string, attackingName: string) => void) | null = null;
   public onLavaBombWarning: ((targetName: string) => void) | null = null;
   private isMultiplayerClient: boolean = false; // If true, don't apply heals locally - they'll come from host
+  private multiplayerPlayerRaidIds: Set<string> = new Set(); // Raid member IDs controlled by multiplayer players (don't AI heal these)
+  private multiplayerClientRaidId: string | null = null; // The raid member ID for this client (e.g., 'mp_abc123')
+  private hostSpectating: boolean = false; // If true, host is spectating and their slot is AI controlled
 
   constructor() {
     this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
@@ -475,6 +478,7 @@ export class GameEngine {
       playerEquipment: getPreRaidBisForSpec('holy_paladin'),  // Default to Holy Paladin pre-raid BiS
       playerDKP: { points: 50, earnedThisRaid: 0 },
       pendingLoot: [],
+      lootAssignments: {},
       showLootModal: false,
       showAuctionHouse: false,
       inspectedMember: null,
@@ -861,8 +865,24 @@ export class GameEngine {
   }
 
   // Set multiplayer client mode - heals won't be applied locally, just sent to host
-  setMultiplayerClientMode(isClient: boolean): void {
+  setMultiplayerClientMode(isClient: boolean, clientRaidId?: string): void {
     this.isMultiplayerClient = isClient;
+    this.multiplayerClientRaidId = clientRaidId || null;
+  }
+
+  // Set which raid member IDs are controlled by multiplayer players (to exclude from AI healing)
+  setMultiplayerPlayerRaidIds(raidIds: string[]): void {
+    this.multiplayerPlayerRaidIds = new Set(raidIds);
+  }
+
+  // Set if host is spectating (watching without playing, their slot becomes AI controlled)
+  setHostSpectating(spectating: boolean): void {
+    this.hostSpectating = spectating;
+  }
+
+  // Check if host is spectating
+  isHostSpectating(): boolean {
+    return this.hostSpectating;
   }
 
   // Trigger a special alert (used for legendary/secret unlocks)
@@ -2084,6 +2104,11 @@ export class GameEngine {
       };
     });
 
+    // Update the set of player-controlled raid member IDs to exclude from AI healing
+    this.multiplayerPlayerRaidIds = new Set(
+      this.state.raid.filter(m => m.id.startsWith('mp_')).map(m => m.id)
+    );
+
     this.notify();
   }
 
@@ -2092,6 +2117,52 @@ export class GameEngine {
    */
   getMultiplayerMembers(): RaidMember[] {
     return this.state.raid.filter(m => m.id.startsWith('mp_'));
+  }
+
+  /**
+   * Sync raid composition from multiplayer host
+   * This replaces the local raid with the host's raid (names, classes, groups, gear)
+   * while preserving runtime state (health, buffs, debuffs)
+   */
+  syncRaidFromMultiplayer(syncedRaid: Array<{
+    id: string;
+    name: string;
+    class: WoWClass;
+    spec: WoWSpec;
+    role: 'tank' | 'healer' | 'dps';
+    group: number;
+    equipment: Equipment;
+    gearScore: number;
+    positionZone: PositionZone;
+  }>) {
+    // Update each raid member with the synced data
+    // Preserve runtime state but update persistent properties
+    this.state.raid = syncedRaid.map((synced, index) => {
+      const existing = this.state.raid[index];
+      return {
+        // Runtime state (preserved from existing if available)
+        currentHealth: existing?.maxHealth || 4000,
+        maxHealth: existing?.maxHealth || 4000,
+        buffs: existing?.buffs || [],
+        debuffs: existing?.debuffs || [],
+        isAlive: existing?.isAlive ?? true,
+        dps: existing?.dps || 100,
+        wasInEncounter: existing?.wasInEncounter || false,
+        lastCritHealTime: existing?.lastCritHealTime,
+        // Persistent properties (from host)
+        id: synced.id,
+        name: synced.name,
+        class: synced.class,
+        spec: synced.spec,
+        role: synced.role,
+        group: synced.group,
+        equipment: synced.equipment,
+        gearScore: synced.gearScore,
+        positionZone: synced.positionZone,
+      };
+    });
+
+    this.notify();
   }
 
   toggleOtherHealers() {
@@ -2131,10 +2202,17 @@ export class GameEngine {
   }
 
   castSpell(spell: Spell) {
+    // Check if host is spectating - can't cast while spectating!
+    if (this.hostSpectating) {
+      this.addCombatLogEntry({ message: 'You are spectating!', type: 'system' });
+      this.notify();
+      return;
+    }
+
     // Check if player is dead - can't cast if dead!
-    // In multiplayer client mode, use PLAYER_ID to find local player since names sync from host
-    const player = this.isMultiplayerClient
-      ? this.state.raid.find(m => m.id === PLAYER_ID)
+    // In multiplayer client mode, use the client's raid member ID (e.g., 'mp_abc123')
+    const player = this.isMultiplayerClient && this.multiplayerClientRaidId
+      ? this.state.raid.find(m => m.id === this.multiplayerClientRaidId)
       : this.state.raid.find(m => m.name === this.state.playerName);
     if (!player?.isAlive) {
       this.addCombatLogEntry({ message: 'You are dead!', type: 'system' });
@@ -5145,9 +5223,11 @@ export class GameEngine {
 
       // AI Healers - other healers in the raid automatically heal
       // Disable AI healers in multiplayer client mode (host handles all AI healing)
+      // Also exclude raid members controlled by multiplayer players
+      // Exception: if host is spectating, include the PLAYER_ID slot in AI healing
       if (this.state.otherHealersEnabled && !this.isMultiplayerClient) {
         const aiHealers = this.state.raid.filter(
-          m => m.role === 'healer' && m.isAlive && m.id !== PLAYER_ID
+          m => m.role === 'healer' && m.isAlive && (m.id !== PLAYER_ID || this.hostSpectating) && !this.multiplayerPlayerRaidIds.has(m.id)
         );
 
         aiHealers.forEach(healer => {
@@ -5728,6 +5808,7 @@ export class GameEngine {
     if (loot.length > 0) {
       this.state.pendingLoot = loot;
       this.state.showLootModal = true;
+      this.state.lootAssignments = {}; // Reset assignments for new loot
       this.addCombatLogEntry({ message: `${loot.length} items dropped!`, type: 'system' });
     }
 
@@ -6252,11 +6333,22 @@ export class GameEngine {
       return; // Don't equip yet - wait for confirmation
     }
 
+    // Track the assignment so clients can see who got the loot
+    this.state.lootAssignments[item.id] = member.name;
+
     // Equip the item on the member
     this.equipItemOnMember(member, item);
-    this.state.pendingLoot.splice(itemIndex, 1);
     this.addCombatLogEntry({ message: `Raid Leader awarded ${item.name} to ${member.name}`, type: 'buff' });
     this.notify();
+
+    // Delay removing from pendingLoot so clients see "Assigned to: X" before item disappears
+    setTimeout(() => {
+      const idx = this.state.pendingLoot.findIndex(i => i.id === itemId);
+      if (idx !== -1) {
+        this.state.pendingLoot.splice(idx, 1);
+        this.notify();
+      }
+    }, 1500); // Show assignment for 1.5 seconds
   }
 
   // Complete a pending weapon assignment after slot choice
@@ -6271,11 +6363,10 @@ export class GameEngine {
       return;
     }
 
-    // Remove from pending loot
-    const itemIndex = this.state.pendingLoot.findIndex(i => i.id === pending.item.id);
-    if (itemIndex !== -1) {
-      this.state.pendingLoot.splice(itemIndex, 1);
-    }
+    // Track the assignment so clients can see who got the loot
+    this.state.lootAssignments[pending.item.id] = pending.memberName;
+
+    const itemId = pending.item.id;
 
     // Equip in the chosen slot
     member.equipment[slot] = pending.item;
@@ -6288,6 +6379,15 @@ export class GameEngine {
 
     this.state.pendingWeaponAssignment = null;
     this.notify();
+
+    // Delay removing from pendingLoot so clients see "Assigned to: X" before item disappears
+    setTimeout(() => {
+      const idx = this.state.pendingLoot.findIndex(i => i.id === itemId);
+      if (idx !== -1) {
+        this.state.pendingLoot.splice(idx, 1);
+        this.notify();
+      }
+    }, 1500); // Show assignment for 1.5 seconds
   }
 
   // Cancel a pending weapon assignment
@@ -8132,6 +8232,7 @@ export class GameEngine {
 
     // Show the loot modal
     this.state.showLootModal = true;
+    this.state.lootAssignments = {}; // Reset assignments for new loot
 
     // Trigger the special alert
     this.triggerSpecialAlert(`LEGENDARY! ${material.name} has dropped!`);

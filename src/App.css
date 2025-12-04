@@ -2319,6 +2319,39 @@ body {
   gap: 12px;
 }
 
+/* Spectating Indicator */
+.spectating-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 32px;
+  background: linear-gradient(180deg, rgba(30, 30, 60, 0.95) 0%, rgba(20, 20, 40, 0.95) 100%);
+  border: 2px solid #4a4a8a;
+  border-radius: 8px;
+  box-shadow: 0 0 20px rgba(74, 74, 138, 0.4);
+}
+
+.spectating-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.spectating-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: #aaa8ff;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-shadow: 0 0 10px rgba(170, 168, 255, 0.5);
+}
+
+.spectating-hint {
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+}
+
 .action-bar {
   display: flex;
   gap: 4px;
@@ -2893,6 +2926,24 @@ body {
   font-size: 12px;
   font-weight: bold;
   text-transform: uppercase;
+}
+
+/* Waiting for loot badge (client in multiplayer) */
+.waiting-for-loot-badge {
+  background: linear-gradient(180deg, #4a4a6a 0%, #2a2a4a 100%);
+  color: #aaa;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Waiting for host loot assignment (client item actions) */
+.waiting-for-host-loot {
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px;
 }
 
 /* Master Looter Controls */
@@ -12355,6 +12406,40 @@ body {
   border-color: #6a3a3a;
 }
 
+/* Spectate toggle */
+.mp-spectate-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mp-spectate-toggle:hover {
+  background: rgba(0, 0, 0, 0.5);
+  border-color: #777;
+}
+
+.mp-spectate-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #ffd100;
+}
+
+.mp-spectate-label {
+  color: #ccc;
+  font-size: 13px;
+}
+
+.mp-spectate-toggle:has(input:checked) .mp-spectate-label {
+  color: #ffd100;
+}
+
 /* Form styles */
 .mp-form {
   display: flex;
@@ -12593,6 +12678,87 @@ body {
 
 .lobby-actions .mp-btn {
   flex: 1;
+}
+
+/* Gear Share Confirmation Modal */
+.gear-share-confirm-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  border-radius: 12px;
+}
+
+.gear-share-confirm-modal {
+  background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 2px solid #ff6b6b;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 380px;
+  text-align: center;
+}
+
+.gear-share-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.gear-share-title {
+  color: #ff6b6b;
+  font-size: 20px;
+  margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.gear-share-message {
+  color: #ccc;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
+.gear-share-warning {
+  color: #ff6b6b;
+  font-size: 14px;
+  margin: 0 0 12px 0;
+  padding: 10px;
+  background: rgba(255, 107, 107, 0.15);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+
+.gear-share-hint {
+  color: #888;
+  font-size: 12px;
+  margin: 0 0 20px 0;
+  font-style: italic;
+}
+
+.gear-share-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.gear-share-buttons .mp-btn {
+  flex: 1;
+}
+
+.mp-btn-danger {
+  background: linear-gradient(180deg, #5a2a2a 0%, #3a1a1a 100%);
+  color: #ff6b6b;
+  border-color: #6a3a3a;
+}
+
+.mp-btn-danger:hover {
+  background: linear-gradient(180deg, #6a3a3a 0%, #4a2a2a 100%);
+  border-color: #7a4a4a;
 }
 
 /* Multiplayer button in main UI */
@@ -14229,4 +14395,38 @@ body {
   border-color: #ff9944;
   color: #fff;
   box-shadow: 0 0 15px rgba(255, 153, 68, 0.3);
+}
+
+.ragnaros-rp-skip.requested {
+  background: linear-gradient(180deg, #2a4a2a 0%, #1a3a1a 100%);
+  border-color: #4a8a4a;
+  color: #8f8;
+}
+
+.ragnaros-rp-skip.requested:hover {
+  background: linear-gradient(180deg, #3a5a3a 0%, #2a4a2a 100%);
+  border-color: #5a9a5a;
+}
+
+/* Multiplayer RP Skip Status */
+.rp-skip-status {
+  margin-top: 16px;
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.rp-skip-counter {
+  color: #ffd100;
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.rp-skip-names {
+  color: #8f8;
+  font-size: 13px;
+  font-style: italic;
 }

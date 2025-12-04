@@ -15,6 +15,7 @@ import { PARTY_AURAS, getPaladinAuras, memberProvidesAura } from './game/auras';
 import { TOTEMS_BY_ELEMENT, getTotemById } from './game/totems';
 import type { TotemElement } from './game/types';
 import { MultiplayerLobby } from './components/MultiplayerLobby';
+import type { SyncableRaidMember } from './components/MultiplayerLobby';
 import { RaidMeter } from './components/RaidMeter';
 import { RaidSetupModal } from './components/RaidSetupModal';
 import { RaidLeaderSetup } from './components/RaidLeaderSetup';
@@ -134,7 +135,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.29.0';
+  const CURRENT_PATCH_VERSION = '0.30.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -160,6 +161,12 @@ function App() {
   // Track all players' healing stats for the meter (host aggregates, clients receive)
   const [multiplayerHealingStats, setMultiplayerHealingStats] = useState<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
   const multiplayerHealingStatsRef = useRef<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
+  const healingStatsResetForEncounterRef = useRef(false); // Track if we've reset stats for current encounter
+  // Track multiplayer player mana for raid frame display
+  const [multiplayerPlayerMana, setMultiplayerPlayerMana] = useState<Record<string, { current: number; max: number }>>({});
+  const multiplayerPlayerManaRef = useRef<Record<string, { current: number; max: number }>>({});
+  // Track if host is spectating (watching without playing)
+  const [hostSpectating, setHostSpectating] = useState(false);
 
   // Living Bomb Safe Zone state
   const [evacuatedMembers, setEvacuatedMembers] = useState<Set<string>>(new Set());
@@ -205,6 +212,18 @@ function App() {
   const [showRagnarosRP, setShowRagnarosRP] = useState(false);
   const [ragnarosRPDialogueIndex, setRagnarosRPDialogueIndex] = useState(0);
   const [ragnarosRPTimeRemaining, setRagnarosRPTimeRemaining] = useState(RP_DURATION);
+
+  // Refs to track current values for broadcast (avoid stale closure in setInterval)
+  const showRagnarosTankModalRef = useRef(false);
+  const showGolemaggTankModalRef = useRef(false);
+  const showMajordomoTankModalRef = useRef(false);
+  const showRagnarosRPRef = useRef(false);
+  const ragnarosRPDialogueIndexRef = useRef(0);
+  const ragnarosRPTimeRemainingRef = useRef(RP_DURATION);
+  // Multiplayer RP skip tracking - names of players who requested skip
+  const [rpSkipRequests, setRpSkipRequests] = useState<string[]>([]);
+  const rpSkipRequestsRef = useRef<string[]>([]);
+  const [localPlayerRequestedSkip, setLocalPlayerRequestedSkip] = useState(false);
 
   // Default keybinds
   const DEFAULT_KEYBINDS = {
@@ -462,12 +481,13 @@ function App() {
   };
 
   // Handle multiplayer game start
-  const handleMultiplayerStart = (session: GameSession, players: SessionPlayer[], player: SessionPlayer) => {
+  const handleMultiplayerStart = (session: GameSession, players: SessionPlayer[], player: SessionPlayer, isHostSpectating?: boolean) => {
     setMultiplayerSession(session);
     setMultiplayerPlayers(players);
     setLocalPlayer(player);
     setIsMultiplayerMode(true);
     setShowMultiplayerLobby(false);
+    setHostSpectating(isHostSpectating ?? false);
 
     // Set up multiplayer healers in the raid
     // Filter out the local player (they're already the main player) and add others as raid healers
@@ -485,7 +505,10 @@ function App() {
     // Set the local player's name
     engine.setPlayerName(player.player_name);
 
-    console.log('Multiplayer game started!', { session, players, player });
+    // Tell the engine if host is spectating
+    engine.setHostSpectating(player.is_host && (isHostSpectating ?? false));
+
+    console.log('Multiplayer game started!', { session, players, player, hostSpectating: isHostSpectating });
   };
 
   // Handle leaving multiplayer mode / going back to solo
@@ -497,16 +520,40 @@ function App() {
     setLocalPlayer(null);
     setMultiplayerHealingStats({});
     multiplayerHealingStatsRef.current = {};
+    setHostSpectating(false);
+    engine.setHostSpectating(false);
     // Stop any running encounter
     if (state.isRunning) {
       engine.stopEncounter();
     }
   };
 
+  // Handle raid sync from host (client applies host's raid composition)
+  const handleRaidSync = (syncedRaid: SyncableRaidMember[]) => {
+    // Apply the synced raid composition to the game engine
+    engine.syncRaidFromMultiplayer(syncedRaid);
+  };
+
+  // Keep refs in sync with state (for broadcast interval to access current values)
+  useEffect(() => { showRagnarosTankModalRef.current = showRagnarosTankModal; }, [showRagnarosTankModal]);
+  useEffect(() => { showGolemaggTankModalRef.current = showGolemaggTankModal; }, [showGolemaggTankModal]);
+  useEffect(() => { showMajordomoTankModalRef.current = showMajordomoTankModal; }, [showMajordomoTankModal]);
+  useEffect(() => { showRagnarosRPRef.current = showRagnarosRP; }, [showRagnarosRP]);
+  useEffect(() => { ragnarosRPDialogueIndexRef.current = ragnarosRPDialogueIndex; }, [ragnarosRPDialogueIndex]);
+  useEffect(() => { ragnarosRPTimeRemainingRef.current = ragnarosRPTimeRemaining; }, [ragnarosRPTimeRemaining]);
+  useEffect(() => { rpSkipRequestsRef.current = rpSkipRequests; }, [rpSkipRequests]);
+
   // Handle encounter selection - intercept for special cases like Golemagg
   const handleEncounterSelect = (encounterId: string) => {
     const engine = engineRef.current;
     if (!engine) return;
+
+    // In multiplayer, only host can start encounters
+    // Clients will see the encounter start via state sync
+    if (isMultiplayerMode && !isHost) {
+      // Client clicked an encounter - do nothing, host controls this
+      return;
+    }
 
     // Check if this encounter requires tank assignment
     const encounter = ENCOUNTERS.find(e => e.id === encounterId);
@@ -682,7 +729,34 @@ function App() {
 
   // Ragnaros RP skip handler
   const handleRagnarosRPSkip = () => {
-    // Stop audio when skipping
+    if (isMultiplayerMode && multiplayerPlayers && multiplayerPlayers.length > 1) {
+      // In multiplayer, just mark local player as wanting to skip
+      if (!localPlayerRequestedSkip) {
+        setLocalPlayerRequestedSkip(true);
+        // Add local player to the list
+        const playerName = localPlayer?.player_name || state.playerName;
+        setRpSkipRequests(prev => prev.includes(playerName) ? prev : [...prev, playerName]);
+        // Send skip request via the actions channel (same channel used for heals/dispels)
+        // Host listens on :actions, clients use mpChannelRef
+        if (mpChannelRef.current) {
+          // Client - send to host via actions channel
+          mpChannelRef.current.send({
+            type: 'broadcast',
+            event: 'player_action',
+            payload: {
+              type: 'rp_skip_request',
+              playerName,
+              playerId: localPlayer?.id || 'client',
+            }
+          });
+        } else if (isHost && multiplayerSession?.room_code) {
+          // Host - broadcast directly to all clients via main game state (handled in broadcast interval)
+          // The rpSkipRequests state update above will be synced via the main broadcast
+        }
+      }
+      return; // Don't actually skip until all players have requested
+    }
+    // Single player - skip immediately
     if (ragnarosRPAudioRef.current) {
       ragnarosRPAudioRef.current.pause();
       ragnarosRPAudioRef.current = null;
@@ -855,9 +929,13 @@ function App() {
           broadcastInterval = window.setInterval(() => {
             const gameState = engine.getState();
 
-            // If encounter just started (healing is 0), reset all multiplayer stats
-            if (gameState.healingDone === 0 && gameState.isRunning) {
+            // If encounter just started and we haven't reset yet, reset all multiplayer stats
+            if (gameState.isRunning && !healingStatsResetForEncounterRef.current) {
               multiplayerHealingStatsRef.current = {};
+              healingStatsResetForEncounterRef.current = true;
+            } else if (!gameState.isRunning) {
+              // Reset the flag when encounter ends
+              healingStatsResetForEncounterRef.current = false;
             }
 
             // Update host's own healing stats in the ref
@@ -868,8 +946,32 @@ function App() {
               dispelsDone: gameState.dispelsDone,
             };
 
+            // Initialize all other multiplayer players with 0 stats if they don't exist yet
+            // This ensures they show in the healing meter even before they cast any heals
+            multiplayerPlayers.forEach(player => {
+              if (player.id !== localPlayer?.id && !multiplayerHealingStatsRef.current[player.id]) {
+                multiplayerHealingStatsRef.current[player.id] = {
+                  name: player.player_name,
+                  class: player.player_class,
+                  healingDone: 0,
+                  dispelsDone: 0,
+                };
+              }
+            });
+
             // Update state so RaidMeter re-renders with current stats
             setMultiplayerHealingStats({ ...multiplayerHealingStatsRef.current });
+
+            // Include host's own mana in the multiplayerPlayerMana so clients can see it
+            // Store with both the player's session ID and 'player' (the raid member ID) so clients can find it
+            if (localPlayer?.id) {
+              const hostMana = {
+                current: gameState.playerMana,
+                max: gameState.maxMana,
+              };
+              multiplayerPlayerManaRef.current[localPlayer.id] = hostMana;
+              multiplayerPlayerManaRef.current['player'] = hostMana; // Also store with raid member ID
+            }
 
             channel.send({
               type: 'broadcast',
@@ -882,6 +984,7 @@ function App() {
                   name: m.name,
                   class: m.class,
                   role: m.role,
+                  group: m.group, // Sync group assignments!
                   hp: m.currentHealth,
                   maxHp: m.maxHealth,
                   alive: m.isAlive,
@@ -896,6 +999,14 @@ function App() {
                   maxHp: gameState.boss.maxHealth,
                   phase: gameState.boss.currentPhase,
                   enrageTimer: gameState.boss.enrageTimer,
+                  // Sync boss adds (Sulfuron priests, Majordomo adds, Ragnaros Sons, etc.)
+                  adds: gameState.boss.adds?.map(add => ({
+                    id: add.id,
+                    name: add.name,
+                    hp: add.currentHealth,
+                    maxHp: add.maxHealth,
+                    alive: add.isAlive,
+                  })),
                 } : null,
                 isRunning: gameState.isRunning,
                 elapsedTime: gameState.elapsedTime,
@@ -909,12 +1020,34 @@ function App() {
                 lootBids: gameState.lootBids,
                 lootBidTimer: gameState.lootBidTimer,
                 lootResults: gameState.lootResults,
+                // Sync loot assignments so clients see who got each item
+                lootAssignments: gameState.lootAssignments,
                 // Sync boss kill progress
                 defeatedBossesByRaid: gameState.defeatedBossesByRaid,
                 // Sync encounter result for summary display
                 lastEncounterResult: gameState.lastEncounterResult,
                 // Sync Living Bomb safe zone members
                 membersInSafeZone: Array.from(gameState.membersInSafeZone),
+                // Sync tank swap warning for bosses like Golemagg/Ragnaros
+                tankSwapWarning: gameState.tankSwapWarning,
+                // Sync Ragnaros RP state so clients can watch the intro (use refs to avoid stale closure)
+                showRagnarosRP: showRagnarosRPRef.current,
+                ragnarosRPDialogueIndex: ragnarosRPDialogueIndexRef.current,
+                ragnarosRPTimeRemaining: ragnarosRPTimeRemainingRef.current,
+                // Sync tank modal states so clients see when host finishes assigning tanks (use refs)
+                showRagnarosTankModal: showRagnarosTankModalRef.current,
+                showGolemaggTankModal: showGolemaggTankModalRef.current,
+                showMajordomoTankModal: showMajordomoTankModalRef.current,
+                // Sync RP skip requests so all players see who requested skip
+                rpSkipRequests: rpSkipRequestsRef.current,
+                // Sync raid buffs, consumables, and world buffs
+                playerBuffs: gameState.playerBuffs,
+                activeConsumables: gameState.activeConsumables,
+                activeWorldBuffs: gameState.activeWorldBuffs,
+                // Sync AI healer healing so clients see "Other Healers" stat
+                otherHealersHealing: gameState.otherHealersHealing,
+                // Sync all multiplayer player mana for raid frame display
+                multiplayerPlayerMana: multiplayerPlayerManaRef.current,
               },
             });
           }, 50);
@@ -941,6 +1074,9 @@ function App() {
           dkp?: number;
           // Safe zone evacuation
           memberId?: string;
+          // Mana sync for raid frames
+          currentMana?: number;
+          maxMana?: number;
         };
         const gameState = engine.getState();
 
@@ -977,6 +1113,17 @@ function App() {
               };
               existing.healingDone += actualHeal;
               multiplayerHealingStatsRef.current[data.playerId] = existing;
+              // Trigger re-render so healing meter updates
+              setMultiplayerHealingStats({ ...multiplayerHealingStatsRef.current });
+
+              // Track this player's mana for raid frame display
+              if (data.currentMana !== undefined && data.maxMana !== undefined) {
+                multiplayerPlayerManaRef.current[data.playerId] = {
+                  current: data.currentMana,
+                  max: data.maxMana,
+                };
+                setMultiplayerPlayerMana({ ...multiplayerPlayerManaRef.current });
+              }
             }
           }
         } else if (data.type === 'dispel' && data.debuffId && data.targetIndex !== undefined) {
@@ -1001,6 +1148,17 @@ function App() {
                 };
                 existing.dispelsDone += 1;
                 multiplayerHealingStatsRef.current[data.playerId] = existing;
+                // Trigger re-render so healing meter updates
+                setMultiplayerHealingStats({ ...multiplayerHealingStatsRef.current });
+
+                // Track this player's mana for raid frame display
+                if (data.currentMana !== undefined && data.maxMana !== undefined) {
+                  multiplayerPlayerManaRef.current[data.playerId] = {
+                    current: data.currentMana,
+                    max: data.maxMana,
+                  };
+                  setMultiplayerPlayerMana({ ...multiplayerPlayerManaRef.current });
+                }
               }
             }
           }
@@ -1008,6 +1166,16 @@ function App() {
           // Apply safe zone evacuation from remote player
           engine.setMemberInSafeZone(data.memberId, true);
           setEvacuatedMembers(prev => new Set([...prev, data.memberId!]));
+        } else if (data.type === 'rp_skip_request' && data.playerName) {
+          // Client requested RP skip - add to host's skip list
+          setRpSkipRequests(prev => prev.includes(data.playerName) ? prev : [...prev, data.playerName]);
+        } else if (data.type === 'mana_sync' && data.playerId && data.currentMana !== undefined && data.maxMana !== undefined) {
+          // Client is syncing their mana for raid frame display
+          multiplayerPlayerManaRef.current[data.playerId] = {
+            current: data.currentMana,
+            max: data.maxMana,
+          };
+          setMultiplayerPlayerMana({ ...multiplayerPlayerManaRef.current });
         }
       });
 
@@ -1034,6 +1202,7 @@ function App() {
             name: string;
             class: string;
             role: string;
+            group: number;
             hp: number;
             maxHp: number;
             alive: boolean;
@@ -1045,6 +1214,9 @@ function App() {
               // Sync all the important state
               member.id = memberData.id;
               member.name = memberData.name;
+              member.class = memberData.class as typeof member.class; // Sync class for bench swaps!
+              member.role = memberData.role as typeof member.role; // Sync role too!
+              member.group = memberData.group; // Sync group assignments!
               member.currentHealth = memberData.hp;
               member.maxHealth = memberData.maxHp;
               member.isAlive = memberData.alive;
@@ -1076,6 +1248,31 @@ function App() {
             // Also sync the boss name in case client has different raid
             if (data.boss.name) {
               gameState.boss.name = data.boss.name;
+            }
+            // Sync boss adds (Sulfuron priests, Majordomo adds, Ragnaros Sons, etc.)
+            if (data.boss.adds) {
+              // Initialize adds array if it doesn't exist
+              if (!gameState.boss.adds) {
+                gameState.boss.adds = [];
+              }
+              // Update each add's health and alive status
+              data.boss.adds.forEach((addData: { id: string; name: string; hp: number; maxHp: number; alive: boolean }) => {
+                const existingAdd = gameState.boss!.adds!.find(a => a.id === addData.id);
+                if (existingAdd) {
+                  existingAdd.currentHealth = addData.hp;
+                  existingAdd.maxHealth = addData.maxHp;
+                  existingAdd.isAlive = addData.alive;
+                } else {
+                  // Add doesn't exist locally - create it
+                  gameState.boss!.adds!.push({
+                    id: addData.id,
+                    name: addData.name,
+                    currentHealth: addData.hp,
+                    maxHealth: addData.maxHp,
+                    isAlive: addData.alive,
+                  });
+                }
+              });
             }
           } else if (data.isRunning) {
             // Boss doesn't exist locally but host is running - create a minimal boss object
@@ -1124,6 +1321,10 @@ function App() {
         if (data.lootResults !== undefined) {
           gameState.lootResults = data.lootResults;
         }
+        // Sync loot assignments so clients see who got each item
+        if (data.lootAssignments !== undefined) {
+          gameState.lootAssignments = data.lootAssignments;
+        }
 
         // Sync boss kill progress from host
         if (data.defeatedBossesByRaid) {
@@ -1140,6 +1341,59 @@ function App() {
           setEvacuatedMembers(new Set(data.membersInSafeZone));
         }
 
+        // Sync tank swap warning from host
+        if (data.tankSwapWarning !== undefined) {
+          gameState.tankSwapWarning = data.tankSwapWarning;
+        }
+
+        // Sync Ragnaros RP state from host
+        if (data.showRagnarosRP !== undefined) {
+          setShowRagnarosRP(data.showRagnarosRP);
+        }
+        if (data.ragnarosRPDialogueIndex !== undefined) {
+          setRagnarosRPDialogueIndex(data.ragnarosRPDialogueIndex);
+        }
+        if (data.ragnarosRPTimeRemaining !== undefined) {
+          setRagnarosRPTimeRemaining(data.ragnarosRPTimeRemaining);
+        }
+
+        // Sync tank modal states from host - when host closes modal, client sees it close
+        if (data.showRagnarosTankModal !== undefined) {
+          setShowRagnarosTankModal(data.showRagnarosTankModal);
+        }
+        if (data.showGolemaggTankModal !== undefined) {
+          setShowGolemaggTankModal(data.showGolemaggTankModal);
+        }
+        if (data.showMajordomoTankModal !== undefined) {
+          setShowMajordomoTankModal(data.showMajordomoTankModal);
+        }
+
+        // Sync RP skip requests from host so all players see the same skip status
+        if (data.rpSkipRequests !== undefined) {
+          setRpSkipRequests(data.rpSkipRequests);
+        }
+
+        // Sync raid buffs, consumables, and world buffs from host
+        if (data.playerBuffs !== undefined) {
+          gameState.playerBuffs = data.playerBuffs;
+        }
+        if (data.activeConsumables !== undefined) {
+          gameState.activeConsumables = data.activeConsumables;
+        }
+        if (data.activeWorldBuffs !== undefined) {
+          gameState.activeWorldBuffs = data.activeWorldBuffs;
+        }
+
+        // Sync AI healer healing from host so clients see "Other Healers" stat
+        if (data.otherHealersHealing !== undefined) {
+          gameState.otherHealersHealing = data.otherHealersHealing;
+        }
+
+        // Sync multiplayer player mana from host for raid frame display
+        if (data.multiplayerPlayerMana !== undefined) {
+          setMultiplayerPlayerMana(data.multiplayerPlayerMana);
+        }
+
         // Force UI update
         forceUpdate(n => n + 1);
       });
@@ -1152,6 +1406,30 @@ function App() {
     }
   }, [isMultiplayerMode, multiplayerSession, localPlayer, engine]);
 
+  // Check if all multiplayer players have requested RP skip
+  useEffect(() => {
+    if (!isMultiplayerMode || !multiplayerPlayers || multiplayerPlayers.length <= 1) return;
+    if (!showRagnarosRP) return;
+
+    // All players have requested skip
+    if (rpSkipRequests.length >= multiplayerPlayers.length) {
+      // Actually skip the RP now
+      if (ragnarosRPAudioRef.current) {
+        ragnarosRPAudioRef.current.pause();
+        ragnarosRPAudioRef.current = null;
+      }
+      handleRagnarosRPComplete();
+    }
+  }, [rpSkipRequests, multiplayerPlayers, isMultiplayerMode, showRagnarosRP]);
+
+  // Reset RP skip state when RP starts/ends
+  useEffect(() => {
+    if (showRagnarosRP) {
+      setRpSkipRequests([]);
+      setLocalPlayerRequestedSkip(false);
+    }
+  }, [showRagnarosRP]);
+
   // Store channel ref for sending actions from client
   const mpChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -1163,7 +1441,9 @@ function App() {
     const roomCode = multiplayerSession.room_code;
 
     // Set the engine to client mode if not host
-    engine.setMultiplayerClientMode(isClient);
+    // Pass the client's raid member ID so they can check if their character is alive
+    const clientRaidId = isClient ? `mp_${localPlayer.id}` : undefined;
+    engine.setMultiplayerClientMode(isClient, clientRaidId);
 
     if (isClient) {
       // Create a channel for sending player actions
@@ -1180,6 +1460,7 @@ function App() {
       // Set up the heal callback - send heals to host
       engine.setOnHealApplied((data) => {
         if (mpChannelRef.current) {
+          const gameState = engine.getState();
           mpChannelRef.current.send({
             type: 'broadcast',
             event: 'player_action',
@@ -1191,6 +1472,9 @@ function App() {
               spellName: data.spellName,
               playerId: localPlayer.id,
               playerClass: localPlayer.player_class,
+              // Include mana so host can display on raid frames
+              currentMana: gameState.playerMana,
+              maxMana: gameState.maxMana,
             },
           });
         }
@@ -1199,6 +1483,7 @@ function App() {
       // Set up dispel callback - send dispels to host
       engine.setOnDispelApplied((data) => {
         if (mpChannelRef.current) {
+          const gameState = engine.getState();
           mpChannelRef.current.send({
             type: 'broadcast',
             event: 'player_action',
@@ -1210,15 +1495,38 @@ function App() {
               spellName: data.spellName,
               playerId: localPlayer.id,
               playerClass: localPlayer.player_class,
+              // Include mana so host can display on raid frames
+              currentMana: gameState.playerMana,
+              maxMana: gameState.maxMana,
             },
           });
         }
       });
 
+      // Set up periodic mana sync so host can display client mana on raid frames
+      // This ensures mana is shown even before the client casts any heals
+      const manaSyncInterval = setInterval(() => {
+        if (mpChannelRef.current) {
+          const gameState = engine.getState();
+          mpChannelRef.current.send({
+            type: 'broadcast',
+            event: 'player_action',
+            payload: {
+              type: 'mana_sync',
+              playerId: localPlayer.id,
+              playerName: localPlayer.player_name,
+              currentMana: gameState.playerMana,
+              maxMana: gameState.maxMana,
+            },
+          });
+        }
+      }, 500); // Sync mana every 500ms
+
       return () => {
         engine.setMultiplayerClientMode(false);
         engine.setOnHealApplied(null);
         engine.setOnDispelApplied(null);
+        clearInterval(manaSyncInterval);
         supabase.removeChannel(actionChannel);
         mpChannelRef.current = null;
       };
@@ -1287,6 +1595,9 @@ function App() {
     };
   }, [engine]);
 
+  // Ref for multiplayer client debuff tracking (moved above state declaration to avoid hoisting issues)
+  const prevDebuffsRef = useRef<string>('');
+
   // Phase transition detection
   const state = engine.getState();
   useEffect(() => {
@@ -1311,6 +1622,66 @@ function App() {
       setPhaseAlert(null);
     }
   }, [state.isRunning]);
+
+  // Multiplayer client: detect warnings from synced debuffs
+  // (Callbacks don't fire on clients since they don't run the game tick)
+  useEffect(() => {
+    if (!isMultiplayerMode || localPlayer?.is_host) return;
+
+    // Collect all current debuff IDs to detect new ones
+    const currentDebuffs: { id: string; name: string; playerName: string }[] = [];
+    state.raid.forEach(member => {
+      member.debuffs?.forEach(d => {
+        currentDebuffs.push({ id: `${member.id}-${d.id}`, name: d.name, playerName: member.name });
+      });
+    });
+
+    const currentKey = currentDebuffs.map(d => d.id).sort().join(',');
+    if (currentKey !== prevDebuffsRef.current) {
+      // Check for newly applied dangerous debuffs
+      const prevIds = new Set(prevDebuffsRef.current.split(','));
+
+      for (const debuff of currentDebuffs) {
+        if (!prevIds.has(debuff.id)) {
+          // New debuff detected
+          if (debuff.name.toLowerCase().includes('mind control') || debuff.name.toLowerCase().includes('dominate mind')) {
+            // Mind Control warning
+            const mcTarget = state.raid.find(m => m.debuffs?.some(d => d.name.toLowerCase().includes('mc_target')));
+            setMindControlWarning({
+              mcPlayer: debuff.playerName,
+              attackingPlayer: mcTarget?.name || 'the raid'
+            });
+            if (airhornRef.current) {
+              airhornRef.current.currentTime = 0;
+              airhornRef.current.play().catch(() => {});
+            }
+            setTimeout(() => setMindControlWarning(null), 5000);
+          } else if (debuff.name.toLowerCase() === 'inferno') {
+            // Inferno warning - format as string like the original callback
+            const infernoPlayers = currentDebuffs.filter(d => d.name.toLowerCase() === 'inferno').map(d => d.playerName);
+            const warningText = infernoPlayers.length === 1
+              ? `INFERNO! ${infernoPlayers[0]} forgot to move!`
+              : `INFERNO! ${infernoPlayers.join(', ')} forgot to move!`;
+            setInfernoWarning(warningText);
+            if (airhornRef.current) {
+              airhornRef.current.currentTime = 0;
+              airhornRef.current.play().catch(() => {});
+            }
+            setTimeout(() => setInfernoWarning(null), 4000);
+          } else if (debuff.name.toLowerCase().includes('lava bomb')) {
+            // Lava Bomb warning
+            setLavaBombWarning(`LAVA BOMB! ${debuff.playerName} didn't move!`);
+            if (airhornRef.current) {
+              airhornRef.current.currentTime = 0;
+              airhornRef.current.play().catch(() => {});
+            }
+            setTimeout(() => setLavaBombWarning(null), 4000);
+          }
+        }
+      }
+      prevDebuffsRef.current = currentKey;
+    }
+  }, [state.raid, state.elapsedTime, isMultiplayerMode, localPlayer?.is_host]);
 
   // Watch for pending cloud save flag (triggered by quest turn-ins, legendary crafting, etc.)
   useEffect(() => {
@@ -1347,10 +1718,28 @@ function App() {
   }, [state.elapsedTime, evacuatedMembers]);
 
   // Ragnaros RP timer - countdown and dialogue progression with audio
+  // HOST runs the timer and controls progression
+  // CLIENTS receive synced state and only play audio
   useEffect(() => {
     if (!showRagnarosRP) return;
 
-    // Calculate cumulative start times for each dialogue
+    const isHostPlayer = localPlayer?.is_host ?? false;
+
+    // Clients don't run the timer - they receive synced state
+    if (isMultiplayerMode && !isHostPlayer) {
+      // Client: play first audio when RP starts
+      const firstAudio = new Audio(RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].audio);
+      ragnarosRPAudioRef.current = firstAudio;
+      firstAudio.play().catch(() => {});
+      return () => {
+        if (ragnarosRPAudioRef.current) {
+          ragnarosRPAudioRef.current.pause();
+          ragnarosRPAudioRef.current = null;
+        }
+      };
+    }
+
+    // HOST: Calculate cumulative start times for each dialogue
     const dialogueStartTimes: number[] = [];
     let cumulative = 0;
     for (const d of RAGNAROS_RP_DIALOGUE) {
@@ -1412,7 +1801,21 @@ function App() {
         ragnarosRPAudioRef.current = null;
       }
     };
-  }, [showRagnarosRP]);
+  }, [showRagnarosRP, isMultiplayerMode, localPlayer?.is_host]);
+
+  // Client: Play audio when dialogue index changes (synced from host)
+  useEffect(() => {
+    const isHostPlayer = localPlayer?.is_host ?? false;
+    if (!isMultiplayerMode || isHostPlayer || !showRagnarosRP) return;
+
+    // Stop previous audio and play the new dialogue's audio
+    if (ragnarosRPAudioRef.current) {
+      ragnarosRPAudioRef.current.pause();
+    }
+    const newAudio = new Audio(RAGNAROS_RP_DIALOGUE[ragnarosRPDialogueIndex].audio);
+    ragnarosRPAudioRef.current = newAudio;
+    newAudio.play().catch(() => {});
+  }, [ragnarosRPDialogueIndex, isMultiplayerMode, localPlayer?.is_host, showRagnarosRP]);
 
   // Clear evacuated members when encounter ends
   useEffect(() => {
@@ -1513,41 +1916,10 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [engine, showInventory, keybinds]);
 
-  // Track when loot modal opens to start bidding in multiplayer
-  const prevShowLootModalRef = useRef(false);
   const isHost = localPlayer?.is_host ?? false;
-  useEffect(() => {
-    // If loot modal just opened and we're the multiplayer host
-    if (state.showLootModal && !prevShowLootModalRef.current && isMultiplayerMode && isHost) {
-      // Start the bidding window (15 seconds)
-      engine.startLootBidding(15);
-    }
-    prevShowLootModalRef.current = state.showLootModal;
-  }, [state.showLootModal, isMultiplayerMode, isHost, engine]);
 
-  // Tick the loot bid timer and resolve when it expires (host only)
-  useEffect(() => {
-    if (!isMultiplayerMode || !isHost || state.lootBidTimer <= 0) return;
-
-    const timer = setInterval(() => {
-      engine.tickLootBidTimer();
-      const currentTimer = engine.getState().lootBidTimer;
-
-      if (currentTimer <= 0) {
-        // Timer expired, resolve all bids
-        const results = engine.resolveLootBids();
-
-        // Apply loot to winners - need to equip items for each winner
-        for (const result of results) {
-          // The host needs to apply the loot result
-          // Find the item from the loot results
-          engine.applyLootResult(result);
-        }
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isMultiplayerMode, isHost, state.lootBidTimer, engine]);
+  // Note: Multiplayer loot now uses Master Looter style (host assigns loot directly)
+  // instead of timed DKP bidding, so we don't need the bidding timer effects
 
   const actionBar = engine.getActionBar();
 
@@ -2035,6 +2407,29 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.30.0 - Spectator Host Mode</h3>
+                  <span className="patch-date">December 4, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Spectator Host Mode</h4>
+                  <ul>
+                    <li><strong>Watch Without Playing</strong>: Hosts can now check "Spectate Only" in the multiplayer lobby to observe the raid without taking a healer slot</li>
+                    <li><strong>AI Healer Fills Your Spot</strong>: An AI healer automatically takes your place so you can focus on watching</li>
+                    <li><strong>Full Visibility</strong>: See all raid frames, boss health, damage events, and the healing meter in real-time</li>
+                    <li><strong>Spectating Indicator</strong>: Clear on-screen indicator shows you're in spectator mode</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Multiplayer Sync Fixes</h4>
+                  <ul>
+                    <li><strong>Spectator Healing Meter</strong>: When spectating, the healing meter correctly shows your AI healer's stats under your name</li>
+                    <li><strong>No Duplicate Entries</strong>: Fixed duplicate "player" entries appearing in the healing meter when spectating</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.29.0 - Raid Gear &amp; QoL</h3>
                   <span className="patch-date">December 4, 2025</span>
                 </div>
@@ -2491,6 +2886,19 @@ function App() {
           onCancel={handleLeaveMultiplayer}
           initialPlayerName={state.playerName}
           hostEquipment={state.playerEquipment}
+          hostRaid={state.raid.map(m => ({
+            id: m.id,
+            name: m.name,
+            class: m.class,
+            spec: m.spec,
+            role: m.role,
+            group: m.group,
+            equipment: m.equipment,
+            gearScore: m.gearScore,
+            positionZone: m.positionZone,
+          }))}
+          onRaidSync={handleRaidSync}
+          faction={state.faction}
         />
       )}
 
@@ -3035,12 +3443,20 @@ function App() {
                           engine.getChainHealBounceTargets(chainHealPrimaryTarget, state.castingSpell?.maxBounces || 2).includes(member.id);
 
                         // Healer mana - for player it's state.playerMana, for AI it's aiHealerStats
+                        // For multiplayer players, check multiplayerPlayerMana by matching mp_{playerId} pattern
+                        // Also check multiplayerPlayerMana for 'player' ID (host's raid member) when on client
                         const isHealer = member.role === 'healer';
+                        const isMultiplayerHealer = member.id.startsWith('mp_');
+                        const mpPlayerId = isMultiplayerHealer ? member.id.replace('mp_', '') : null;
                         const healerMana = isPlayer
                           ? { current: state.playerMana, max: state.maxMana }
-                          : state.aiHealerStats[member.id]
-                            ? { current: state.aiHealerStats[member.id].currentMana, max: state.aiHealerStats[member.id].maxMana }
-                            : null;
+                          : isMultiplayerHealer && mpPlayerId && multiplayerPlayerMana[mpPlayerId]
+                            ? multiplayerPlayerMana[mpPlayerId]
+                            : multiplayerPlayerMana[member.id] // Check by raid member ID (e.g., 'player' for host)
+                              ? multiplayerPlayerMana[member.id]
+                              : state.aiHealerStats[member.id]
+                                ? { current: state.aiHealerStats[member.id].currentMana, max: state.aiHealerStats[member.id].maxMana }
+                                : null;
                         const manaPercent = healerMana ? (healerMana.current / healerMana.max) * 100 : 0;
 
                         // Living Bomb mechanic - check if member has the debuff
@@ -3453,12 +3869,12 @@ function App() {
 
               {/* Healing Meter */}
               <RaidMeter
-                playerHealing={state.healingDone}
-                playerDispels={state.dispelsDone}
+                playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
+                playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
                 playerSpellBreakdown={state.spellHealing}
                 playerName={state.playerName}
                 playerClass={state.playerClass}
-                aiHealerStats={state.aiHealerStats}
+                aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                 showAiHealers={state.otherHealersEnabled}
                 isMultiplayer={isMultiplayerMode}
                 hidePlayer={state.isRaidLeaderMode}
@@ -3491,12 +3907,12 @@ function App() {
                 </button>
               </div>
               <RaidMeter
-                playerHealing={state.healingDone}
-                playerDispels={state.dispelsDone}
+                playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
+                playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
                 playerSpellBreakdown={state.spellHealing}
                 playerName={state.playerName}
                 playerClass={state.playerClass}
-                aiHealerStats={state.aiHealerStats}
+                aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                 showAiHealers={state.otherHealersEnabled}
                 isMultiplayer={isMultiplayerMode}
                 hidePlayer={state.isRaidLeaderMode}
@@ -3526,8 +3942,8 @@ function App() {
             </div>
           )}
 
-          {/* Action Bar - Hidden in Raid Leader Mode */}
-          {!state.isRaidLeaderMode && (
+          {/* Action Bar - Hidden in Raid Leader Mode and when Host is Spectating */}
+          {!state.isRaidLeaderMode && !(isHost && hostSpectating) && (
           <>
           <div className="action-bar-row">
             <div className="action-bar">
@@ -3641,6 +4057,15 @@ function App() {
             </div>
           )}
           </>
+          )}
+
+          {/* Spectating Indicator - Shown when host is spectating */}
+          {isHost && hostSpectating && (
+            <div className="spectating-indicator">
+              <div className="spectating-icon">👁️</div>
+              <div className="spectating-text">SPECTATING</div>
+              <div className="spectating-hint">Watching the raid - AI healer is filling your slot</div>
+            </div>
           )}
 
           {/* Spell Tooltip - Shows when hovering over action bar spells (out of encounter) - Hidden in Raid Leader Mode */}
@@ -4416,12 +4841,12 @@ function App() {
                 {state.isRunning && (
                   <div className="mobile-raid-meter">
                     <RaidMeter
-                      playerHealing={state.healingDone}
-                      playerDispels={state.dispelsDone}
+                      playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
+                      playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
                       playerSpellBreakdown={state.spellHealing}
                       playerName={state.playerName}
                       playerClass={state.playerClass}
-                      aiHealerStats={state.aiHealerStats}
+                      aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                       showAiHealers={state.otherHealersEnabled}
                       isMultiplayer={isMultiplayerMode}
                       hidePlayer={state.isRaidLeaderMode}
@@ -4455,12 +4880,12 @@ function App() {
                     </div>
                     <div className="mobile-raid-meter">
                       <RaidMeter
-                        playerHealing={state.healingDone}
-                        playerDispels={state.dispelsDone}
+                        playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
+                        playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
                         playerSpellBreakdown={state.spellHealing}
                         playerName={state.playerName}
                         playerClass={state.playerClass}
-                        aiHealerStats={state.aiHealerStats}
+                        aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                         showAiHealers={state.otherHealersEnabled}
                         isMultiplayer={isMultiplayerMode}
                         hidePlayer={state.isRaidLeaderMode}
@@ -4602,16 +5027,12 @@ function App() {
           <div className="loot-modal">
             <div className="loot-modal-header">
               <h2>Loot Dropped!</h2>
-              {state.isRaidLeaderMode ? (
+              {state.isRaidLeaderMode || (isMultiplayerMode && isHost) ? (
                 <span className="master-looter-badge">Master Looter</span>
+              ) : isMultiplayerMode ? (
+                <span className="waiting-for-loot-badge">Host Assigning Loot</span>
               ) : (
                 <span className="dkp-display">Your DKP: {state.playerDKP.points}</span>
-              )}
-              {/* Show bidding timer in multiplayer */}
-              {isMultiplayerMode && state.lootBidTimer > 0 && (
-                <span className="loot-bid-timer">
-                  Bidding: {state.lootBidTimer}s
-                </span>
               )}
             </div>
             {/* Legendary material notification - EPIC MOMENT! */}
@@ -4696,9 +5117,9 @@ function App() {
                       )}
                     </div>
                     <div className="loot-item-actions">
-                      {!state.isRaidLeaderMode && <div className="loot-item-cost">{cost} DKP</div>}
-                      {state.isRaidLeaderMode ? (
-                        // Raid Leader Mode: Master Looter dropdown
+                      {!state.isRaidLeaderMode && !(isMultiplayerMode && isHost) && <div className="loot-item-cost">{cost} DKP</div>}
+                      {state.isRaidLeaderMode || (isMultiplayerMode && isHost) ? (
+                        // Raid Leader Mode OR Multiplayer Host: Master Looter dropdown
                         (() => {
                           const eligibleMembers = engine.getEligibleMembersForItem(item);
                           return (
@@ -4730,62 +5151,14 @@ function App() {
                           );
                         })()
                       ) : isMultiplayerMode ? (
-                        // Multiplayer: Need/Pass buttons that send to host
-                        <>
-                          <button
-                            className={`need-btn ${hasPlayerBid ? 'active' : ''}`}
-                            disabled={!canAfford || !canEquip || state.lootBidTimer <= 0}
-                            onClick={() => {
-                              if (!hasPlayerBid) {
-                                // Send bid to host
-                                if (mpChannelRef.current) {
-                                  mpChannelRef.current.send({
-                                    type: 'broadcast',
-                                    event: 'action',
-                                    payload: {
-                                      type: 'loot_bid',
-                                      itemId: item.id,
-                                      playerId: myPlayerId,
-                                      playerName: localPlayer?.player_name || state.playerName,
-                                      playerClass: playerClass,
-                                      dkp: state.playerDKP.points,
-                                    }
-                                  });
-                                }
-                                // If we're the host, also add locally
-                                if (localPlayer?.is_host) {
-                                  engine.addLootBid(item.id, myPlayerId, localPlayer?.player_name || state.playerName, playerClass, state.playerDKP.points);
-                                }
-                              }
-                            }}
-                          >
-                            {hasPlayerBid ? 'Bidding' : 'Need'}
-                          </button>
-                          <button
-                            className="pass-btn"
-                            disabled={state.lootBidTimer <= 0}
-                            onClick={() => {
-                              // Send pass to host
-                              if (mpChannelRef.current) {
-                                mpChannelRef.current.send({
-                                  type: 'broadcast',
-                                  event: 'action',
-                                  payload: {
-                                    type: 'loot_pass',
-                                    itemId: item.id,
-                                    playerId: myPlayerId,
-                                  }
-                                });
-                              }
-                              // If we're the host, also remove locally
-                              if (localPlayer?.is_host) {
-                                engine.removeLootBid(item.id, myPlayerId);
-                              }
-                            }}
-                          >
-                            Pass
-                          </button>
-                        </>
+                        // Multiplayer Client: Show who got the item or waiting message
+                        <div className="waiting-for-host-loot">
+                          {state.lootAssignments[item.id] ? (
+                            <span style={{ color: '#00ff00' }}>Assigned to: {state.lootAssignments[item.id]}</span>
+                          ) : (
+                            <span>Awaiting assignment...</span>
+                          )}
+                        </div>
                       ) : (
                         // Solo mode: direct claim/pass
                         <>
@@ -4810,8 +5183,8 @@ function App() {
               })}
             </div>
             <div className="loot-modal-footer">
-              {isMultiplayerMode && state.lootBidTimer > 0 ? (
-                <span className="loot-bidding-info">Waiting for all players to bid...</span>
+              {isMultiplayerMode && !isHost ? (
+                <span className="loot-bidding-info">Waiting for host to assign loot...</span>
               ) : (
                 <button className="close-btn" onClick={() => handleLootComplete('closeLoot')}>
                   Close (Pass All)
@@ -5360,12 +5733,24 @@ function App() {
 
       {/* Golemagg Tank Assignment Modal */}
       {showGolemaggTankModal && (
-        <div className="modal-overlay" onClick={() => setShowGolemaggTankModal(false)}>
+        <div className="modal-overlay" onClick={() => !isMultiplayerMode || isHost ? setShowGolemaggTankModal(false) : undefined}>
           <div className="tank-assignment-modal" onClick={e => e.stopPropagation()}>
             <div className="tank-modal-header">
               <h2>Golemagg Tank Assignment</h2>
-              <button className="close-inspection" onClick={() => setShowGolemaggTankModal(false)}>X</button>
+              {(!isMultiplayerMode || isHost) && (
+                <button className="close-inspection" onClick={() => setShowGolemaggTankModal(false)}>X</button>
+              )}
             </div>
+            {/* Non-host clients see waiting message */}
+            {isMultiplayerMode && !isHost ? (
+              <div className="tank-modal-content" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '20px' }}>⏳</div>
+                <h3 style={{ color: '#ffd100', marginBottom: '10px' }}>Waiting for Host</h3>
+                <p style={{ color: '#a0a0a0' }}>The host is assigning tanks for this encounter...</p>
+                <p style={{ color: '#888', fontSize: '12px', marginTop: '20px' }}>The fight will begin once the host starts.</p>
+              </div>
+            ) : (
+              <>
             <div className="tank-modal-content">
               <p className="tank-modal-description">
                 This fight requires <strong>3 tanks</strong>. Two tanks will swap on Golemagg when Magma Splash stacks too high,
@@ -5472,18 +5857,32 @@ function App() {
                 Start Fight
               </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
       {/* Majordomo Tank Assignment Modal */}
       {showMajordomoTankModal && (
-        <div className="modal-overlay" onClick={() => setShowMajordomoTankModal(false)}>
+        <div className="modal-overlay" onClick={() => !isMultiplayerMode || isHost ? setShowMajordomoTankModal(false) : undefined}>
           <div className="tank-assignment-modal majordomo-tank-modal" onClick={e => e.stopPropagation()}>
             <div className="tank-modal-header">
               <h2>Majordomo Tank Assignment</h2>
-              <button className="close-inspection" onClick={() => setShowMajordomoTankModal(false)}>X</button>
+              {(!isMultiplayerMode || isHost) && (
+                <button className="close-inspection" onClick={() => setShowMajordomoTankModal(false)}>X</button>
+              )}
             </div>
+            {/* Non-host clients see waiting message */}
+            {isMultiplayerMode && !isHost ? (
+              <div className="tank-modal-content" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '20px' }}>⏳</div>
+                <h3 style={{ color: '#ffd100', marginBottom: '10px' }}>Waiting for Host</h3>
+                <p style={{ color: '#a0a0a0' }}>The host is assigning tanks for this encounter...</p>
+                <p style={{ color: '#888', fontSize: '12px', marginTop: '20px' }}>The fight will begin once the host starts.</p>
+              </div>
+            ) : (
+              <>
             <div className="tank-modal-content">
               <p className="tank-modal-description">
                 This fight requires <strong>5 tanks</strong>. Majordomo himself cannot be attacked - kill all 8 adds to win.
@@ -5646,6 +6045,8 @@ function App() {
                 Start Fight
               </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -5695,21 +6096,51 @@ function App() {
             </div>
 
             {/* Skip Button */}
-            <button className="ragnaros-rp-skip" onClick={handleRagnarosRPSkip}>
-              Skip RP
+            <button
+              className={`ragnaros-rp-skip ${localPlayerRequestedSkip ? 'requested' : ''}`}
+              onClick={handleRagnarosRPSkip}
+              disabled={localPlayerRequestedSkip}
+            >
+              {localPlayerRequestedSkip ? 'Skip Requested!' : 'Skip RP'}
             </button>
+
+            {/* Multiplayer skip status */}
+            {isMultiplayerMode && multiplayerPlayers && multiplayerPlayers.length > 1 && (
+              <div className="rp-skip-status">
+                <div className="rp-skip-counter">
+                  {rpSkipRequests.length}/{multiplayerPlayers.length} players ready to skip
+                </div>
+                {rpSkipRequests.length > 0 && (
+                  <div className="rp-skip-names">
+                    {rpSkipRequests.join(', ')} requested skip
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Ragnaros Tank Assignment Modal */}
       {showRagnarosTankModal && (
-        <div className="modal-overlay" onClick={() => setShowRagnarosTankModal(false)}>
+        <div className="modal-overlay" onClick={() => !isMultiplayerMode || isHost ? setShowRagnarosTankModal(false) : undefined}>
           <div className="tank-assignment-modal" onClick={e => e.stopPropagation()}>
             <div className="tank-modal-header">
               <h2>Ragnaros Tank Assignment</h2>
-              <button className="close-inspection" onClick={() => setShowRagnarosTankModal(false)}>X</button>
+              {(!isMultiplayerMode || isHost) && (
+                <button className="close-inspection" onClick={() => setShowRagnarosTankModal(false)}>X</button>
+              )}
             </div>
+            {/* Non-host clients see waiting message */}
+            {isMultiplayerMode && !isHost ? (
+              <div className="tank-modal-content" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '20px' }}>⏳</div>
+                <h3 style={{ color: '#ffd100', marginBottom: '10px' }}>Waiting for Host</h3>
+                <p style={{ color: '#a0a0a0' }}>The host is assigning tanks for this encounter...</p>
+                <p style={{ color: '#888', fontSize: '12px', marginTop: '20px' }}>The fight will begin once the host starts.</p>
+              </div>
+            ) : (
+              <>
             <div className="tank-modal-content">
               <p className="tank-modal-description">
                 This fight requires <strong>2 tanks</strong> that swap on Wrath of Ragnaros.
@@ -5785,6 +6216,8 @@ function App() {
                 Start Fight
               </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -5846,7 +6279,11 @@ function App() {
               {/* Tab content */}
               {raidManagerTab === 'active' && (
                 <>
-                  <p className="rgm-subtitle">Drag players between groups • Click paladins for auras • Right-click to change class/spec</p>
+                  <p className="rgm-subtitle">
+                    {isMultiplayerMode && !isHost
+                      ? 'View only - Host manages raid positions • Click paladins for auras'
+                      : 'Drag players between groups • Click paladins for auras • Right-click to change class/spec'}
+                  </p>
               {/* Groups Grid */}
               <div className="rgm-groups">
                 {[1, 2, 3, 4, 5, 6, 7, 8].map(groupNum => {
@@ -5863,18 +6300,21 @@ function App() {
                     });
                   });
 
+                  // Clients can't drag/drop - only host can manage raid
+                  const canDrag = !isMultiplayerMode || isHost;
+
                   return (
                     <div
                       key={groupNum}
-                      className={`rgm-group ${draggedMemberId ? 'drop-target' : ''}`}
-                      onDragOver={(e) => {
+                      className={`rgm-group ${draggedMemberId && canDrag ? 'drop-target' : ''}`}
+                      onDragOver={canDrag ? (e) => {
                         e.preventDefault();
                         e.currentTarget.classList.add('drag-over');
-                      }}
-                      onDragLeave={(e) => {
+                      } : undefined}
+                      onDragLeave={canDrag ? (e) => {
                         e.currentTarget.classList.remove('drag-over');
-                      }}
-                      onDrop={(e) => {
+                      } : undefined}
+                      onDrop={canDrag ? (e) => {
                         e.preventDefault();
                         e.currentTarget.classList.remove('drag-over');
                         const memberId = e.dataTransfer.getData('memberId');
@@ -5882,7 +6322,7 @@ function App() {
                           engine.moveMemberToGroup(memberId, groupNum);
                           setDraggedMemberId(null);
                         }
-                      }}
+                      } : undefined}
                     >
                       <div className="rgm-group-header">
                         <span className="rgm-group-number">Group {groupNum}</span>
@@ -5926,24 +6366,24 @@ function App() {
                           return (
                             <div
                               key={member.id}
-                              className={`rgm-member ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${isNpcShaman ? 'is-shaman' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${selectedShamanForTotems === member.id ? 'selected-for-totems' : ''} ${selectedMemberForClassSpec === member.id ? 'selected-for-class-spec' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id ? 'swap-target' : ''}`}
-                              draggable
-                              onDragStart={(e) => {
+                              className={`rgm-member ${isPlayer ? 'is-player' : ''} ${isPaladin ? 'is-paladin' : ''} ${isNpcShaman ? 'is-shaman' : ''} ${selectedPaladinForAura === member.id ? 'selected-for-aura' : ''} ${selectedShamanForTotems === member.id ? 'selected-for-totems' : ''} ${selectedMemberForClassSpec === member.id ? 'selected-for-class-spec' : ''} ${draggedMemberId === member.id ? 'dragging' : ''} ${draggedMemberId && draggedMemberId !== member.id && canDrag ? 'swap-target' : ''}`}
+                              draggable={canDrag}
+                              onDragStart={canDrag ? (e) => {
                                 e.dataTransfer.setData('memberId', member.id);
                                 setDraggedMemberId(member.id);
-                              }}
-                              onDragEnd={() => setDraggedMemberId(null)}
-                              onDragOver={(e) => {
+                              } : undefined}
+                              onDragEnd={canDrag ? () => setDraggedMemberId(null) : undefined}
+                              onDragOver={canDrag ? (e) => {
                                 if (draggedMemberId && draggedMemberId !== member.id) {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   e.currentTarget.classList.add('swap-hover');
                                 }
-                              }}
-                              onDragLeave={(e) => {
+                              } : undefined}
+                              onDragLeave={canDrag ? (e) => {
                                 e.currentTarget.classList.remove('swap-hover');
-                              }}
-                              onDrop={(e) => {
+                              } : undefined}
+                              onDrop={canDrag ? (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 e.currentTarget.classList.remove('swap-hover');
@@ -5952,7 +6392,7 @@ function App() {
                                   engine.swapMembers(sourceMemberId, member.id);
                                   setDraggedMemberId(null);
                                 }
-                              }}
+                              } : undefined}
                               onClick={() => {
                                 if (isPaladin && !draggedMemberId) {
                                   setSelectedPaladinForAura(selectedPaladinForAura === member.id ? null : member.id);
@@ -5964,14 +6404,14 @@ function App() {
                                   setSelectedMemberForClassSpec(null);
                                 }
                               }}
-                              onContextMenu={(e) => {
+                              onContextMenu={canDrag ? (e) => {
                                 e.preventDefault();
                                 if (!isPlayer && !draggedMemberId) {
                                   setSelectedMemberForClassSpec(selectedMemberForClassSpec === member.id ? null : member.id);
                                   setSelectedPaladinForAura(null);
                                   setSelectedShamanForTotems(null);
                                 }
-                              }}
+                              } : (e) => e.preventDefault()}
                             >
                               <div className="rgm-class-bar" style={{ backgroundColor: classColor }} />
                               <div className="rgm-member-info">
@@ -6753,298 +7193,6 @@ function App() {
               <button className="rgm-done-btn" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setSelectedRaidMemberForSwap(null); setShowAddToBenchModal(false); }}>
                 Done
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Patch Notes Modal */}
-      {showPatchNotes && (
-        <div className="modal-overlay" onClick={() => setShowPatchNotes(false)}>
-          <div className="patch-notes-modal" onClick={e => e.stopPropagation()}>
-            <button className="close-inspection" onClick={() => setShowPatchNotes(false)}>X</button>
-            <div className="patch-notes-header">
-              <h2>Patch Notes</h2>
-            </div>
-            <div className="patch-notes-content">
-              <div className="patch-version">
-                <h3>Version 0.26.0 - Bench System Added</h3>
-                <span className="patch-date">December 3, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Bench System</h4>
-                <ul>
-                  <li><strong>Swap Raiders for Bench Players</strong>: Add new classes or specs to your raid for boss encounters that require specific compositions</li>
-                  <li><strong>Persistent Gear</strong>: Bench players keep their own gear that persists between swaps</li>
-                  <li><strong>5/10 Bench Slots</strong>: 5 bench slots for 20-man raids, 10 for 40-man raids</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Bench Tab Layout</h4>
-                <ul>
-                  <li><strong>Two-Panel Design</strong>: Compact raid groups on the left, dedicated bench area on the right</li>
-                  <li><strong>Drag & Drop</strong>: Drag players between raid and bench with visual feedback</li>
-                  <li><strong>Click-to-Swap</strong>: Click raiders or bench players to swap them</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.25.0 - Molten Core Boss Overhaul</h3>
-                <span className="patch-date">December 3, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Boss Mechanics</h4>
-                <ul>
-                  <li><strong>Ragnaros</strong>: 2-tank swap, Elemental Fire DoT, Submerge phase with Sons of Flame</li>
-                  <li><strong>Majordomo</strong>: 5-tank add fight, Magic Reflection, Teleport mechanic</li>
-                  <li><strong>Sulfuron</strong>: 4 Flamewaker Priests must die first</li>
-                  <li><strong>Golemagg</strong>: 3-tank fight with Magma Splash stacks</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.24.0 - Loot & UI Polish</h3>
-                <span className="patch-date">December 2, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Cloud Saves</h4>
-                <ul>
-                  <li><strong>Google & Apple Sign-In</strong>: Log in to sync progress across devices</li>
-                  <li><strong>Automatic Cloud Sync</strong>: Save/Load automatically uses cloud storage when logged in</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.15.0 - AI Healer Intelligence Update</h3>
-                <span className="patch-date">November 29, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>AI Healer Mana System</h4>
-                <ul>
-                  <li><strong>Realistic Mana Pools</strong>: AI healers now have class-specific mana pools</li>
-                  <li><strong>MP5 Regeneration</strong>: Each class regenerates mana over time at different rates</li>
-                  <li><strong>Smart Spell Selection</strong>: AI healers choose efficient small heals for top-offs, big expensive heals for emergencies</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Healer Mana Bars on Raid Frames</h4>
-                <ul>
-                  <li><strong>Visible Mana</strong>: All healers now show mana bars on their raid frames</li>
-                  <li><strong>Real-Time Updates</strong>: Watch AI healers drain and regenerate mana during encounters</li>
-                  <li><strong>Mobile Support</strong>: Compact mana bars on mobile raid frames too</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>AI Healer Dispelling</h4>
-                <ul>
-                  <li><strong>Class-Specific Dispels</strong>: AI healers now dispel debuffs they can remove (Paladin: magic/poison/disease, Priest: magic/disease, Shaman: poison/disease, Druid: poison/curse)</li>
-                  <li><strong>Priority Targeting</strong>: AI prioritizes dispelling tanks, then healers, then DPS</li>
-                  <li><strong>GCD Cooldown</strong>: Dispels respect the 1.5s global cooldown like player spells</li>
-                  <li><strong>Mana Cost</strong>: AI dispels cost mana (65 per dispel)</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Mobile Improvements</h4>
-                <ul>
-                  <li><strong>Full Action Bar</strong>: Mobile now shows all action bar spells (was limited to 6)</li>
-                  <li><strong>Bag Button</strong>: Inventory button now visible on mobile when out of combat</li>
-                  <li><strong>LFG Button</strong>: Multiplayer access added to mobile utility buttons</li>
-                  <li><strong>Flex Wrap</strong>: Action bar wraps to multiple rows on narrow screens</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.14.0 - UI Polish Update</h3>
-                <span className="patch-date">November 29, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Encounter Selection Redesign</h4>
-                <ul>
-                  <li><strong>Visual Progress Bar</strong>: New segmented progress bar shows boss completion at a glance</li>
-                  <li><strong>Training Dummy Section</strong>: Practice mode now separated into its own section</li>
-                  <li><strong>5-Column Boss Grid</strong>: Clean, uniform layout for all raid bosses</li>
-                  <li><strong>Enhanced Boss Buttons</strong>: Next boss pulses with golden glow animation</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>UI Improvements</h4>
-                <ul>
-                  <li><strong>Raid Setup Modal</strong>: Faction, raid size, and AI healers moved to a dedicated settings panel</li>
-                  <li><strong>Collapsible Buffs</strong>: World buffs panel can now be collapsed to save space</li>
-                  <li><strong>LFG Button</strong>: Multiplayer moved to encounter area as "LFG" (Looking for Group)</li>
-                  <li><strong>Modal Close Buttons</strong>: All modal X buttons now properly inside their panels</li>
-                  <li><strong>Auto Mobile Detection</strong>: Phone UI now auto-enables on mobile devices</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Bug Fixes</h4>
-                <ul>
-                  <li><strong>Keybind Fix</strong>: Hotkeys (M, B, 1-9) no longer trigger while typing in input fields</li>
-                  <li><strong>Layout Fix</strong>: Panels now properly fit on screen without overflow</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.13.0 - Multiplayer Update</h3>
-                <span className="patch-date">November 28, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Multiplayer Co-op Healing</h4>
-                <ul>
-                  <li><strong>Real-Time Multiplayer</strong>: Host a game or join with a room code - heal raids together with friends!</li>
-                  <li><strong>Host-Authoritative Sync</strong>: Raid frames, boss health, damage events, and loot all sync in real-time at 20Hz</li>
-                  <li><strong>Multiplayer Lobby</strong>: Create/join sessions, see connected players, ready-up system</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Real-Time Healing Meter</h4>
-                <ul>
-                  <li><strong>Live HPS Tracking</strong>: See all healers' output in real-time during encounters</li>
-                  <li><strong>Spell Breakdown</strong>: Click your entry to see per-spell healing breakdown</li>
-                  <li><strong>Dispel Tracking</strong>: Tab to see dispel counts for all healers</li>
-                  <li><strong>Encounter Summary</strong>: Healing meter shows after each boss kill or wipe</li>
-                  <li><strong>Mobile Support</strong>: Healing meter available on mobile UI after action bar</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Multiplayer Loot System</h4>
-                <ul>
-                  <li><strong>DKP Bidding</strong>: All players can bid "Need" on loot they can equip</li>
-                  <li><strong>15-Second Timer</strong>: Bidding window with countdown timer</li>
-                  <li><strong>Fair Resolution</strong>: Highest DKP wins - random roll on ties!</li>
-                  <li><strong>Results Display</strong>: See who won each item and their winning roll</li>
-                  <li><strong>Auto-Loot</strong>: Won items go directly to your bag with DKP deducted</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Multiplayer Sync Features</h4>
-                <ul>
-                  <li><strong>Boss Progress Sync</strong>: Defeated bosses sync to all players</li>
-                  <li><strong>Loot Drop Sync</strong>: All players see loot when it drops</li>
-                  <li><strong>Healing Stats Sync</strong>: Everyone sees accurate healing meters</li>
-                  <li><strong>Encounter Results</strong>: Victory/wipe status synced with summary display</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Bug Fixes</h4>
-                <ul>
-                  <li><strong>Player Indicator Fix</strong>: "(You)" now correctly shows YOUR character in multiplayer, not the host's</li>
-                  <li><strong>Healing Meter Duplicates</strong>: Fixed duplicate player entries in healing meter</li>
-                  <li><strong>Decimal Display</strong>: Fixed floating point numbers showing in healing totals</li>
-                  <li><strong>Back to Solo</strong>: Fixed "Back to Solo" button to properly leave multiplayer session</li>
-                  <li><strong>Client Sync</strong>: Fixed "You are dead!" spam and flickering raid frames on client</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.12.0</h3>
-                <span className="patch-date">November 27, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>New Raid: Blackwing Lair</h4>
-                <ul>
-                  <li><strong>8 New Boss Encounters</strong>: Razorgore, Vaelastrasz, Broodlord, Firemaw, Ebonroc, Flamegor, Chromaggus, and Nefarian</li>
-                  <li><strong>Tier 2 Armor Sets</strong>: Complete T2 sets for all 8 classes with authentic set bonuses</li>
-                  <li><strong>BWL Non-Set Loot</strong>: Ashkandi, Chromatically Tempered Sword, Lok'amir, and more iconic items</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Secret Boss: Prince Thunderaan</h4>
-                <ul>
-                  <li><strong>Hidden Silithus Raid</strong>: Unlocks when you have both Bindings of the Windseeker and defeat Firemaw</li>
-                  <li><strong>Legendary Alert System</strong>: Special on-screen alert when Thunderaan is summoned</li>
-                  <li><strong>Thunderfury Quest Complete</strong>: Defeat Thunderaan to unlock Thunderfury crafting</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>World Buff: Warchief's Blessing</h4>
-                <ul>
-                  <li>Unlocks after defeating Nefarian for the first time</li>
-                  <li>Grants +300 HP, +15% attack speed (more raid DPS), and +10 mp5</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Bug Fixes</h4>
-                <ul>
-                  <li><strong>Player Death Lockout</strong>: Dead players can no longer cast spells - action bar properly locked until encounter ends</li>
-                  <li><strong>BWL Loot Sanitized</strong>: Removed trinkets, rings, and neck items that had invalid equipment slots</li>
-                  <li><strong>Admin Panel Unlocks</strong>: Toggling boss defeats now properly triggers special unlocks (Silithus, world buffs)</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.11.0</h3>
-                <span className="patch-date">November 27, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>New Features</h4>
-                <ul>
-                  <li><strong>Dual Wield Support</strong>: Warriors and Rogues now have an Offhand weapon slot</li>
-                  <li><strong>Hunter Ranged Slot</strong>: Hunters now have a dedicated Ranged weapon slot</li>
-                  <li><strong>Spec-Aware Loot Distribution</strong>: Loot assignment now considers spec - caster weapons go to caster specs, melee to melee specs</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Weapon Classification</h4>
-                <ul>
-                  <li>All weapons now have a type: One-Hand, Two-Hand, Offhand Only, or Ranged</li>
-                  <li>All weapons categorized for smart loot: Melee, Caster, Healer, or Physical Ranged</li>
-                  <li>Protection Warriors can still dual wield (Fury/Prot tank spec)</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>UI Improvements</h4>
-                <ul>
-                  <li>Inspection panel now shows class-appropriate weapon slots</li>
-                  <li>Admin panel equipment grid updated for new slots</li>
-                  <li>Item filter dropdown includes Offhand and Ranged options</li>
-                </ul>
-              </div>
-
-              <div className="patch-version previous">
-                <h3>Version 0.10.0</h3>
-                <span className="patch-date">November 27, 2025</span>
-              </div>
-
-              <div className="patch-section">
-                <h4>Added</h4>
-                <ul>
-                  <li><strong>Encounter Journal Loot Display</strong>: Boss loot now shown in encounter journal</li>
-                  <li><strong>Admin Panel Legendary Materials</strong>: Toggle materials for testing</li>
-                  <li><strong>Legendary Materials Persistence</strong>: Materials now save/load correctly</li>
-                </ul>
-              </div>
-
-              <div className="patch-section">
-                <h4>Fixed</h4>
-                <ul>
-                  <li>Ragnaros loot table corrected (removed non-authentic drops)</li>
-                  <li>Legendary material icons updated to correct WoW icons</li>
-                </ul>
-              </div>
             </div>
           </div>
         </div>

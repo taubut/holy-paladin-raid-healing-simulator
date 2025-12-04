@@ -2,6 +2,20 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.30.0] - 2025-12-04
+
+### Added
+- **Spectator Host Mode**: Hosts can check "Spectate Only" in multiplayer lobby to watch the raid without playing
+- **AI Healer Fills Host Slot**: When spectating, an AI healer automatically takes your place
+- **Spectating Indicator**: Clear on-screen indicator shows when you're in spectator mode
+
+### Fixed
+- **Spectator Healing Meter**: When spectating, healing meter correctly shows your AI healer's stats under your name
+- **No Duplicate Meter Entries**: Fixed duplicate "player" entries appearing in healing meter when spectating
+
+### Changed
+- **Removed Duplicate Patch Notes Modal**: Cleaned up unused duplicate patch notes modal from end of App.tsx
+
 ## [0.29.0] - 2025-12-04
 
 ### Added
