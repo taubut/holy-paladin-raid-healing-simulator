@@ -8417,7 +8417,23 @@ function App() {
                 <h3>Available Enchants</h3>
                 {ahSelectedSlot ? (
                   <div className="ah-enchants-list">
-                    {getEnchantsForSlot(ahSelectedSlot as EnchantSlot).map(enchant => {
+                    {(() => {
+                      // For offhand slot, check if the item is actually a weapon (dual-wield)
+                      // If so, show weapon enchants instead of shield enchants
+                      const effectiveMember = ahSelectedMember || (state.isRaidLeaderMode ? state.raid[0]?.id : 'player');
+                      const equipment: Equipment = effectiveMember === 'player'
+                        ? state.playerEquipment
+                        : (state.raid.find(m => m.id === effectiveMember)?.equipment || {}) as Equipment;
+                      const selectedItem = equipment[ahSelectedSlot];
+
+                      // If offhand slot has a one-hand weapon (dual-wield), use weapon enchants
+                      let enchantSlot: EnchantSlot = ahSelectedSlot as EnchantSlot;
+                      if (ahSelectedSlot === 'offhand' && selectedItem?.weaponType === 'one_hand') {
+                        enchantSlot = 'weapon';
+                      }
+
+                      return getEnchantsForSlot(enchantSlot);
+                    })().map(enchant => {
                       const canAfford = state.materialsBag.nexus_crystal >= enchant.cost;
                       return (
                         <div
@@ -8455,7 +8471,19 @@ function App() {
                         </div>
                       );
                     })}
-                    {getEnchantsForSlot(ahSelectedSlot as EnchantSlot).length === 0 && (
+                    {(() => {
+                      // Same logic as above for determining enchant slot
+                      const effectiveMember = ahSelectedMember || (state.isRaidLeaderMode ? state.raid[0]?.id : 'player');
+                      const equipment: Equipment = effectiveMember === 'player'
+                        ? state.playerEquipment
+                        : (state.raid.find(m => m.id === effectiveMember)?.equipment || {}) as Equipment;
+                      const selectedItem = equipment[ahSelectedSlot];
+                      let enchantSlot: EnchantSlot = ahSelectedSlot as EnchantSlot;
+                      if (ahSelectedSlot === 'offhand' && selectedItem?.weaponType === 'one_hand') {
+                        enchantSlot = 'weapon';
+                      }
+                      return getEnchantsForSlot(enchantSlot).length === 0;
+                    })() && (
                       <div className="ah-no-enchants">
                         No enchants available for this slot.
                       </div>
