@@ -6149,6 +6149,27 @@ export class GameEngine {
     this.notify();
   }
 
+  // Raid Leader Mode: Directly disenchant an item from the loot screen
+  disenchantLoot(itemId: string) {
+    const itemIndex = this.state.pendingLoot.findIndex(i => i.id === itemId);
+    if (itemIndex === -1) return;
+
+    const item = this.state.pendingLoot[itemIndex];
+
+    // Pre-raid BiS items cannot be disenchanted, only destroyed
+    if (item.isPreRaidBis) {
+      this.addCombatLogEntry({ message: `Destroyed ${item.name} (pre-raid BiS, cannot disenchant)`, type: 'debuff' });
+    } else {
+      // Disenchant into Nexus Crystal
+      this.state.materialsBag.nexus_crystal++;
+      this.addCombatLogEntry({ message: `Disenchanted ${item.name} into a Nexus Crystal`, type: 'buff' });
+    }
+
+    this.state.pendingLoot.splice(itemIndex, 1);
+    this.requestCloudSave();
+    this.notify();
+  }
+
   // Close loot modal and distribute remaining items
   closeLootModal() {
     // Auto-pass remaining items

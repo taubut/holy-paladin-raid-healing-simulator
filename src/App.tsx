@@ -4630,8 +4630,8 @@ function App() {
                               </select>
                               <button
                                 className="disenchant-btn"
-                                onClick={() => engine.passLoot(item.id)}
-                                title="Send to bag or give to AI member"
+                                onClick={() => engine.disenchantLoot(item.id)}
+                                title="Disenchant into Nexus Crystal"
                               >
                                 DE
                               </button>
