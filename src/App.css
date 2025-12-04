@@ -8498,6 +8498,60 @@ body {
   border: 1px solid #666;
 }
 
+.aura-buff-icon.totem-consolidated {
+  border-color: #00aa00;
+  cursor: pointer;
+}
+
+.aura-buff-icon.totem-consolidated:hover {
+  border-color: #00ff00;
+  box-shadow: 0 0 4px rgba(0, 255, 0, 0.5);
+}
+
+/* Consolidated Totem Buffs Tooltip */
+.totem-buffs-tooltip {
+  background: rgba(20, 15, 30, 0.95);
+  border: 2px solid #00aa00;
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 150px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.totem-tooltip-header {
+  font-size: 12px;
+  font-weight: bold;
+  color: #00ff00;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #00aa00;
+}
+
+.totem-tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.totem-tooltip-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.totem-tooltip-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid #555;
+}
+
+.totem-tooltip-name {
+  font-size: 11px;
+  color: #ccc;
+}
+
 /* Crit Heal Animation */
 .raid-frame.crit-heal {
   animation: critHealFlash 0.5s ease-out;
@@ -10347,6 +10401,359 @@ body {
   }
 
   .rgm-bench-area {
+    max-height: 300px;
+  }
+}
+
+/* ========================================
+   GEAR TAB - TWO PANEL DESIGN
+   ======================================== */
+
+.rgm-gear-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Left Side: Raider List */
+.rgm-gear-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(20, 15, 30, 0.6);
+  border: 1px solid #3a2a5a;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.rgm-gear-list-title {
+  margin: 0 0 12px 0;
+  color: #ffd700;
+  font-size: 14px;
+  text-align: center;
+  border-bottom: 1px solid #3a2a5a;
+  padding-bottom: 8px;
+}
+
+.rgm-gear-raiders {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rgm-gear-raider {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: rgba(30, 25, 45, 0.8);
+  border: 1px solid #3a2a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rgm-gear-raider:hover {
+  background: rgba(50, 45, 70, 0.8);
+  border-color: #5a4a8a;
+}
+
+.rgm-gear-raider.selected {
+  background: rgba(70, 60, 100, 0.8);
+  border-color: #ff6600;
+  border-left: 3px solid #ff6600;
+}
+
+.rgm-gear-raider.is-player {
+  border-color: #ffd700;
+}
+
+.rgm-gear-raider.is-player.selected {
+  border-color: #ff6600;
+  border-left: 3px solid #ff6600;
+}
+
+.rgm-gear-raider-bar {
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.rgm-gear-raider-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rgm-gear-raider-name {
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rgm-gear-raider-spec {
+  font-size: 10px;
+  color: #8a7aaa;
+}
+
+.rgm-gear-raider-gs {
+  font-size: 11px;
+  color: #ffd700;
+  white-space: nowrap;
+}
+
+/* Right Side: Equipment Details */
+.rgm-gear-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(20, 15, 30, 0.6);
+  border: 1px solid #3a2a5a;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.rgm-gear-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #8a7aaa;
+  font-size: 14px;
+}
+
+.rgm-gear-member-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #3a2a5a;
+}
+
+.rgm-gear-member-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.rgm-gear-member-spec {
+  font-size: 12px;
+  color: #8a7aaa;
+}
+
+.rgm-gear-member-gs {
+  margin-left: auto;
+  font-size: 14px;
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.rgm-gear-content {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+  overflow: hidden;
+  flex: 1;
+}
+
+/* Equipment List */
+.rgm-gear-equipment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.rgm-gear-slot {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  background: rgba(30, 25, 45, 0.6);
+  border: 1px solid #3a2a5a;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rgm-gear-slot:hover {
+  background: rgba(50, 45, 70, 0.6);
+  border-color: #5a4a8a;
+}
+
+.rgm-gear-slot.selected {
+  background: rgba(70, 60, 100, 0.6);
+  border-color: #ff6600;
+}
+
+.rgm-gear-slot.empty {
+  opacity: 0.6;
+}
+
+.rgm-gear-slot-icon {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.rgm-gear-slot-icon.empty {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.rgm-gear-slot-icon.pre-raid-bis {
+  border-color: #0070dd;
+  box-shadow: 0 0 4px rgba(0, 112, 221, 0.5);
+}
+
+.rgm-gear-slot-name {
+  font-size: 11px;
+  color: #8a7aaa;
+  width: 70px;
+  flex-shrink: 0;
+}
+
+.rgm-gear-slot-item {
+  font-size: 12px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rgm-gear-enchant-indicator {
+  color: #00ff00;
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+/* Item Detail Panel */
+.rgm-gear-item-detail {
+  background: rgba(30, 25, 45, 0.8);
+  border: 1px solid #3a2a5a;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.rgm-gear-no-selection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #8a7aaa;
+  font-size: 13px;
+}
+
+.rgm-gear-detail-header {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rgm-gear-detail-icon {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #666;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.rgm-gear-detail-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.rgm-gear-detail-meta {
+  font-size: 12px;
+  color: #8a7aaa;
+}
+
+.rgm-gear-detail-slot {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.rgm-gear-detail-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #ccc;
+}
+
+.rgm-gear-detail-stats .stat-healing { color: #00ff00; }
+.rgm-gear-detail-stats .stat-mana { color: #6eb5ff; }
+.rgm-gear-detail-stats .stat-crit { color: #ffcc00; }
+.rgm-gear-detail-stats .stat-hit { color: #ff9966; }
+.rgm-gear-detail-stats .stat-attack { color: #ff6666; }
+.rgm-gear-detail-stats .stat-defense { color: #ffcc00; }
+.rgm-gear-detail-stats .stat-dodge { color: #66ccff; }
+.rgm-gear-detail-stats .stat-fire { color: #ff6600; }
+.rgm-gear-detail-stats .stat-frost { color: #6699ff; }
+.rgm-gear-detail-stats .stat-shadow { color: #9966ff; }
+.rgm-gear-detail-stats .stat-nature { color: #66ff66; }
+.rgm-gear-detail-stats .stat-arcane { color: #ff66ff; }
+.rgm-gear-detail-stats .stat-resist-all { color: #ffcc66; }
+
+.rgm-gear-detail-enchant {
+  margin-top: 16px;
+}
+
+.rgm-gear-enchant-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, #00ff00, transparent);
+  margin-bottom: 12px;
+}
+
+.rgm-gear-enchant-label {
+  font-size: 11px;
+  color: #00ff00;
+  margin-bottom: 4px;
+}
+
+.rgm-gear-enchant-name {
+  font-size: 14px;
+  color: #00ff00;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.rgm-gear-enchant-stats {
+  font-size: 12px;
+  color: #00cc00;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Responsive adjustments for Gear tab */
+@media (max-width: 900px) {
+  .rgm-gear-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .rgm-gear-list {
+    max-height: 200px;
+  }
+
+  .rgm-gear-content {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+  }
+
+  .rgm-gear-item-detail {
     max-height: 300px;
   }
 }

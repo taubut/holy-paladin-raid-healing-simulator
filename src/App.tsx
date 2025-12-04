@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, CONSUMABLES, WORLD_BUFFS } from './game/GameEngine';
 import { CLASS_COLORS, CLASS_SPECS, getSpecById, getGearCompatibleSpecs } from './game/types';
-import type { WoWClass, BuffEffect, Equipment } from './game/types';
+import type { WoWClass, BuffEffect, Equipment, Buff } from './game/types';
 import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
 import { ENCOUNTERS, DEBUFFS } from './game/encounters';
@@ -113,9 +113,12 @@ function App() {
   const [selectedShamanForTotems, setSelectedShamanForTotems] = useState<string | null>(null);
   const [draggedMemberId, setDraggedMemberId] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
+  const [hoveredTotemBuffs, setHoveredTotemBuffs] = useState<{ buffs: Buff[], position: { x: number, y: number } } | null>(null);
   const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
   // Bench player state
-  const [raidManagerTab, setRaidManagerTab] = useState<'active' | 'bench'>('active');
+  const [raidManagerTab, setRaidManagerTab] = useState<'active' | 'bench' | 'gear'>('active');
+  const [gearViewSelectedMember, setGearViewSelectedMember] = useState<string | null>(null);
+  const [gearViewSelectedSlot, setGearViewSelectedSlot] = useState<EquipmentSlot | null>(null);
   const [selectedBenchPlayerForSwap, setSelectedBenchPlayerForSwap] = useState<string | null>(null);
   const [selectedRaidMemberForSwap, setSelectedRaidMemberForSwap] = useState<string | null>(null);
   const [showAddToBenchModal, setShowAddToBenchModal] = useState(false);
@@ -131,7 +134,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.28.0';
+  const CURRENT_PATCH_VERSION = '0.29.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -2032,6 +2035,45 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.29.0 - Raid Gear &amp; QoL</h3>
+                  <span className="patch-date">December 4, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Raid Gear Screen</h4>
+                  <ul>
+                    <li><strong>New Gear Tab</strong>: View all raiders' equipment from the Manage Raid screen</li>
+                    <li><strong>Raider List</strong>: Left panel shows all raid members with class colors and gear scores</li>
+                    <li><strong>Full Equipment View</strong>: Click any raider to see all 17 equipment slots</li>
+                    <li><strong>Item Details</strong>: Click any slot to view full item stats and enchants</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Ragnaros RP Enhancement</h4>
+                  <ul>
+                    <li><strong>Dynamic Images</strong>: RP scene now transitions between 3 images with fade effects</li>
+                    <li><strong>Synced Transitions</strong>: Images change in sync with dialogue moments</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Horde QoL - Consolidated Totem Buffs</h4>
+                  <ul>
+                    <li><strong>Single Totem Icon</strong>: All active totem buffs now show as one icon on raid frames</li>
+                    <li><strong>Hover Tooltip</strong>: Mouse over the totem icon to see all active totems</li>
+                    <li><strong>Better Debuff Visibility</strong>: Frees up space so debuffs are easier to see during fights</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bug Fixes</h4>
+                  <ul>
+                    <li><strong>Horde Raid Leader Name</strong>: Fixed bug where Horde Raid Leader mode would overwrite player name with "Chainheal"</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.28.0 - Ragnaros Pre-Fight RP</h3>
                   <span className="patch-date">December 3, 2025</span>
                 </div>
@@ -3097,13 +3139,33 @@ function App() {
                                 ))}
                               </div>
                             )}
-                            {member.buffs.length > 0 && (
-                              <div className="buff-container">
-                                {member.buffs.filter(b => b.id.startsWith('aura_') || b.id.startsWith('shaman_totem_') || b.id.startsWith('totem_')).slice(0, 5).map((buff, idx) => (
-                                  <img key={idx} src={buff.icon} alt={buff.name} className="aura-buff-icon" title={buff.name} />
-                                ))}
-                              </div>
-                            )}
+                            {member.buffs.length > 0 && (() => {
+                              const auraBuffs = member.buffs.filter(b => b.id.startsWith('aura_'));
+                              const totemBuffs = member.buffs.filter(b => b.id.startsWith('shaman_totem_') || b.id.startsWith('totem_'));
+                              const hasTotemBuffs = totemBuffs.length > 0;
+
+                              return (
+                                <div className="buff-container">
+                                  {/* Show aura buffs individually */}
+                                  {auraBuffs.slice(0, 5).map((buff, idx) => (
+                                    <img key={idx} src={buff.icon} alt={buff.name} className="aura-buff-icon" title={buff.name} />
+                                  ))}
+                                  {/* Consolidate all totem buffs into single icon with tooltip */}
+                                  {hasTotemBuffs && (
+                                    <img
+                                      src="/icons/spell_totem_wardofdraining.jpg"
+                                      alt="Active Totems"
+                                      className="aura-buff-icon totem-consolidated"
+                                      onMouseEnter={(e) => {
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setHoveredTotemBuffs({ buffs: totemBuffs, position: { x: rect.left, y: rect.bottom + 5 } });
+                                      }}
+                                      onMouseLeave={() => setHoveredTotemBuffs(null)}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         );
                       })}
@@ -3630,6 +3692,29 @@ function App() {
                   {SPELL_TOOLTIPS[hoveredSpell.id].additionalInfo}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Consolidated Totem Buffs Tooltip */}
+          {hoveredTotemBuffs && (
+            <div
+              className="totem-buffs-tooltip"
+              style={{
+                position: 'fixed',
+                left: hoveredTotemBuffs.position.x,
+                top: hoveredTotemBuffs.position.y,
+                zIndex: 9999,
+              }}
+            >
+              <div className="totem-tooltip-header">Active Totems</div>
+              <div className="totem-tooltip-list">
+                {hoveredTotemBuffs.buffs.map((buff, idx) => (
+                  <div key={idx} className="totem-tooltip-item">
+                    <img src={buff.icon} alt={buff.name} className="totem-tooltip-icon" />
+                    <span className="totem-tooltip-name">{buff.name}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -5748,6 +5833,12 @@ function App() {
                 >
                   Bench ({state.benchPlayers.length}/{engine.getMaxBenchSize()})
                 </button>
+                <button
+                  className={`rgm-tab ${raidManagerTab === 'gear' ? 'active' : ''}`}
+                  onClick={() => { setRaidManagerTab('gear'); setSelectedPaladinForAura(null); setSelectedShamanForTotems(null); setSelectedMemberForClassSpec(null); setGearViewSelectedMember(null); setGearViewSelectedSlot(null); }}
+                >
+                  Gear
+                </button>
               </div>
               <button className="close-inspection" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setShowAddToBenchModal(false); }}>X</button>
             </div>
@@ -6488,6 +6579,173 @@ function App() {
                       )}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Gear Tab Content - Two Panel Layout */}
+              {raidManagerTab === 'gear' && (
+                <div className="rgm-gear-layout">
+                  {/* Left Side: Raider List */}
+                  <div className="rgm-gear-list">
+                    <h4 className="rgm-gear-list-title">Raiders</h4>
+                    <div className="rgm-gear-raiders">
+                      {state.raid.map(member => {
+                        const classColor = CLASS_COLORS[member.class];
+                        const specDef = getSpecById(member.spec);
+                        const isSelected = gearViewSelectedMember === member.id;
+                        const isPlayer = member.id === 'player';
+
+                        return (
+                          <div
+                            key={member.id}
+                            className={`rgm-gear-raider ${isSelected ? 'selected' : ''} ${isPlayer ? 'is-player' : ''}`}
+                            onClick={() => { setGearViewSelectedMember(member.id); setGearViewSelectedSlot(null); }}
+                          >
+                            <div className="rgm-gear-raider-bar" style={{ backgroundColor: classColor }} />
+                            <div className="rgm-gear-raider-info">
+                              <span className="rgm-gear-raider-name" style={{ color: classColor }}>
+                                {member.name}
+                                {isPlayer && ' (You)'}
+                              </span>
+                              <span className="rgm-gear-raider-spec">
+                                {specDef?.name || member.class}
+                              </span>
+                            </div>
+                            <span className="rgm-gear-raider-gs">
+                              GS: {member.gearScore}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Right Side: Equipment Details */}
+                  <div className="rgm-gear-details">
+                    {gearViewSelectedMember ? (() => {
+                      const member = state.raid.find(m => m.id === gearViewSelectedMember);
+                      if (!member) return <div className="rgm-gear-empty">Member not found</div>;
+
+                      const allSlots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon', 'offhand', 'ranged', 'trinket1', 'trinket2', 'ring1', 'ring2', 'neck', 'back'];
+
+                      const formatSlotName = (slot: string) => {
+                        if (slot === 'ring1') return 'Ring 1';
+                        if (slot === 'ring2') return 'Ring 2';
+                        if (slot === 'trinket1') return 'Trinket 1';
+                        if (slot === 'trinket2') return 'Trinket 2';
+                        return slot.charAt(0).toUpperCase() + slot.slice(1);
+                      };
+                      const selectedItem = gearViewSelectedSlot ? member.equipment[gearViewSelectedSlot] : null;
+                      const selectedEnchant = selectedItem?.enchantId ? ENCHANTS[selectedItem.enchantId as EnchantId] : null;
+
+                      return (
+                        <>
+                          <div className="rgm-gear-member-header">
+                            <h3 style={{ color: CLASS_COLORS[member.class] }}>{member.name}</h3>
+                            <span className="rgm-gear-member-spec">{getSpecById(member.spec)?.name || member.class}</span>
+                            <span className="rgm-gear-member-gs">Gear Score: {member.gearScore}</span>
+                          </div>
+
+                          <div className="rgm-gear-content">
+                            {/* Equipment List */}
+                            <div className="rgm-gear-equipment-list">
+                              {allSlots.map(slot => {
+                                const item = member.equipment[slot];
+                                const hasEnchant = item?.enchantId;
+                                const isSelected = gearViewSelectedSlot === slot;
+
+                                return (
+                                  <div
+                                    key={slot}
+                                    className={`rgm-gear-slot ${isSelected ? 'selected' : ''} ${item ? '' : 'empty'}`}
+                                    onClick={() => setGearViewSelectedSlot(slot)}
+                                  >
+                                    {item ? (
+                                      <img src={item.icon} className={`rgm-gear-slot-icon ${item.isPreRaidBis ? 'pre-raid-bis' : ''}`} alt="" />
+                                    ) : (
+                                      <div className="rgm-gear-slot-icon empty" />
+                                    )}
+                                    <span className="rgm-gear-slot-name">{formatSlotName(slot)}:</span>
+                                    <span className="rgm-gear-slot-item" style={{ color: item ? RARITY_COLORS[item.rarity] : '#666' }}>
+                                      {item?.name || 'Empty'}
+                                    </span>
+                                    {hasEnchant && <span className="rgm-gear-enchant-indicator">✦</span>}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Item Detail Panel */}
+                            <div className="rgm-gear-item-detail">
+                              {selectedItem ? (
+                                <>
+                                  <div className="rgm-gear-detail-header">
+                                    <img src={selectedItem.icon} className="rgm-gear-detail-icon" alt="" />
+                                    <div>
+                                      <div className="rgm-gear-detail-name" style={{ color: RARITY_COLORS[selectedItem.rarity] }}>
+                                        {selectedItem.name}
+                                      </div>
+                                      <div className="rgm-gear-detail-meta">
+                                        {selectedItem.rarity.charAt(0).toUpperCase() + selectedItem.rarity.slice(1)} - Item Level {selectedItem.itemLevel}
+                                      </div>
+                                      <div className="rgm-gear-detail-slot">{formatSlotName(gearViewSelectedSlot!)}</div>
+                                    </div>
+                                  </div>
+
+                                  <div className="rgm-gear-detail-stats">
+                                    {selectedItem.stats.armor && <div>+{selectedItem.stats.armor} Armor</div>}
+                                    {selectedItem.stats.stamina && <div>+{selectedItem.stats.stamina} Stamina</div>}
+                                    {selectedItem.stats.intellect && <div>+{selectedItem.stats.intellect} Intellect</div>}
+                                    {selectedItem.stats.spirit && <div>+{selectedItem.stats.spirit} Spirit</div>}
+                                    {selectedItem.stats.strength && <div>+{selectedItem.stats.strength} Strength</div>}
+                                    {selectedItem.stats.agility && <div>+{selectedItem.stats.agility} Agility</div>}
+                                    {selectedItem.stats.healingPower && <div className="stat-healing">+{selectedItem.stats.healingPower} Healing</div>}
+                                    {selectedItem.stats.spellPower && <div className="stat-healing">+{selectedItem.stats.spellPower} Spell Power</div>}
+                                    {selectedItem.stats.attackPower && <div className="stat-attack">+{selectedItem.stats.attackPower} Attack Power</div>}
+                                    {selectedItem.stats.mp5 && <div className="stat-mana">+{selectedItem.stats.mp5} MP5</div>}
+                                    {selectedItem.stats.critChance && <div className="stat-crit">+{selectedItem.stats.critChance}% Crit</div>}
+                                    {selectedItem.stats.hitChance && <div className="stat-hit">+{selectedItem.stats.hitChance}% Hit</div>}
+                                    {selectedItem.stats.defense && <div className="stat-defense">+{selectedItem.stats.defense} Defense</div>}
+                                    {selectedItem.stats.dodge && <div className="stat-dodge">+{selectedItem.stats.dodge}% Dodge</div>}
+                                    {selectedItem.stats.fireResistance && <div className="stat-fire">+{selectedItem.stats.fireResistance} Fire Resistance</div>}
+                                    {selectedItem.stats.frostResistance && <div className="stat-frost">+{selectedItem.stats.frostResistance} Frost Resistance</div>}
+                                    {selectedItem.stats.shadowResistance && <div className="stat-shadow">+{selectedItem.stats.shadowResistance} Shadow Resistance</div>}
+                                    {selectedItem.stats.natureResistance && <div className="stat-nature">+{selectedItem.stats.natureResistance} Nature Resistance</div>}
+                                    {selectedItem.stats.arcaneResistance && <div className="stat-arcane">+{selectedItem.stats.arcaneResistance} Arcane Resistance</div>}
+                                    {selectedItem.stats.allResistance && <div className="stat-resist-all">+{selectedItem.stats.allResistance} All Resistances</div>}
+                                  </div>
+
+                                  {selectedEnchant && (
+                                    <div className="rgm-gear-detail-enchant">
+                                      <div className="rgm-gear-enchant-divider" />
+                                      <div className="rgm-gear-enchant-label">Enchanted:</div>
+                                      <div className="rgm-gear-enchant-name">{selectedEnchant.name}</div>
+                                      <div className="rgm-gear-enchant-stats">
+                                        {selectedEnchant.stats.healingPower && <div>+{selectedEnchant.stats.healingPower} Healing</div>}
+                                        {selectedEnchant.stats.spellPower && <div>+{selectedEnchant.stats.spellPower} Spell Power</div>}
+                                        {selectedEnchant.stats.intellect && <div>+{selectedEnchant.stats.intellect} Intellect</div>}
+                                        {selectedEnchant.stats.stamina && <div>+{selectedEnchant.stats.stamina} Stamina</div>}
+                                        {selectedEnchant.stats.mp5 && <div>+{selectedEnchant.stats.mp5} MP5</div>}
+                                        {selectedEnchant.stats.critChance && <div>+{selectedEnchant.stats.critChance}% Crit</div>}
+                                        {selectedEnchant.stats.agility && <div>+{selectedEnchant.stats.agility} Agility</div>}
+                                        {selectedEnchant.stats.strength && <div>+{selectedEnchant.stats.strength} Strength</div>}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="rgm-gear-no-selection">Select an item to view details</div>
+                              )}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })() : (
+                      <div className="rgm-gear-empty">
+                        <p>Select a raider to view their gear</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

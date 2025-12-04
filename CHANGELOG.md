@@ -2,6 +2,18 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.29.0] - 2025-12-04
+
+### Added
+- **Raid Gear Screen**: New "Gear" tab in Manage Raid to view all raiders' equipment
+- **Raider List Panel**: Left panel shows all raid members with class colors and gear scores
+- **Equipment Details Panel**: Click any raider to see all 17 equipment slots with item details
+- **Ragnaros RP Image Transitions**: RP scene now transitions between 3 images with fade effects synced to dialogue
+- **Consolidated Totem Buffs**: All active totem buffs now show as single icon with hover tooltip on raid frames
+
+### Fixed
+- **Horde Raid Leader Name**: Fixed bug where Horde Raid Leader mode would overwrite player name with "Chainheal"
+
 ## [0.28.0] - 2025-12-03
 
 ### Added
