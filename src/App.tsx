@@ -54,6 +54,7 @@ function App() {
   const [editingNameValue, setEditingNameValue] = useState('');
   const [importExportStatus, setImportExportStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [hoveredSpell, setHoveredSpell] = useState<Spell | null>(null);
+  const [hoveredInnervate, setHoveredInnervate] = useState(false);
   const [showEncounterJournal, setShowEncounterJournal] = useState(false);
   const [selectedJournalBoss, setSelectedJournalBoss] = useState<string | null>(null);
   // Admin Panel state
@@ -135,7 +136,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.30.0';
+  const CURRENT_PATCH_VERSION = '0.31.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -977,7 +978,7 @@ function App() {
               type: 'broadcast',
               event: 'game_state',
               payload: {
-                // Send full raid state with names, debuffs, buffs for sync
+                // Send full raid state with names, debuffs, buffs, HoTs for sync
                 raid: gameState.raid.map((m, index) => ({
                   index,
                   id: m.id,
@@ -990,6 +991,7 @@ function App() {
                   alive: m.isAlive,
                   debuffs: m.debuffs, // Sync debuffs!
                   buffs: m.buffs,     // Sync buffs too
+                  activeHoTs: m.activeHoTs, // Sync HoTs (Rejuv, Regrowth, Renew icons)
                 })),
                 // Send full boss data so client can start any boss
                 boss: gameState.boss ? {
@@ -1048,6 +1050,10 @@ function App() {
                 otherHealersHealing: gameState.otherHealersHealing,
                 // Sync all multiplayer player mana for raid frame display
                 multiplayerPlayerMana: multiplayerPlayerManaRef.current,
+                // Sync Innervate cooldown so all players see when it's available
+                innervateCooldown: engine.getInnervateCooldown(),
+                // Sync active totems (Mana Tide, etc.)
+                activeTotems: gameState.activeTotems,
               },
             });
           }, 50);
@@ -1176,6 +1182,22 @@ function App() {
             max: data.maxMana,
           };
           setMultiplayerPlayerMana({ ...multiplayerPlayerManaRef.current });
+        } else if (data.type === 'request_innervate' && data.playerName) {
+          // Client requested Innervate - host puts the cooldown on the druid
+          // The client applies the buff to themselves locally
+          // This ensures only one player can use Innervate at a time (synced cooldown)
+          const druid = gameState.raid.find(m => m.class === 'druid' && m.role === 'healer' && m.isAlive);
+          if (druid) {
+            const druidStats = gameState.aiHealerStats[druid.id];
+            if (druidStats && (!druidStats.innervateCooldown || druidStats.innervateCooldown <= 0)) {
+              // Put Innervate on 6 minute cooldown
+              druidStats.innervateCooldown = 360;
+              engine.addCombatLogEntry({
+                message: `${druid.name} casts Innervate on ${data.playerName}!`,
+                type: 'buff',
+              });
+            }
+          }
         }
       });
 
@@ -1208,6 +1230,7 @@ function App() {
             alive: boolean;
             debuffs?: Array<{ id: string; name: string; icon: string; duration: number; maxDuration: number; type?: string }>;
             buffs?: Array<{ id: string; name: string; icon: string; duration: number; maxDuration: number }>;
+            activeHoTs?: Array<{ id: string; spellId: string; spellName: string; icon: string; casterId: string; casterName: string; remainingDuration: number; maxDuration: number; tickInterval: number; timeSinceLastTick: number; healPerTick: number }>;
           }) => {
             if (memberData.index < gameState.raid.length) {
               const member = gameState.raid[memberData.index];
@@ -1226,6 +1249,10 @@ function App() {
               }
               if (memberData.buffs) {
                 member.buffs = memberData.buffs as typeof member.buffs;
+              }
+              // Sync HoTs (Rejuv, Regrowth, Renew icons)
+              if (memberData.activeHoTs) {
+                member.activeHoTs = memberData.activeHoTs as typeof member.activeHoTs;
               }
             }
           });
@@ -1392,6 +1419,19 @@ function App() {
         // Sync multiplayer player mana from host for raid frame display
         if (data.multiplayerPlayerMana !== undefined) {
           setMultiplayerPlayerMana(data.multiplayerPlayerMana);
+        }
+
+        // Sync active totems from host (Mana Tide, etc.)
+        if (data.activeTotems !== undefined) {
+          gameState.activeTotems = data.activeTotems;
+        }
+
+        // Sync Innervate cooldown from host - store it so client can check availability
+        // Note: The actual Innervate request goes through the host via action channel
+        if (data.innervateCooldown !== undefined) {
+          // Store in a way the client's engine can access for hasInnervateAvailable check
+          // We'll sync the AI healer stats cooldowns instead
+          engine.syncInnervateCooldown(data.innervateCooldown);
         }
 
         // Force UI update
@@ -2407,6 +2447,59 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.31.0 - AI Healer Overhaul</h3>
+                  <span className="patch-date">December 5, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Druid AI Overhaul</h4>
+                  <ul>
+                    <li><strong>Authentic Spell Values</strong>: All Druid spells cross-referenced with classicdb.ch for accurate mana costs and healing</li>
+                    <li><strong>Nature's Swiftness</strong>: Druids now use Nature's Swiftness (3 min CD) for instant emergency Healing Touch</li>
+                    <li><strong>Swiftmend</strong>: Consumes Rejuvenation/Regrowth HoT for instant burst healing (15s CD)</li>
+                    <li><strong>Innervate</strong>: Druids use Innervate on low-mana healers (400% mana regen for 20s)</li>
+                    <li><strong>Request Innervate!</strong>: Players can now click the Innervate button to request it from a Druid - no more begging in raid chat!</li>
+                    <li><strong>HoT Stacking</strong>: Smart HoT management - won't overwrite existing HoTs wastefully</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Priest AI Overhaul</h4>
+                  <ul>
+                    <li><strong>Authentic Spell Values</strong>: All Priest spells cross-referenced with classicdb.ch for accurate mana costs and healing</li>
+                    <li><strong>Inner Focus</strong>: Priests now use Inner Focus (3 min CD) to make their next spell free with +25% crit chance</li>
+                    <li><strong>Smart Spell Selection</strong>: AI uses Heal R3 for light damage (most mana efficient), Flash Heal for moderate damage, Greater Heal for emergencies</li>
+                    <li><strong>Downranking</strong>: When low on mana, priests intelligently downrank to Greater Heal R1 or Flash Heal R4</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Multiplayer Visual Sync</h4>
+                  <ul>
+                    <li><strong>HoT Icons Synced</strong>: Rejuvenation, Regrowth, and Renew icons now visible on all clients' raid frames</li>
+                    <li><strong>Shield Bars Synced</strong>: Power Word: Shield absorb bars display correctly for all players</li>
+                    <li><strong>Debuff Sync</strong>: Boss debuffs now properly sync to all multiplayer clients</li>
+                    <li><strong>Weakened Soul Tracking</strong>: Shield cooldown indicator syncs across clients</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>HoT Display Fix</h4>
+                  <ul>
+                    <li><strong>Correct Spell Icons</strong>: HoT indicators now show the actual spell icon instead of always showing Rejuvenation</li>
+                    <li><strong>Multiple HoTs Visible</strong>: See all active HoTs on a target (Rejuv + Regrowth, Renew, etc.)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Boss Mechanic Updates</h4>
+                  <ul>
+                    <li><strong>Magmadar Frenzy</strong>: Frenzy now requires a Hunter in the raid to use Tranquilizing Shot - no hunter means massive tank damage!</li>
+                    <li><strong>Raid Composition Matters</strong>: Bring the right classes for boss mechanics or face the consequences</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.30.0 - Spectator Host Mode</h3>
                   <span className="patch-date">December 4, 2025</span>
                 </div>
@@ -3079,7 +3172,9 @@ function App() {
                 {state.playerClass === 'paladin' && state.divineFavorActive && <span className="divine-favor-active">Divine Favor!</span>}
                 {state.playerClass === 'shaman' && state.naturesSwiftnessActive && <span className="divine-favor-active">Nature&apos;s Swiftness!</span>}
               </div>
-              <div className="mana-bar-container">
+              <div className={`mana-bar-container ${
+                state.innervateActive || state.activeTotems?.some(t => t.id === 'mana_tide_totem') ? 'mana-boost-active' : ''
+              }`}>
                 <div
                   className={`mana-bar ${
                     (state.playerMana / state.maxMana) < 0.15 ? 'critical' :
@@ -3515,6 +3610,17 @@ function App() {
                                   backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
                                 }}
                               />
+                              {/* Power Word: Shield absorb indicator - white bar after health */}
+                              {member.absorbShield && member.absorbShield > 0 && (
+                                <div
+                                  className="absorb-shield-bar"
+                                  style={{
+                                    left: `${healthPercent}%`,
+                                    width: `${Math.min((member.absorbShield / member.maxHealth) * 100, 100 - healthPercent)}%`,
+                                  }}
+                                  title={`Shield: ${Math.floor(member.absorbShield)}`}
+                                />
+                              )}
                               <div className="health-text">
                                 {member.isAlive ? (
                                   <>
@@ -3542,6 +3648,15 @@ function App() {
                               {member.role === 'healer' && '💚'}
                               {member.role === 'dps' && '⚔️'}
                             </div>
+                            {/* HoT indicator - shows when member has active HoTs */}
+                            {member.activeHoTs && member.activeHoTs.length > 0 && (
+                              <div className="hot-indicator" title={member.activeHoTs.map(h => `${h.spellName} (${Math.ceil(h.remainingDuration)}s)`).join('\n')}>
+                                <img src={member.activeHoTs[0].icon} alt="HoT Active" />
+                                {member.activeHoTs.length > 1 && (
+                                  <span className="hot-count">{member.activeHoTs.length}</span>
+                                )}
+                              </div>
+                            )}
                             {member.debuffs.length > 0 && (
                               <div className="debuff-container">
                                 {member.debuffs.slice(0, 3).map((debuff, idx) => (
@@ -4007,6 +4122,50 @@ function App() {
               )}
             </div>
 
+            {/* Innervate Request Button - only show if druid healer in raid */}
+            {engine.hasDruidHealer() && (() => {
+              const innervateCd = engine.getInnervateCooldown();
+              const isAvailable = innervateCd <= 0;
+              const handleInnervateRequest = () => {
+                if (!isAvailable) return;
+                // In multiplayer, send request to host AND apply buff locally
+                if (isMultiplayerMode && !isMultiplayerHost && mpChannelRef.current) {
+                  // Send to host so cooldown gets synced to all players
+                  mpChannelRef.current.send({
+                    type: 'broadcast',
+                    event: 'player_action',
+                    payload: {
+                      type: 'request_innervate',
+                      playerId: localPlayer?.id || 'unknown',
+                      playerName: state.playerName,
+                      timestamp: Date.now(),
+                    },
+                  });
+                  // Apply the Innervate buff locally (mana regen is per-player)
+                  engine.applyInnervateBuffLocally();
+                } else {
+                  // Host or single player - apply directly
+                  engine.requestInnervate();
+                }
+              };
+              return (
+                <div
+                  className={`spell-button innervate-request ${!isAvailable ? 'disabled' : ''}`}
+                  onClick={handleInnervateRequest}
+                  onMouseEnter={() => !state.isRunning && setHoveredInnervate(true)}
+                  onMouseLeave={() => setHoveredInnervate(false)}
+                >
+                  <img src="/icons/spell_nature_lightning.jpg" alt="Request Innervate" />
+                  <div className="spell-keybind" style={{ fontSize: '8px' }}>REQ</div>
+                  {!isAvailable && innervateCd > 0 && (
+                    <div className="cooldown-overlay">
+                      <span>{Math.ceil(innervateCd)}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
           </div>
 
           {/* Totem Bar - Only shown for Shaman */}
@@ -4117,6 +4276,32 @@ function App() {
                   {SPELL_TOOLTIPS[hoveredSpell.id].additionalInfo}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Innervate Request Tooltip */}
+          {!state.isRaidLeaderMode && hoveredInnervate && !state.isRunning && (
+            <div className="spell-tooltip innervate-tooltip">
+              <div className="spell-tooltip-header">
+                <img src="/icons/spell_nature_lightning.jpg" alt="Innervate" className="spell-tooltip-icon" />
+                <div className="spell-tooltip-title">
+                  <span className="spell-tooltip-name">Request Innervate</span>
+                </div>
+              </div>
+              <div className="spell-tooltip-stats">
+                <div className="spell-stat">
+                  <span className="stat-value instant">Instant</span>
+                </div>
+                <div className="spell-stat">
+                  <span className="stat-value cooldown">360</span> sec cooldown
+                </div>
+              </div>
+              <div className="spell-tooltip-description">
+                Request a druid healer to cast Innervate on you. Increases your mana regeneration by 400% and allows 100% of your mana regeneration to continue while casting. Lasts 20 sec.
+              </div>
+              <div className="spell-tooltip-info" style={{ color: '#aaffaa', marginTop: '8px' }}>
+                Only available when a druid healer is in the raid and has Innervate off cooldown. Druids may use Innervate on themselves or other healers when low on mana.
+              </div>
             </div>
           )}
 

@@ -176,6 +176,39 @@
   font-size: 10px;
 }
 
+/* HoT indicator - shows rejuvenation/renew icon in top-right */
+.hot-indicator {
+  position: absolute;
+  top: 2px;
+  right: 20px;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid #4a4;
+  overflow: hidden;
+  box-shadow: 0 0 4px rgba(0, 255, 100, 0.5);
+}
+
+.hot-indicator img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hot-indicator .hot-count {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  font-size: 8px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 1px #000;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 0 2px;
+  border-radius: 2px 0 0 0;
+  line-height: 1;
+}
+
 .buff-container,
 .debuff-container {
   position: absolute;

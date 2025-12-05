@@ -2,6 +2,25 @@ import { supabase } from '../lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { GameState } from './types';
 
+// Compressed HoT for sync
+export interface CompressedHoT {
+  id: string;
+  spellId: string;
+  icon: string;
+  rem: number; // remaining duration
+  max: number; // max duration
+}
+
+// Compressed Debuff for sync
+export interface CompressedDebuff {
+  id: string;
+  name: string;
+  icon: string;
+  type: string;
+  dur: number; // remaining duration
+  max: number; // max duration
+}
+
 // Compressed state for network efficiency
 export interface CompressedGameState {
   // Raid health - just the numbers by member index
@@ -27,6 +46,21 @@ export interface CompressedGameState {
 
   // Living Bomb safe zone - member IDs in safe zone
   sz: string[];
+
+  // HoTs on raid members - sparse array (only indices with HoTs)
+  hots?: { [index: number]: CompressedHoT[] };
+
+  // Debuffs on raid members - sparse array (only indices with debuffs)
+  debuffs?: { [index: number]: CompressedDebuff[] };
+
+  // Absorb shields on raid members - sparse array (only indices with shields)
+  shields?: { [index: number]: { current: number; max: number } };
+
+  // Weakened Soul debuff duration - sparse array (for PW:Shield cooldown display)
+  weakenedSoul?: { [index: number]: number };
+
+  // Innervate availability (cooldown of first available druid, -1 if none)
+  innervateCd?: number;
 }
 
 export interface CompressedHealEvent {
@@ -52,7 +86,7 @@ export interface PlayerSyncState {
 }
 
 export interface PlayerAction {
-  type: 'cast_spell' | 'cancel_cast' | 'select_target' | 'use_ability' | 'evacuate_to_safe_zone';
+  type: 'cast_spell' | 'cancel_cast' | 'select_target' | 'use_ability' | 'evacuate_to_safe_zone' | 'request_innervate';
   playerId: string;
   spellId?: string;
   targetId?: string;
@@ -265,6 +299,50 @@ export function compressGameState(
   players: PlayerSyncState[],
   recentHeals: CompressedHealEvent[]
 ): CompressedGameState {
+  // Build sparse HoTs array (only include indices with active HoTs)
+  const hots: { [index: number]: CompressedHoT[] } = {};
+  const debuffs: { [index: number]: CompressedDebuff[] } = {};
+  const shields: { [index: number]: { current: number; max: number } } = {};
+  const weakenedSoul: { [index: number]: number } = {};
+
+  state.raid.forEach((member, index) => {
+    // Compress HoTs (Renew, Rejuvenation, Regrowth, etc.)
+    if (member.activeHoTs && member.activeHoTs.length > 0) {
+      hots[index] = member.activeHoTs.map(hot => ({
+        id: hot.id,
+        spellId: hot.spellId,
+        icon: hot.icon,
+        rem: hot.remainingDuration,
+        max: hot.maxDuration,
+      }));
+    }
+
+    // Compress debuffs
+    if (member.debuffs && member.debuffs.length > 0) {
+      debuffs[index] = member.debuffs.map(d => ({
+        id: d.id,
+        name: d.name,
+        icon: d.icon,
+        type: d.type,
+        dur: d.remainingDuration,
+        max: d.maxDuration,
+      }));
+    }
+
+    // Compress absorb shields (Power Word: Shield)
+    if (member.absorbShield && member.absorbShield > 0) {
+      shields[index] = {
+        current: member.absorbShield,
+        max: member.absorbShieldMax || member.absorbShield,
+      };
+    }
+
+    // Compress Weakened Soul debuff (for PW:Shield cooldown)
+    if (member.weakenedSoulDuration && member.weakenedSoulDuration > 0) {
+      weakenedSoul[index] = member.weakenedSoulDuration;
+    }
+  });
+
   return {
     rh: state.raid.map(m => m.currentHealth),
     rm: state.raid.map(m => m.maxHealth),
@@ -278,6 +356,11 @@ export function compressGameState(
     hl: recentHeals,
     ps: players,
     sz: Array.from(state.membersInSafeZone),
+    // Include HoTs, debuffs, and shields (only if there are any)
+    hots: Object.keys(hots).length > 0 ? hots : undefined,
+    debuffs: Object.keys(debuffs).length > 0 ? debuffs : undefined,
+    shields: Object.keys(shields).length > 0 ? shields : undefined,
+    weakenedSoul: Object.keys(weakenedSoul).length > 0 ? weakenedSoul : undefined,
   };
 }
 
@@ -288,11 +371,62 @@ export function applyCompressedState(
   compressed: CompressedGameState,
   state: GameState
 ): void {
-  // Update raid health
+  // Update raid health and clear old buffs/debuffs
   for (let i = 0; i < compressed.rh.length && i < state.raid.length; i++) {
     state.raid[i].currentHealth = compressed.rh[i];
     state.raid[i].maxHealth = compressed.rm[i];
     state.raid[i].isAlive = !compressed.rd[i];
+
+    // Apply HoTs from host
+    if (compressed.hots && compressed.hots[i]) {
+      state.raid[i].activeHoTs = compressed.hots[i].map(h => ({
+        id: h.id,
+        spellId: h.spellId,
+        icon: h.icon,
+        remainingDuration: h.rem,
+        maxDuration: h.max,
+        tickInterval: 3, // Default tick interval
+        healPerTick: 0, // Not needed for display
+        nextTickTime: 0,
+        casterId: '', // Not needed for display
+        spellPower: 0,
+        coefficient: 0,
+      }));
+    } else {
+      state.raid[i].activeHoTs = [];
+    }
+
+    // Apply debuffs from host
+    if (compressed.debuffs && compressed.debuffs[i]) {
+      state.raid[i].debuffs = compressed.debuffs[i].map(d => ({
+        id: d.id,
+        name: d.name,
+        icon: d.icon,
+        type: d.type as 'magic' | 'disease' | 'poison' | 'curse',
+        remainingDuration: d.dur,
+        maxDuration: d.max,
+        damagePerTick: 0, // Not needed for display
+        tickInterval: 3,
+      }));
+    } else {
+      state.raid[i].debuffs = [];
+    }
+
+    // Apply absorb shields from host (Power Word: Shield)
+    if (compressed.shields && compressed.shields[i]) {
+      state.raid[i].absorbShield = compressed.shields[i].current;
+      state.raid[i].absorbShieldMax = compressed.shields[i].max;
+    } else {
+      state.raid[i].absorbShield = 0;
+      state.raid[i].absorbShieldMax = 0;
+    }
+
+    // Apply Weakened Soul debuff from host
+    if (compressed.weakenedSoul && compressed.weakenedSoul[i]) {
+      state.raid[i].weakenedSoulDuration = compressed.weakenedSoul[i];
+    } else {
+      state.raid[i].weakenedSoulDuration = 0;
+    }
   }
 
   // Update boss

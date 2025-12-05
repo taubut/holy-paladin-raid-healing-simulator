@@ -119,6 +119,16 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, isMous
         {member.role === 'dps' && '⚔️'}
       </div>
 
+      {/* HoT indicator - shows when member has active HoT */}
+      {member.activeHoTs && member.activeHoTs.length > 0 && (
+        <div className="hot-indicator" title={member.activeHoTs.map(h => `${h.spellName} (${Math.ceil(h.remainingDuration)}s)`).join('\n')}>
+          <img src="/icons/spell_nature_rejuvenation.jpg" alt="HoT Active" />
+          {member.activeHoTs.length > 1 && (
+            <span className="hot-count">{member.activeHoTs.length}</span>
+          )}
+        </div>
+      )}
+
       {/* Buffs */}
       {member.buffs.length > 0 && (
         <div className="buff-container">

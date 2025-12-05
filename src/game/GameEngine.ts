@@ -1,11 +1,13 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff, BenchPlayer } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff, BenchPlayer, ActiveHoT } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
-import { DEFAULT_SHAMAN_ACTION_BAR } from './shamanSpells';
+import { DEFAULT_SHAMAN_ACTION_BAR, HEALING_WAVE, HEALING_WAVE_DOWNRANK, LESSER_HEALING_WAVE, LESSER_HEALING_WAVE_DOWNRANK, CHAIN_HEAL, CHAIN_HEAL_DOWNRANK } from './shamanSpells';
+import { PRIEST_SPELLS, type HoTSpell as PriestHoTSpell } from './priestSpells';
+import { DRUID_SPELLS, type HoTSpell as DruidHoTSpell } from './druidSpells';
 import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
-import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES } from './spells';
+import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES, HOLY_LIGHT, HOLY_LIGHT_DOWNRANK, FLASH_OF_LIGHT, FLASH_OF_LIGHT_DOWNRANK } from './spells';
 import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial, QuestMaterialId, QuestRewardId, EnchantId, EnchantSlot } from './items';
 import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTS, CLASS_ARMOR_PROFICIENCY } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
@@ -122,6 +124,217 @@ const AI_HEALER_MANA: Record<string, { maxMana: number; mp5: number }> = {
   shaman: { maxMana: 4800, mp5: 40 },   // Balanced
   druid: { maxMana: 5000, mp5: 50 },    // Good regen
 };
+
+// AI Healer Spell Selection - Returns the appropriate spell based on target health and healer mana
+interface AISpellChoice {
+  spell: Spell;
+  spellName: string;  // For combat log display
+  useNaturesSwiftness?: boolean;  // Druid: pre-cast NS for instant HT
+  consumeHoT?: boolean;           // Druid: Swiftmend consumes HoT
+  applyShield?: boolean;          // Priest: Power Word: Shield (absorb shield)
+  useInnerFocus?: boolean;        // Priest: pre-cast Inner Focus for free spell + 25% crit
+}
+
+// Context for druid-specific spell selection
+interface DruidSpellContext {
+  healerId: string;
+  targetHoTs: ActiveHoT[];  // Active HoTs on target
+  naturesSwiftnessCooldown: number;
+  swiftmendCooldown: number;
+}
+
+// Context for priest-specific spell selection
+interface PriestSpellContext {
+  healerId: string;
+  targetHoTs: ActiveHoT[];  // Active HoTs on target (for Renew)
+  injuredInGroup: number;   // Number of injured members in same group (for Prayer of Healing)
+  targetHasWeakenedSoul: boolean;  // Whether target has Weakened Soul (can't receive PW:S)
+  targetHasShield: boolean;  // Whether target already has an absorb shield
+  innerFocusCooldown: number;  // Inner Focus cooldown (180s / 3 min)
+}
+
+// Select spell for AI healer based on target health % and healer mana %
+function selectAIHealerSpell(
+  healerClass: WoWClass,
+  targetHealthPct: number,
+  healerManaPct: number,
+  injuredCount: number,  // For Chain Heal decision
+  druidContext?: DruidSpellContext,  // Optional context for druid special abilities
+  priestContext?: PriestSpellContext  // Optional context for priest special abilities
+): AISpellChoice | null {
+  // Mana conservation: if below 30% mana, prefer efficient downranked spells
+  const lowMana = healerManaPct < 0.30;
+
+  switch (healerClass) {
+    case 'priest': {
+      // Holy Priest healing rotation based on Classic WoW guides:
+      // - Heal R3 for low damage periods (most mana efficient: 255 mana, 566-643)
+      // - Flash Heal R7 for urgent moderate damage (380 mana, 812-959)
+      // - Greater Heal R5 for emergencies (710 mana, 1966-2195)
+      // - Renew for mobile healing or topping off
+      // - Prayer of Healing when 3+ group members injured
+      // - Power Word: Shield for imminent danger
+      // - Inner Focus: 3 min CD, next spell free + 25% crit (use with expensive spells)
+
+      // Check if target already has THIS priest's Renew (waste prevention)
+      const hasOwnRenew = priestContext?.targetHoTs.some(
+        h => h.spellId === 'renew' && h.casterId === priestContext.healerId
+      );
+      // Check for group heal opportunity (3+ injured in same group)
+      const groupHealOpportunity = priestContext && priestContext.injuredInGroup >= 3;
+      // Check if target can receive Power Word: Shield
+      const canReceiveShield = priestContext && !priestContext.targetHasWeakenedSoul && !priestContext.targetHasShield;
+      // Critical mana (<15%) - use only most efficient spells
+      const criticalMana = healerManaPct < 0.15;
+      // Inner Focus available (3 min cooldown)
+      const innerFocusReady = priestContext ? priestContext.innerFocusCooldown <= 0 : false;
+
+      if (targetHealthPct < 0.35) {
+        // Emergency - use Power Word: Shield first if target can receive it (instant absorb)
+        // PW:S gives immediate protection while priest casts follow-up heal
+        if (canReceiveShield) {
+          return { spell: PRIEST_SPELLS.POWER_WORD_SHIELD, spellName: 'Power Word: Shield', applyShield: true };
+        }
+        // Inner Focus + Greater Heal R5 = free big heal with 25% crit bonus
+        if (innerFocusReady && !criticalMana) {
+          return { spell: PRIEST_SPELLS.GREATER_HEAL, spellName: 'Greater Heal', useInnerFocus: true };
+        }
+        // Use Greater Heal (or R1 spam if mana critical)
+        if (criticalMana) {
+          return { spell: PRIEST_SPELLS.GREATER_HEAL_RANK1, spellName: 'Greater Heal (Rank 1)' };
+        }
+        return lowMana
+          ? { spell: PRIEST_SPELLS.GREATER_HEAL_DOWNRANK, spellName: 'Greater Heal (Rank 3)' }
+          : { spell: PRIEST_SPELLS.GREATER_HEAL, spellName: 'Greater Heal' };
+      } else if (targetHealthPct < 0.55) {
+        // Moderate damage - consider Prayer of Healing if multiple injured
+        if (groupHealOpportunity) {
+          // Inner Focus + Prayer of Healing = free expensive AoE heal with crit bonus
+          if (innerFocusReady) {
+            return { spell: PRIEST_SPELLS.PRAYER_OF_HEALING, spellName: 'Prayer of Healing', useInnerFocus: true };
+          }
+          if (!lowMana) {
+            return { spell: PRIEST_SPELLS.PRAYER_OF_HEALING, spellName: 'Prayer of Healing' };
+          }
+        }
+        // Use Flash Heal for urgent damage, or downrank if low mana
+        if (criticalMana) {
+          return { spell: PRIEST_SPELLS.FLASH_HEAL_DOWNRANK, spellName: 'Flash Heal (Rank 4)' };
+        }
+        return lowMana
+          ? { spell: PRIEST_SPELLS.FLASH_HEAL_DOWNRANK, spellName: 'Flash Heal (Rank 4)' }
+          : { spell: PRIEST_SPELLS.FLASH_HEAL, spellName: 'Flash Heal' };
+      } else if (targetHealthPct < 0.75) {
+        // Light damage - use Renew if not already applied, else use efficient Heal R3
+        if (!hasOwnRenew) {
+          return { spell: PRIEST_SPELLS.RENEW, spellName: 'Renew' };
+        }
+        // Use Heal R3 - most mana efficient spell for non-urgent healing
+        return { spell: PRIEST_SPELLS.HEAL, spellName: 'Heal' };
+      } else {
+        // Top-off (75%+) - use Renew HoT if not already applied
+        if (!hasOwnRenew) {
+          return { spell: PRIEST_SPELLS.RENEW, spellName: 'Renew' };
+        }
+        // Target already has our Renew - use efficient Heal R3 (255 mana)
+        return { spell: PRIEST_SPELLS.HEAL, spellName: 'Heal' };
+      }
+    }
+
+    case 'paladin':
+      if (targetHealthPct < 0.35) {
+        // Emergency - use Holy Light max rank
+        return { spell: HOLY_LIGHT, spellName: 'Holy Light' };
+      } else if (targetHealthPct < 0.60) {
+        // Normal - use Flash of Light (or downrank if low mana)
+        return lowMana
+          ? { spell: FLASH_OF_LIGHT_DOWNRANK, spellName: 'Flash of Light (Rank 4)' }
+          : { spell: FLASH_OF_LIGHT, spellName: 'Flash of Light' };
+      } else {
+        // Top-off - efficient Flash of Light downrank
+        return { spell: FLASH_OF_LIGHT_DOWNRANK, spellName: 'Flash of Light (Rank 4)' };
+      }
+
+    case 'shaman':
+      // Shaman AI: use Chain Heal when multiple targets are injured, otherwise single target
+      if (injuredCount >= 3 && targetHealthPct < 0.70) {
+        // Multiple injured - Chain Heal is very efficient
+        return lowMana
+          ? { spell: CHAIN_HEAL_DOWNRANK, spellName: 'Chain Heal (Rank 1)' }
+          : { spell: CHAIN_HEAL, spellName: 'Chain Heal' };
+      } else if (targetHealthPct < 0.35) {
+        // Emergency single target - Healing Wave
+        return { spell: HEALING_WAVE, spellName: 'Healing Wave' };
+      } else if (targetHealthPct < 0.60) {
+        // Normal - Lesser Healing Wave for speed
+        return lowMana
+          ? { spell: LESSER_HEALING_WAVE_DOWNRANK, spellName: 'Lesser Healing Wave (Rank 4)' }
+          : { spell: LESSER_HEALING_WAVE, spellName: 'Lesser Healing Wave' };
+      } else {
+        // Top-off - efficient downranked heal
+        return { spell: LESSER_HEALING_WAVE_DOWNRANK, spellName: 'Lesser Healing Wave (Rank 4)' };
+      }
+
+    case 'druid':
+      // Check if target already has THIS druid's Rejuvenation (waste prevention)
+      const hasOwnRejuv = druidContext?.targetHoTs.some(
+        h => h.spellId === 'rejuvenation' && h.casterId === druidContext.healerId
+      );
+      // Check if target has ANY HoT from THIS druid (for Swiftmend)
+      const hasOwnHoT = druidContext?.targetHoTs.some(
+        h => (h.spellId === 'rejuvenation' || h.spellId === 'rejuvenation_downrank' || h.spellId === 'regrowth')
+             && h.casterId === druidContext.healerId
+      );
+      const nsOffCooldown = druidContext ? druidContext.naturesSwiftnessCooldown <= 0 : false;
+      const swiftmendOffCooldown = druidContext ? druidContext.swiftmendCooldown <= 0 : false;
+
+      if (targetHealthPct < 0.35) {
+        // Emergency healing - tank or critical target
+        // Option 1: Nature's Swiftness + Healing Touch (instant big heal)
+        if (nsOffCooldown) {
+          return { spell: DRUID_SPELLS.HEALING_TOUCH, spellName: 'Healing Touch', useNaturesSwiftness: true };
+        }
+        // Option 2: Swiftmend if target has our HoT (instant, consumes HoT)
+        if (hasOwnHoT && swiftmendOffCooldown) {
+          return { spell: DRUID_SPELLS.SWIFTMEND, spellName: 'Swiftmend', consumeHoT: true };
+        }
+        // Fallback: Regular Healing Touch (3.5s cast)
+        return { spell: DRUID_SPELLS.HEALING_TOUCH, spellName: 'Healing Touch' };
+      } else if (targetHealthPct < 0.60) {
+        // Moderate damage - use Swiftmend if available and has HoT
+        if (hasOwnHoT && swiftmendOffCooldown) {
+          return { spell: DRUID_SPELLS.SWIFTMEND, spellName: 'Swiftmend', consumeHoT: true };
+        }
+        // Normal - Regrowth (direct + HoT)
+        return { spell: DRUID_SPELLS.REGROWTH, spellName: 'Regrowth' };
+      } else {
+        // Top-off - Rejuvenation HoT (very efficient)
+        // Skip if target already has our Rejuvenation (waste prevention)
+        if (hasOwnRejuv) {
+          // Target already has our Rejuv - use downranked Regrowth instead if needed
+          return { spell: DRUID_SPELLS.REGROWTH, spellName: 'Regrowth' };
+        }
+        return lowMana
+          ? { spell: DRUID_SPELLS.REJUVENATION_DOWNRANK, spellName: 'Rejuvenation (Rank 7)' }
+          : { spell: DRUID_SPELLS.REJUVENATION, spellName: 'Rejuvenation' };
+      }
+
+    default:
+      return null;
+  }
+}
+
+// Calculate heal amount from a spell (with some variance like real WoW)
+function calculateSpellHeal(spell: Spell, healerGearScore: number): number {
+  const minHeal = spell.healAmount.min;
+  const maxHeal = spell.healAmount.max;
+  // Random value between min and max
+  const baseHeal = minHeal + Math.random() * (maxHeal - minHeal);
+  // Add spell power bonus from gear (simplified: gear score * 0.3 = spell power)
+  const spellPower = healerGearScore * 0.3;
+  const spellPowerBonus = spellPower * spell.spellPowerCoefficient;
+  return Math.floor(baseHeal + spellPowerBonus);
+}
 
 // Player's base health as a Holy Paladin
 const PLAYER_BASE_HEALTH = 4200;
@@ -471,6 +684,8 @@ export class GameEngine {
       lastEncounterResult: null,
       combatLog: [],
       manaPotionCooldown: 0,
+      innervateActive: false,
+      innervateRemainingDuration: 0,
       divineFavorActive: false,
       otherHealersEnabled: true,
       otherHealersHealing: 0,
@@ -664,6 +879,7 @@ export class GameEngine {
       maxHealth: PLAYER_BASE_HEALTH,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps: 0,
       group: 1, // Will be reassigned
@@ -686,6 +902,7 @@ export class GameEngine {
         maxHealth,
         buffs: [],
         debuffs: [],
+        activeHoTs: [],
         isAlive: true,
         dps: 150,
         group: 1, // Will be reassigned
@@ -711,6 +928,7 @@ export class GameEngine {
         maxHealth,
         buffs: [],
         debuffs: [],
+        activeHoTs: [],
         isAlive: true,
         dps: 0,
         group: 1, // Will be reassigned
@@ -739,6 +957,7 @@ export class GameEngine {
         maxHealth,
         buffs: [],
         debuffs: [],
+        activeHoTs: [],
         isAlive: true,
         dps: 0,
         group: 1, // Will be reassigned
@@ -777,6 +996,7 @@ export class GameEngine {
         maxHealth,
         buffs: [],
         debuffs: [],
+        activeHoTs: [],
         isAlive: true,
         dps: 400 + Math.floor(Math.random() * 200),
         group: 1, // Will be reassigned
@@ -1858,6 +2078,7 @@ export class GameEngine {
       maxHealth: maxHealth,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps,
       positionZone,
@@ -1955,6 +2176,7 @@ export class GameEngine {
       maxHealth: maxHealth,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps,
       positionZone,
@@ -2185,6 +2407,92 @@ export class GameEngine {
     this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + MANA_POTION_RESTORE);
     this.state.manaPotionCooldown = MANA_POTION_COOLDOWN;
     this.addCombatLogEntry({ message: `Used Major Mana Potion (+${restored} mana)`, type: 'buff' });
+    this.notify();
+  }
+
+  // Request Innervate from a druid healer
+  requestInnervate(): boolean {
+    // Find druids in the raid with Innervate off cooldown
+    const druidsWithInnervate = this.state.raid
+      .filter(m => m.class === 'druid' && m.role === 'healer' && m.isAlive)
+      .filter(druid => {
+        const stats = this.state.aiHealerStats[druid.id];
+        return stats && (!stats.innervateCooldown || stats.innervateCooldown <= 0);
+      });
+
+    if (druidsWithInnervate.length === 0) {
+      this.addCombatLogEntry({ message: 'No druid has Innervate available!', type: 'system' });
+      this.notify();
+      return false;
+    }
+
+    // Use the first available druid
+    const druid = druidsWithInnervate[0];
+    const druidStats = this.state.aiHealerStats[druid.id];
+
+    // Apply Innervate buff - 400% mana regen for 20 seconds
+    this.state.innervateActive = true;
+    this.state.innervateRemainingDuration = 20;
+
+    // Put Innervate on 6 minute cooldown
+    druidStats.innervateCooldown = 360;
+
+    // Combat log
+    this.addCombatLogEntry({
+      message: `${druid.name} casts Innervate on you! (400% mana regen for 20 sec)`,
+      type: 'buff',
+    });
+
+    this.notify();
+    return true;
+  }
+
+  // Check if any druid has Innervate available
+  hasInnervateAvailable(): boolean {
+    return this.state.raid.some(m => {
+      if (m.class !== 'druid' || m.role !== 'healer' || !m.isAlive) return false;
+      const stats = this.state.aiHealerStats[m.id];
+      return stats && (!stats.innervateCooldown || stats.innervateCooldown <= 0);
+    });
+  }
+
+  // Check if there's a druid healer in the raid
+  hasDruidHealer(): boolean {
+    return this.state.raid.some(m => m.class === 'druid' && m.role === 'healer' && m.isAlive);
+  }
+
+  // Get Innervate cooldown status (returns the shortest cooldown among druids, or 0 if available)
+  getInnervateCooldown(): number {
+    const druidCooldowns = this.state.raid
+      .filter(m => m.class === 'druid' && m.role === 'healer' && m.isAlive)
+      .map(druid => {
+        const stats = this.state.aiHealerStats[druid.id];
+        return stats?.innervateCooldown || 0;
+      });
+
+    if (druidCooldowns.length === 0) return -1; // No druids
+    return Math.min(...druidCooldowns);
+  }
+
+  // Sync Innervate cooldown from host (for multiplayer clients)
+  // This allows clients to see the correct Innervate availability
+  syncInnervateCooldown(cooldown: number): void {
+    // Find the first druid healer and sync their cooldown
+    const druid = this.state.raid.find(m => m.class === 'druid' && m.role === 'healer' && m.isAlive);
+    if (druid && this.state.aiHealerStats[druid.id]) {
+      this.state.aiHealerStats[druid.id].innervateCooldown = cooldown;
+    }
+  }
+
+  // Apply Innervate buff locally (for multiplayer clients)
+  // The cooldown is handled by the host, this just applies the buff effect
+  applyInnervateBuffLocally(): void {
+    this.state.innervateActive = true;
+    this.state.innervateRemainingDuration = 20;
+    this.addCombatLogEntry({
+      message: 'Innervate! (400% mana regen for 20 sec)',
+      type: 'buff',
+    });
     this.notify();
   }
 
@@ -2703,6 +3011,39 @@ export class GameEngine {
       amount: actualHeal,
       isCrit,
     });
+  }
+
+  /**
+   * Apply damage to a raid member, consuming absorb shield first if present.
+   * Returns the actual damage dealt to health (after shield absorption).
+   */
+  applyDamageWithShield(target: RaidMember, damage: number): number {
+    if (damage <= 0) return 0;
+
+    let remainingDamage = damage;
+
+    // Check for absorb shield (Power Word: Shield)
+    if (target.absorbShield && target.absorbShield > 0) {
+      const absorbed = Math.min(target.absorbShield, remainingDamage);
+      target.absorbShield -= absorbed;
+      remainingDamage -= absorbed;
+
+      // Clear shield if fully consumed
+      if (target.absorbShield <= 0) {
+        target.absorbShield = 0;
+        target.absorbShieldMax = 0;
+      }
+    }
+
+    // Apply remaining damage to health
+    if (remainingDamage > 0) {
+      target.currentHealth = Math.max(0, target.currentHealth - remainingDamage);
+      if (target.currentHealth <= 0) {
+        target.isAlive = false;
+      }
+    }
+
+    return remainingDamage;
   }
 
   // Chain Heal - bounces to nearby injured targets within the same position zone
@@ -3349,24 +3690,42 @@ export class GameEngine {
       // Update NPC shaman totem effects (mana regen, healing, cleansing)
       this.tickNpcShamanTotems(delta);
 
+      // Update Innervate buff duration
+      if (this.state.innervateActive && this.state.innervateRemainingDuration > 0) {
+        this.state.innervateRemainingDuration -= delta;
+        if (this.state.innervateRemainingDuration <= 0) {
+          this.state.innervateActive = false;
+          this.state.innervateRemainingDuration = 0;
+          this.addCombatLogEntry({
+            message: 'Innervate fades.',
+            type: 'buff',
+          });
+        }
+      }
+
       // Mana regen with Five-Second Rule (FSR)
-      if (!this.state.isCasting) {
+      // Innervate: 400% mana regen AND allows 100% regen while casting
+      const innervateActive = this.state.innervateActive;
+      if (!this.state.isCasting || innervateActive) {
         const timeSinceLastCast = this.state.elapsedTime - this.state.lastSpellCastTime;
         const isInFSR = timeSinceLastCast < 5; // Within 5-second rule
 
         // Get MP5 from gear
         const mp5FromGear = this.computePlayerStats().totalMp5;
 
-        if (isInFSR) {
-          // Inside FSR: Only MP5 from gear works
+        // Innervate multiplier: 400% = 5x total (100% base + 400% bonus)
+        const innervateMultiplier = innervateActive ? 5 : 1;
+
+        if (isInFSR && !innervateActive) {
+          // Inside FSR (without Innervate): Only MP5 from gear works
           const mp5Regen = (mp5FromGear / 5) * delta;
           this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + mp5Regen);
         } else {
-          // Outside FSR: Full regen (base + spirit + MP5)
+          // Outside FSR OR with Innervate active: Full regen (with Innervate bonus)
           const baseRegen = 10; // Base per-second regen
           const spiritRegen = this.getSpiritBasedRegen();
           const mp5Regen = mp5FromGear / 5;
-          const totalRegen = (baseRegen + spiritRegen + mp5Regen) * delta;
+          const totalRegen = (baseRegen + spiritRegen + mp5Regen) * delta * innervateMultiplier;
           this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + totalRegen);
         }
       }
@@ -3461,9 +3820,15 @@ export class GameEngine {
             case 'tank_damage': {
               const tank = this.state.raid.find(m => m.role === 'tank' && m.isAlive);
               if (tank) {
-                const reducedDamage = this.calculateDamageReduction(tank, damage, damageType);
-                tank.currentHealth = Math.max(0, tank.currentHealth - reducedDamage);
-                if (tank.currentHealth === 0) {
+                // Frenzy increases boss attack speed by 150% - effectively 2.5x damage
+                let tankDamage = damage;
+                if (this.state.boss?.isFrenzied) {
+                  tankDamage *= 2.5;
+                }
+                const reducedDamage = this.calculateDamageReduction(tank, tankDamage, damageType);
+                // Use shield-aware damage application
+                this.applyDamageWithShield(tank, reducedDamage);
+                if (tank.currentHealth <= 0) {
                   this.handleMemberDeath(tank);
                 }
               }
@@ -3475,8 +3840,9 @@ export class GameEngine {
               const targets = alive.sort(() => Math.random() - 0.5).slice(0, event.targetCount || 5);
               targets.forEach(member => {
                 const reducedDamage = this.calculateDamageReduction(member, damage, damageType);
-                member.currentHealth = Math.max(0, member.currentHealth - reducedDamage);
-                if (member.currentHealth === 0) {
+                // Use shield-aware damage application
+                this.applyDamageWithShield(member, reducedDamage);
+                if (member.currentHealth <= 0) {
                   this.handleMemberDeath(member);
                 }
               });
@@ -3488,8 +3854,9 @@ export class GameEngine {
               if (alive.length > 0) {
                 const target = alive[Math.floor(Math.random() * alive.length)];
                 const reducedDamage = this.calculateDamageReduction(target, damage, damageType);
-                target.currentHealth = Math.max(0, target.currentHealth - reducedDamage);
-                if (target.currentHealth === 0) {
+                // Use shield-aware damage application
+                this.applyDamageWithShield(target, reducedDamage);
+                if (target.currentHealth <= 0) {
                   this.handleMemberDeath(target);
                 }
               }
@@ -3629,13 +3996,21 @@ export class GameEngine {
 
             case 'frenzy': {
               // Magmadar's Frenzy - boss enrages, increases tank damage
-              // Hunters will Tranq Shot after 2 seconds
+              // Only hunters with Tranquilizing Shot can remove this!
               if (this.state.boss) {
                 this.state.boss.isFrenzied = true;
-                this.state.boss.frenzyEndTime = this.state.elapsedTime + 2; // Hunters Tranq after 2 seconds
+
+                // Only set end time if there's a living hunter to Tranq Shot
+                const hunter = this.state.raid.find(m => m.class === 'hunter' && m.isAlive);
+                if (hunter) {
+                  this.state.boss.frenzyEndTime = this.state.elapsedTime + 2; // Hunter Tranqs after 2 seconds
+                } else {
+                  // No hunter - frenzy persists indefinitely!
+                  this.state.boss.frenzyEndTime = undefined;
+                }
 
                 this.addCombatLogEntry({
-                  message: `${this.state.boss.name} goes into a FRENZY!`,
+                  message: `${this.state.boss.name} goes into a FRENZY!${!hunter ? ' No hunter to Tranq Shot!' : ''}`,
                   type: 'damage'
                 });
 
@@ -5200,6 +5575,63 @@ export class GameEngine {
           .map(b => ({ ...b, duration: b.duration - delta }))
           .filter(b => b.duration > 0);
 
+        // Tick down Weakened Soul duration (prevents PW:S reapplication)
+        if (member.weakenedSoulDuration && member.weakenedSoulDuration > 0) {
+          member.weakenedSoulDuration -= delta;
+          if (member.weakenedSoulDuration <= 0) {
+            member.weakenedSoulDuration = 0;
+          }
+        }
+
+        // Process HoT ticks
+        if (member.activeHoTs && member.activeHoTs.length > 0) {
+          member.activeHoTs = member.activeHoTs
+            .map(hot => {
+              // Update time since last tick
+              const newTimeSinceLastTick = hot.timeSinceLastTick + delta;
+
+              // Check if a tick should occur
+              if (newTimeSinceLastTick >= hot.tickInterval) {
+                // Apply HoT healing
+                const actualHeal = Math.min(hot.healPerTick, member.maxHealth - member.currentHealth);
+                if (actualHeal > 0) {
+                  member.currentHealth = Math.min(member.maxHealth, member.currentHealth + hot.healPerTick);
+
+                  // Track HoT healing to the caster's stats
+                  const casterStats = this.state.aiHealerStats[hot.casterId];
+                  if (casterStats) {
+                    casterStats.healingDone += actualHeal;
+                  }
+                  // Also track as "other healers healing" for total metrics
+                  this.state.otherHealersHealing += actualHeal;
+
+                  // Add combat log entry for HoT tick
+                  this.state.combatLog.push({
+                    timestamp: this.state.elapsedTime,
+                    message: `${hot.spellName} heals ${member.name} for ${actualHeal}`,
+                    type: 'heal',
+                    amount: actualHeal,
+                    isCrit: false,
+                  });
+                }
+
+                // Reset tick timer (keeping remainder for accurate timing)
+                return {
+                  ...hot,
+                  timeSinceLastTick: newTimeSinceLastTick - hot.tickInterval,
+                  remainingDuration: hot.remainingDuration - delta,
+                };
+              }
+
+              return {
+                ...hot,
+                timeSinceLastTick: newTimeSinceLastTick,
+                remainingDuration: hot.remainingDuration - delta,
+              };
+            })
+            .filter(hot => hot.remainingDuration > 0);
+        }
+
         // NPC Shaman Tremor Totem - dispel fear effects (ticks every 4 seconds)
         // Check if member has a Tremor Totem buff from an NPC shaman
         const hasTremorTotem = member.buffs.some(b => b.id.includes('tremor_totem') && b.effect?.fearImmunity);
@@ -5243,6 +5675,13 @@ export class GameEngine {
               maxMana: manaConfig.maxMana,
               mp5: manaConfig.mp5,
               manaPotionCooldown: 0,
+              // Druid special spell cooldowns
+              naturesSwiftnessCooldown: 0,  // 180s cooldown
+              swiftmendCooldown: 0,          // 15s cooldown
+              innervateCooldown: 0,          // 360s cooldown
+              // Priest special spell cooldowns
+              innerFocusCooldown: 0,         // 180s cooldown (3 min)
+              innerFocusActive: false,       // Next spell is free + 25% crit
             };
           }
 
@@ -5254,6 +5693,26 @@ export class GameEngine {
           // Tick down mana potion cooldown
           if (stats.manaPotionCooldown > 0) {
             stats.manaPotionCooldown -= delta;
+          }
+
+          // Tick down druid special spell cooldowns
+          if (healer.class === 'druid') {
+            if (stats.naturesSwiftnessCooldown && stats.naturesSwiftnessCooldown > 0) {
+              stats.naturesSwiftnessCooldown -= delta;
+            }
+            if (stats.swiftmendCooldown && stats.swiftmendCooldown > 0) {
+              stats.swiftmendCooldown -= delta;
+            }
+            if (stats.innervateCooldown && stats.innervateCooldown > 0) {
+              stats.innervateCooldown -= delta;
+            }
+          }
+
+          // Tick down priest special spell cooldowns
+          if (healer.class === 'priest') {
+            if (stats.innerFocusCooldown && stats.innerFocusCooldown > 0) {
+              stats.innerFocusCooldown -= delta;
+            }
           }
 
           // Use mana potion if low on mana (30% threshold)
@@ -5290,35 +5749,101 @@ export class GameEngine {
           if (injured.length > 0) {
             const target = injured[0];
             const targetHealthPct = target.currentHealth / target.maxHealth;
-            const baseHps = AI_HEALER_HPS[healer.class] || 300;
-            // Gear scaling: each gear score point adds 0.5 HPS
-            const gearBonus = healer.gearScore * 0.5;
-            const hps = baseHps + gearBonus;
+            const healerManaPct = stats.currentMana / stats.maxMana;
 
-            // Spell choice based on target health and mana efficiency
-            // Mana costs aligned with player spell costs:
-            // - Player Flash of Light: ~140 mana for ~450 heal (0.31 mana per HP)
-            // - Player Holy Light R6: ~365 mana for ~900 heal (0.40 mana per HP)
-            // - Player Holy Light R9: ~660 mana for ~1800 heal (0.37 mana per HP)
-            let baseHeal: number;
-            let manaCost: number;
-            let castTime: number;
+            // Build druid context if this is a druid healer
+            let druidContext: DruidSpellContext | undefined;
+            if (healer.class === 'druid') {
+              druidContext = {
+                healerId: healer.id,
+                targetHoTs: target.activeHoTs || [],
+                naturesSwiftnessCooldown: stats.naturesSwiftnessCooldown || 0,
+                swiftmendCooldown: stats.swiftmendCooldown || 0,
+              };
+            }
 
-            if (targetHealthPct < 0.35) {
-              // Emergency - use big heal (like Holy Light R9)
-              baseHeal = hps * 3.0; // ~1050 HP heal
-              manaCost = baseHeal * 0.55; // ~578 mana - expensive but powerful
-              castTime = 2.5;
-            } else if (targetHealthPct < 0.6) {
-              // Normal healing - medium heal (like Holy Light R6)
-              baseHeal = hps * 2.0; // ~700 HP heal
-              manaCost = baseHeal * 0.45; // ~315 mana
-              castTime = 2.0;
-            } else {
-              // Top-off - small efficient heal (like Flash of Light)
-              baseHeal = hps * 1.2; // ~420 HP heal
-              manaCost = baseHeal * 0.32; // ~134 mana - similar to FoL
-              castTime = 1.5;
+            // Build priest context if this is a priest healer
+            let priestContext: PriestSpellContext | undefined;
+            if (healer.class === 'priest') {
+              // Calculate group membership (5 members per group, index 0-4 = group 0, etc.)
+              const targetIndex = this.state.raid.indexOf(target);
+              const targetGroup = Math.floor(targetIndex / 5);
+
+              // Count injured members in the same group (for Prayer of Healing consideration)
+              const injuredInGroup = this.state.raid.filter((m, idx) => {
+                const memberGroup = Math.floor(idx / 5);
+                return memberGroup === targetGroup && m.isAlive && m.currentHealth < m.maxHealth * 0.75;
+              }).length;
+
+              priestContext = {
+                healerId: healer.id,
+                targetHoTs: target.activeHoTs || [],
+                injuredInGroup,
+                targetHasWeakenedSoul: (target.weakenedSoulDuration || 0) > 0,
+                targetHasShield: (target.absorbShield || 0) > 0,
+                innerFocusCooldown: stats.innerFocusCooldown || 0,
+              };
+            }
+
+            // Select appropriate spell based on class, target health, and mana
+            const spellChoice = selectAIHealerSpell(
+              healer.class,
+              targetHealthPct,
+              healerManaPct,
+              injured.length,
+              druidContext,
+              priestContext
+            );
+
+            if (!spellChoice) {
+              // No spell available for this class (shouldn't happen)
+              return;
+            }
+
+            const { spell, spellName, useNaturesSwiftness, consumeHoT, applyShield, useInnerFocus } = spellChoice;
+            let manaCost = spell.manaCost;
+            let innerFocusCritBonus = false;  // Track if we should apply Inner Focus crit bonus
+
+            // Handle Nature's Swiftness activation (Druid)
+            if (useNaturesSwiftness && healer.class === 'druid') {
+              // Add NS combat log
+              this.addCombatLogEntry({
+                message: `${healer.name} activates Nature's Swiftness!`,
+                type: 'buff',
+              });
+              // Put NS on 3 minute cooldown
+              stats.naturesSwiftnessCooldown = 180;
+            }
+
+            // Handle Inner Focus activation (Priest)
+            // Inner Focus: Next spell is FREE + 25% crit bonus
+            if (useInnerFocus && healer.class === 'priest') {
+              // Add Inner Focus combat log
+              this.addCombatLogEntry({
+                message: `${healer.name} activates Inner Focus!`,
+                type: 'buff',
+              });
+              // Put Inner Focus on 3 minute cooldown
+              stats.innerFocusCooldown = 180;
+              // Make the spell free
+              manaCost = 0;
+              // Apply 25% crit bonus
+              innerFocusCritBonus = true;
+            }
+
+            // Handle Swiftmend HoT consumption (Druid)
+            if (consumeHoT && healer.class === 'druid') {
+              // Find and consume the HoT from this druid
+              const hotToConsume = target.activeHoTs.find(
+                h => (h.spellId === 'rejuvenation' || h.spellId === 'rejuvenation_downrank' || h.spellId === 'regrowth')
+                     && h.casterId === healer.id
+              );
+              if (hotToConsume) {
+                // Remove the consumed HoT
+                target.activeHoTs = target.activeHoTs.filter(h => h.id !== hotToConsume.id);
+                // Put Swiftmend on 15 second cooldown
+                stats.swiftmendCooldown = 15;
+              }
             }
 
             // Lucifron's Curse doubles mana costs!
@@ -5338,18 +5863,156 @@ export class GameEngine {
             // Spend mana (minimum 0)
             stats.currentMana = Math.max(0, stats.currentMana - manaCost);
 
-            const isCrit = Math.random() < 0.12; // ~12% crit chance
-            const healAmount = Math.floor(isCrit ? baseHeal * 1.5 : baseHeal);
+            // Special handling for Prayer of Healing (heals entire group)
+            if (spell.id === 'prayer_of_healing') {
+              const targetIndex = this.state.raid.indexOf(target);
+              const targetGroup = Math.floor(targetIndex / 5);
+              const groupStartIndex = targetGroup * 5;
+              const groupEndIndex = groupStartIndex + 5;
 
-            const actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
-            target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
-            this.state.otherHealersHealing += actualHeal;
+              let totalGroupHeal = 0;
+              const groupMembers = this.state.raid.slice(groupStartIndex, groupEndIndex).filter(m => m.isAlive);
 
-            // Track healing done
-            stats.healingDone += actualHeal;
+              groupMembers.forEach(member => {
+                const baseHeal = calculateSpellHeal(spell, healer.gearScore);
+                // Base 12% crit + 25% from Inner Focus if active
+                const critChance = innerFocusCritBonus ? 0.37 : 0.12;
+                const isCrit = Math.random() < critChance;
+                const healAmount = Math.floor(isCrit ? baseHeal * 1.5 : baseHeal);
+                const actualHeal = Math.min(healAmount, member.maxHealth - member.currentHealth);
+                member.currentHealth = Math.min(member.maxHealth, member.currentHealth + healAmount);
+                totalGroupHeal += actualHeal;
+              });
+
+              this.state.otherHealersHealing += totalGroupHeal;
+              stats.healingDone += totalGroupHeal;
+
+              // Combat log for Prayer of Healing
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts Prayer of Healing on Group ${targetGroup + 1} for ${totalGroupHeal} (${groupMembers.length} targets)`,
+                type: 'heal',
+                amount: totalGroupHeal,
+              });
+
+              // Set cooldown and return (skip normal healing logic)
+              this.aiHealerCooldowns[healer.id] = Math.max(1.5, spell.castTime || 1.5) + (Math.random() * 0.3 - 0.15);
+              return;
+            }
+
+            // Special handling for Power Word: Shield (applies absorb shield)
+            if (applyShield && spell.id === 'power_word_shield') {
+              // Calculate shield amount (base + spell power bonus)
+              const baseShield = spell.healAmount.min; // ~942 absorb
+              const spellPower = healer.gearScore * 0.3;
+              const shieldAmount = Math.floor(baseShield + (spellPower * spell.spellPowerCoefficient));
+
+              // Apply the shield
+              target.absorbShield = shieldAmount;
+              target.absorbShieldMax = shieldAmount;
+              // Apply Weakened Soul debuff (15 seconds - prevents reapplication)
+              target.weakenedSoulDuration = 15;
+
+              // Combat log
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts Power Word: Shield on ${target.name} (${shieldAmount} absorb)`,
+                type: 'buff',
+              });
+
+              // Set GCD cooldown (instant cast)
+              this.aiHealerCooldowns[healer.id] = 1.5 + (Math.random() * 0.3 - 0.15);
+              return;
+            }
+
+            // Check if this is a HoT spell
+            const hotSpell = spell as DruidHoTSpell | PriestHoTSpell;
+            const isPureHoT = hotSpell.isHoT && !hotSpell.hasDirectHeal;
+
+            // Only apply direct healing for non-HoT spells or spells with hasDirectHeal (like Regrowth)
+            let actualHeal = 0;
+            let isCrit = false;
+            if (!isPureHoT) {
+              // Calculate heal amount using real spell values
+              const baseHeal = calculateSpellHeal(spell, healer.gearScore);
+              // Base 12% crit + 25% from Inner Focus if active (Priest)
+              const critChance = innerFocusCritBonus ? 0.37 : 0.12;
+              isCrit = Math.random() < critChance;
+              const healAmount = Math.floor(isCrit ? baseHeal * 1.5 : baseHeal);
+
+              actualHeal = Math.min(healAmount, target.maxHealth - target.currentHealth);
+              target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
+              this.state.otherHealersHealing += actualHeal;
+
+              // Track healing done
+              stats.healingDone += actualHeal;
+            }
+
+            // Add combat log entry showing the actual spell cast
+            if (isPureHoT) {
+              // Pure HoT - just show application, no heal amount
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts ${spellName} on ${target.name}`,
+                type: 'buff',
+              });
+            } else {
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts ${spellName} on ${target.name}${isCrit ? ' (Critical)' : ''} for ${actualHeal}`,
+                type: 'heal',
+                amount: actualHeal,
+                isCrit,
+              });
+            }
+
+            // Apply HoT if the spell has HoT properties
+            if (hotSpell.isHoT && hotSpell.hotDuration && hotSpell.hotTickInterval) {
+              // Check if target already has this HoT from this caster (don't stack, refresh)
+              const existingHotIndex = target.activeHoTs.findIndex(
+                h => h.spellId === spell.id && h.casterId === healer.id
+              );
+
+              // Calculate heal per tick (base + spell power contribution)
+              const spellPower = healer.gearScore * 0.3;
+              const perTickBonus = spellPower * (hotSpell.spellPowerCoefficient || 0.2);
+              let healPerTick: number;
+
+              if (hotSpell.hasDirectHeal) {
+                // Regrowth: HoT portion is separate from direct heal
+                healPerTick = Math.floor((hotSpell.hotTotalHealing || 0) / (hotSpell.hotDuration / hotSpell.hotTickInterval) + perTickBonus);
+              } else {
+                // Pure HoT (Rejuvenation, Renew): healAmount is per tick
+                healPerTick = Math.floor(spell.healAmount.min + perTickBonus);
+              }
+
+              const newHoT: ActiveHoT = {
+                id: `hot_${healer.id}_${target.id}_${spell.id}_${Date.now()}`,
+                spellId: spell.id,
+                spellName: spell.name,
+                icon: spell.icon,
+                casterId: healer.id,
+                casterName: healer.name,
+                remainingDuration: hotSpell.hotDuration,
+                maxDuration: hotSpell.hotDuration,
+                tickInterval: hotSpell.hotTickInterval,
+                timeSinceLastTick: 0,
+                healPerTick,
+              };
+
+              if (existingHotIndex >= 0) {
+                // Refresh existing HoT (reset duration)
+                target.activeHoTs[existingHotIndex] = newHoT;
+              } else {
+                // Apply new HoT
+                target.activeHoTs.push(newHoT);
+              }
+            }
 
             // Set cooldown based on spell cast time (with some variance)
-            this.aiHealerCooldowns[healer.id] = castTime + (Math.random() * 0.3 - 0.15);
+            // Nature's Swiftness makes the spell instant (GCD only)
+            const castTime = useNaturesSwiftness ? 0 : (spell.castTime || 1.5);
+            this.aiHealerCooldowns[healer.id] = Math.max(1.5, castTime) + (Math.random() * 0.3 - 0.15);
           }
         });
 
@@ -5444,6 +6107,48 @@ export class GameEngine {
               // Set GCD cooldown (1.5s with slight variance)
               this.aiHealerDispelCooldowns[healer.id] = 1.5 + (Math.random() * 0.2 - 0.1);
             }
+          }
+        });
+
+        // AI Druid Innervate - druids use Innervate on low mana healers
+        const druidHealers = aiHealers.filter(h => h.class === 'druid');
+        druidHealers.forEach(druid => {
+          const druidStats = this.state.aiHealerStats[druid.id];
+          if (!druidStats || (druidStats.innervateCooldown && druidStats.innervateCooldown > 0)) return;
+
+          // Find healers who need mana (below 25%)
+          const lowManaHealers = aiHealers
+            .filter(h => {
+              const stats = this.state.aiHealerStats[h.id];
+              return stats && (stats.currentMana / stats.maxMana) < 0.25;
+            })
+            .sort((a, b) => {
+              const statsA = this.state.aiHealerStats[a.id];
+              const statsB = this.state.aiHealerStats[b.id];
+              // Prioritize self, then lowest mana %
+              if (a.id === druid.id) return -1;
+              if (b.id === druid.id) return 1;
+              return (statsA.currentMana / statsA.maxMana) - (statsB.currentMana / statsB.maxMana);
+            });
+
+          if (lowManaHealers.length > 0) {
+            const innervateTarget = lowManaHealers[0];
+            const targetStats = this.state.aiHealerStats[innervateTarget.id];
+
+            // Apply Innervate - 400% mana regen for 20 seconds
+            // For AI healers, we simplify to ~3000 mana restored (equivalent to 20s of boosted regen)
+            const manaRestored = 3000;
+            targetStats.currentMana = Math.min(targetStats.maxMana, targetStats.currentMana + manaRestored);
+
+            // Put Innervate on 6 minute cooldown
+            druidStats.innervateCooldown = 360;
+
+            // Combat log
+            const targetName = innervateTarget.id === druid.id ? 'self' : innervateTarget.name;
+            this.addCombatLogEntry({
+              message: `${druid.name} casts Innervate on ${targetName}! (400% mana regen)`,
+              type: 'buff',
+            });
           }
         });
       }
@@ -6182,6 +6887,14 @@ export class GameEngine {
     this.state.pendingLoot.splice(itemIndex, 1);
 
     this.addCombatLogEntry({ message: `Claimed ${item.name} for ${cost} DKP`, type: 'buff' });
+
+    // Auto-close loot modal if no items left
+    if (this.state.pendingLoot.length === 0) {
+      this.state.showLootModal = false;
+      this.state.boss = null;
+      this.state.raid.forEach(member => { member.wasInEncounter = false; });
+      this.requestCloudSave();
+    }
     this.notify();
   }
 
@@ -6232,6 +6945,14 @@ export class GameEngine {
     }
 
     this.state.pendingLoot.splice(itemIndex, 1);
+
+    // Auto-close loot modal if no items left
+    if (this.state.pendingLoot.length === 0) {
+      this.state.showLootModal = false;
+      this.state.boss = null;
+      this.state.raid.forEach(member => { member.wasInEncounter = false; });
+      this.requestCloudSave();
+    }
     this.notify();
   }
 
@@ -6252,6 +6973,13 @@ export class GameEngine {
     }
 
     this.state.pendingLoot.splice(itemIndex, 1);
+
+    // Auto-close loot modal if no items left
+    if (this.state.pendingLoot.length === 0) {
+      this.state.showLootModal = false;
+      this.state.boss = null;
+      this.state.raid.forEach(member => { member.wasInEncounter = false; });
+    }
     this.requestCloudSave();
     this.notify();
   }
@@ -6346,6 +7074,13 @@ export class GameEngine {
       const idx = this.state.pendingLoot.findIndex(i => i.id === itemId);
       if (idx !== -1) {
         this.state.pendingLoot.splice(idx, 1);
+        // Auto-close loot modal if no items left
+        if (this.state.pendingLoot.length === 0) {
+          this.state.showLootModal = false;
+          this.state.boss = null;
+          this.state.raid.forEach(m => { m.wasInEncounter = false; });
+          this.requestCloudSave();
+        }
         this.notify();
       }
     }, 1500); // Show assignment for 1.5 seconds
@@ -6385,6 +7120,13 @@ export class GameEngine {
       const idx = this.state.pendingLoot.findIndex(i => i.id === itemId);
       if (idx !== -1) {
         this.state.pendingLoot.splice(idx, 1);
+        // Auto-close loot modal if no items left
+        if (this.state.pendingLoot.length === 0) {
+          this.state.showLootModal = false;
+          this.state.boss = null;
+          this.state.raid.forEach(m => { m.wasInEncounter = false; });
+          this.requestCloudSave();
+        }
         this.notify();
       }
     }, 1500); // Show assignment for 1.5 seconds
@@ -6412,6 +7154,13 @@ export class GameEngine {
     const itemIndex = this.state.pendingLoot.findIndex(i => i.id === pending.item.id);
     if (itemIndex !== -1) {
       this.state.pendingLoot.splice(itemIndex, 1);
+      // Auto-close loot modal if no items left
+      if (this.state.pendingLoot.length === 0) {
+        this.state.showLootModal = false;
+        this.state.boss = null;
+        this.state.raid.forEach(m => { m.wasInEncounter = false; });
+        this.requestCloudSave();
+      }
     }
 
     // Force equip the item (replacing the better one)
@@ -6934,6 +7683,7 @@ export class GameEngine {
           maxHealth: saved.maxHealth,
           buffs: [],
           debuffs: [],
+          activeHoTs: [],
           isAlive: true,
           dps: saved.dps,
           group: saved.group,
@@ -7197,6 +7947,7 @@ export class GameEngine {
           maxHealth: saved.maxHealth,
           buffs: [],
           debuffs: [],
+          activeHoTs: [],
           isAlive: true,
           dps: saved.dps,
           group: saved.group,
@@ -8408,6 +9159,7 @@ export class GameEngine {
       maxHealth,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps: role === 'dps' ? 400 + Math.floor(Math.random() * 200) : role === 'tank' ? 150 : 0,
       group: Math.floor(this.state.raid.length / 5) + 1,

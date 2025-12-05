@@ -1073,6 +1073,26 @@ body {
   50% { opacity: 0.7; }
 }
 
+/* ============================================= */
+/* MANA BOOST EFFECT (Innervate/Mana Tide)      */
+/* ============================================= */
+
+/* Mana bar pulsing blue glow when boosted */
+.mana-bar-container.mana-boost-active {
+  border-color: #4488ff !important;
+  box-shadow: 0 0 15px rgba(68, 136, 255, 0.8), inset 0 0 10px rgba(68, 136, 255, 0.3);
+  animation: mana-boost-pulse 1s ease-in-out infinite;
+}
+
+@keyframes mana-boost-pulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(68, 136, 255, 0.7), inset 0 0 10px rgba(68, 136, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(100, 170, 255, 1), inset 0 0 20px rgba(100, 170, 255, 0.4);
+  }
+}
+
 /* Safe Zone container */
 .safe-zone {
   margin-top: 16px;
@@ -1317,6 +1337,17 @@ body {
   transition: width 0.1s ease, background-color 0.3s ease;
 }
 
+/* Power Word: Shield absorb bar - white/silver indicator after health */
+.absorb-shield-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(180deg, #ffffff 0%, #c0c0c0 50%, #a0a0a0 100%);
+  border-left: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+  transition: width 0.1s ease, left 0.1s ease;
+}
+
 .health-text {
   position: absolute;
   top: 0;
@@ -1367,6 +1398,39 @@ body {
   top: 2px;
   right: 4px;
   font-size: 10px;
+}
+
+/* HoT indicator - shows rejuvenation/renew icon in top-right */
+.hot-indicator {
+  position: absolute;
+  top: 2px;
+  right: 20px;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  border: 1px solid #4a4;
+  overflow: hidden;
+  box-shadow: 0 0 4px rgba(0, 255, 100, 0.5);
+}
+
+.hot-indicator img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hot-indicator .hot-count {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  font-size: 8px;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 1px 1px 1px #000;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 0 2px;
+  border-radius: 2px 0 0 0;
+  line-height: 1;
 }
 
 .buff-container,
@@ -2475,6 +2539,16 @@ body {
 
 .mana-potion {
   border-color: #4466aa;
+}
+
+.innervate-request {
+  border-color: #44aa66;
+  box-shadow: 0 0 8px rgba(68, 170, 102, 0.3);
+}
+
+.innervate-request:hover:not(.disabled) {
+  border-color: #66cc88;
+  box-shadow: 0 0 12px rgba(68, 170, 102, 0.5);
 }
 
 /* Combat Log */

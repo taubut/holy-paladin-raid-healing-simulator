@@ -1,5 +1,19 @@
 // Classic WoW Holy Paladin Raid Healing Simulator Types
 
+export interface ActiveHoT {
+  id: string;           // Unique ID for this HoT instance
+  spellId: string;      // Which spell (rejuvenation, renew, regrowth_hot)
+  spellName: string;    // Display name
+  icon: string;         // Icon path
+  casterId: string;     // Who cast it (for tracking)
+  casterName: string;   // Caster name for combat log
+  remainingDuration: number;  // Seconds remaining
+  maxDuration: number;        // Total duration for UI
+  tickInterval: number;       // Seconds between ticks
+  timeSinceLastTick: number;  // Accumulator for tick timing
+  healPerTick: number;        // How much each tick heals
+}
+
 export interface RaidMember {
   id: string;
   name: string;
@@ -9,6 +23,7 @@ export interface RaidMember {
   maxHealth: number;
   buffs: Buff[];
   debuffs: Debuff[];
+  activeHoTs: ActiveHoT[];  // Active HoTs on this member
   isAlive: boolean;
   dps: number;
   group: number; // 1-8 for 40-man raid

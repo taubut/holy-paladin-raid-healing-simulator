@@ -2,6 +2,27 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.31.0] - 2025-12-05
+
+### Added
+- **Druid AI Overhaul**: Authentic spell values from classicdb.ch, Nature's Swiftness (3 min CD), Swiftmend (15s CD), Innervate support
+- **Request Innervate Button**: Players can now click to request Innervate from a Druid - no more begging in raid chat!
+- **Priest AI Overhaul**: Authentic spell values, Inner Focus (3 min CD, free spell + 25% crit), smart spell selection
+- **Priest Downranking**: AI intelligently uses Heal R3 for light damage, Greater Heal R1 when low on mana
+- **Multiplayer HoT Sync**: Rejuvenation, Regrowth, and Renew icons now visible on all clients' raid frames
+- **Multiplayer Shield Sync**: Power Word: Shield absorb bars display correctly for all players
+- **Multiplayer Debuff Sync**: Boss debuffs and Weakened Soul now properly sync to all clients
+- **Magmadar Hunter Requirement**: Frenzy now requires a Hunter in the raid for Tranquilizing Shot
+
+### Fixed
+- **HoT Icon Display**: HoT indicators now show actual spell icons instead of always showing Rejuvenation
+- **Multiple HoTs Visible**: Can now see all active HoTs on a target (Rejuv + Regrowth, Renew, etc.)
+- **Greater Heal R3 Mana Cost**: Fixed from 445 to authentic 545 mana
+- **Flash Heal Downrank**: Changed from R5 to R4 for better mana efficiency
+
+### Changed
+- **Heal R3 Added**: Most mana-efficient Priest heal for light damage periods (255 mana, 566-643 healing)
+
 ## [0.30.0] - 2025-12-04
 
 ### Added

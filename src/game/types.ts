@@ -196,6 +196,21 @@ export interface Buff {
   effect?: BuffEffect;
 }
 
+// HoT (Heal over Time) effect tracking
+export interface ActiveHoT {
+  id: string;           // Unique ID for this HoT instance
+  spellId: string;      // Which spell (rejuvenation, renew, regrowth_hot)
+  spellName: string;    // Display name
+  icon: string;         // Icon path
+  casterId: string;     // Who cast it (for tracking)
+  casterName: string;   // Caster name for combat log
+  remainingDuration: number;  // Seconds remaining
+  maxDuration: number;        // Total duration for UI
+  tickInterval: number;       // Seconds between ticks
+  timeSinceLastTick: number;  // Accumulator for tick timing
+  healPerTick: number;        // How much each tick heals
+}
+
 export interface BuffEffect {
   healingReceivedBonus?: number;
   holyLightBonus?: number;
@@ -413,6 +428,7 @@ export interface RaidMember {
   maxHealth: number;
   buffs: Buff[];
   debuffs: Debuff[];
+  activeHoTs: ActiveHoT[]; // Active HoT effects on this member
   isAlive: boolean;
   dps: number;
   group: number;
@@ -421,6 +437,9 @@ export interface RaidMember {
   lastCritHealTime?: number; // Timestamp of last crit heal received (for animation)
   positionZone: PositionZone; // For Chain Heal bouncing (melee/ranged/tank)
   wasInEncounter?: boolean; // Track if they participated in current boss fight (for loot eligibility)
+  absorbShield?: number; // Current absorb shield amount (e.g., Power Word: Shield)
+  absorbShieldMax?: number; // Max absorb shield amount (for display purposes)
+  weakenedSoulDuration?: number; // Weakened Soul debuff duration (prevents PW:S reapplication)
 }
 
 // Bench player - sits out of active raid but persists with their own gear
@@ -578,6 +597,13 @@ export interface AIHealerStats {
   maxMana: number;
   mp5: number;  // Mana per 5 seconds
   manaPotionCooldown: number;  // Cooldown remaining for mana potion
+  // Druid-specific cooldowns
+  naturesSwiftnessCooldown?: number;  // Nature's Swiftness (3 min cooldown)
+  swiftmendCooldown?: number;         // Swiftmend (15 sec cooldown)
+  innervateCooldown?: number;         // Innervate (6 min cooldown)
+  // Priest-specific cooldowns
+  innerFocusCooldown?: number;        // Inner Focus (3 min cooldown)
+  innerFocusActive?: boolean;         // Next spell is free + 25% crit
 }
 
 // Multiplayer loot bidding
@@ -625,6 +651,9 @@ export interface GameState {
   combatLog: CombatLogEntry[];
   manaPotionCooldown: number;
   divineFavorActive: boolean;
+  // Innervate buff state (400% mana regen for 20 seconds)
+  innervateActive: boolean;
+  innervateRemainingDuration: number;
   otherHealersEnabled: boolean;
   otherHealersHealing: number;
   // Loot and gear system
