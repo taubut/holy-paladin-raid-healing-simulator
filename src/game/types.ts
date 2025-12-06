@@ -17,7 +17,7 @@ export type WoWClass =
 export type Faction = 'alliance' | 'horde';
 
 // Player healer class (expandable for future classes)
-export type PlayerHealerClass = 'paladin' | 'shaman';
+export type PlayerHealerClass = 'paladin' | 'shaman' | 'priest';
 
 // Position zone for Chain Heal bouncing (melee/ranged/tank)
 export type PositionZone = 'melee' | 'ranged' | 'tank';
@@ -242,6 +242,8 @@ export interface BuffEffect {
   // Cleansing totem effects
   cleansesPoison?: boolean;
   cleansesDisease?: boolean;
+  // Power Infusion bonus
+  spellDamageBonus?: number; // Percentage spell damage increase (e.g., 0.20 = 20%)
 }
 
 // Consumable buff definition
@@ -651,6 +653,10 @@ export interface GameState {
   combatLog: CombatLogEntry[];
   manaPotionCooldown: number;
   divineFavorActive: boolean;
+  // Priest cooldown states
+  innerFocusActive: boolean;           // Next spell is free + 25% crit
+  powerInfusionTargetId: string | null; // Who has Power Infusion buff
+  powerInfusionDuration: number;        // Remaining duration of PI buff (seconds)
   // Innervate buff state (400% mana regen for 20 seconds)
   innervateActive: boolean;
   innervateRemainingDuration: number;

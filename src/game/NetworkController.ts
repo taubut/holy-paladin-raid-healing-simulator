@@ -6,9 +6,18 @@ import type { GameState } from './types';
 export interface CompressedHoT {
   id: string;
   spellId: string;
+  spellName: string;
   icon: string;
   rem: number; // remaining duration
   max: number; // max duration
+}
+
+// Compressed Buff for sync (Power Infusion, etc.)
+export interface CompressedBuff {
+  id: string;
+  name: string;
+  icon: string;
+  dur: number; // duration
 }
 
 // Compressed Debuff for sync
@@ -58,6 +67,9 @@ export interface CompressedGameState {
 
   // Weakened Soul debuff duration - sparse array (for PW:Shield cooldown display)
   weakenedSoul?: { [index: number]: number };
+
+  // Buffs on raid members - sparse array (Power Infusion, etc.)
+  buffs?: { [index: number]: CompressedBuff[] };
 
   // Innervate availability (cooldown of first available druid, -1 if none)
   innervateCd?: number;
@@ -299,11 +311,12 @@ export function compressGameState(
   players: PlayerSyncState[],
   recentHeals: CompressedHealEvent[]
 ): CompressedGameState {
-  // Build sparse HoTs array (only include indices with active HoTs)
+  // Build sparse arrays (only include indices with data)
   const hots: { [index: number]: CompressedHoT[] } = {};
   const debuffs: { [index: number]: CompressedDebuff[] } = {};
   const shields: { [index: number]: { current: number; max: number } } = {};
   const weakenedSoul: { [index: number]: number } = {};
+  const buffs: { [index: number]: CompressedBuff[] } = {};
 
   state.raid.forEach((member, index) => {
     // Compress HoTs (Renew, Rejuvenation, Regrowth, etc.)
@@ -311,6 +324,7 @@ export function compressGameState(
       hots[index] = member.activeHoTs.map(hot => ({
         id: hot.id,
         spellId: hot.spellId,
+        spellName: hot.spellName || hot.spellId, // Include spell name for tooltip
         icon: hot.icon,
         rem: hot.remainingDuration,
         max: hot.maxDuration,
@@ -341,6 +355,16 @@ export function compressGameState(
     if (member.weakenedSoulDuration && member.weakenedSoulDuration > 0) {
       weakenedSoul[index] = member.weakenedSoulDuration;
     }
+
+    // Compress buffs (Power Infusion, etc.)
+    if (member.buffs && member.buffs.length > 0) {
+      buffs[index] = member.buffs.map(b => ({
+        id: b.id,
+        name: b.name,
+        icon: b.icon,
+        dur: b.duration,
+      }));
+    }
   });
 
   return {
@@ -356,11 +380,12 @@ export function compressGameState(
     hl: recentHeals,
     ps: players,
     sz: Array.from(state.membersInSafeZone),
-    // Include HoTs, debuffs, and shields (only if there are any)
+    // Include HoTs, debuffs, shields, and buffs (only if there are any)
     hots: Object.keys(hots).length > 0 ? hots : undefined,
     debuffs: Object.keys(debuffs).length > 0 ? debuffs : undefined,
     shields: Object.keys(shields).length > 0 ? shields : undefined,
     weakenedSoul: Object.keys(weakenedSoul).length > 0 ? weakenedSoul : undefined,
+    buffs: Object.keys(buffs).length > 0 ? buffs : undefined,
   };
 }
 
@@ -382,6 +407,7 @@ export function applyCompressedState(
       state.raid[i].activeHoTs = compressed.hots[i].map(h => ({
         id: h.id,
         spellId: h.spellId,
+        spellName: h.spellName, // Include spell name for tooltip display
         icon: h.icon,
         remainingDuration: h.rem,
         maxDuration: h.max,
@@ -426,6 +452,19 @@ export function applyCompressedState(
       state.raid[i].weakenedSoulDuration = compressed.weakenedSoul[i];
     } else {
       state.raid[i].weakenedSoulDuration = 0;
+    }
+
+    // Apply buffs from host (Power Infusion, etc.)
+    if (compressed.buffs && compressed.buffs[i]) {
+      state.raid[i].buffs = compressed.buffs[i].map(b => ({
+        id: b.id,
+        name: b.name,
+        icon: b.icon,
+        duration: b.dur,
+        maxDuration: b.dur,
+      }));
+    } else {
+      state.raid[i].buffs = [];
     }
   }
 

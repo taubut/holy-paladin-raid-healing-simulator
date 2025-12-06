@@ -54,7 +54,7 @@ const FACTION_CLASSES: Record<Faction, HealerClass[]> = {
 };
 
 // Classes that are currently playable
-const PLAYABLE_CLASSES: HealerClass[] = ['paladin', 'shaman'];
+const PLAYABLE_CLASSES: HealerClass[] = ['paladin', 'shaman', 'priest'];
 
 // Class icons from Wowhead CDN
 const ICON_BASE = '/icons';
@@ -448,7 +448,7 @@ export function LandingPage({
           {/* Footer */}
           <div className="landing-footer">
             <p>A raiding simulator for World of Warcraft Classic</p>
-            <p className="version">v0.31.0</p>
+            <p className="version">v0.32.0</p>
             <a
               href="https://github.com/taubut/holy-paladin-raid-healing-simulator"
               target="_blank"

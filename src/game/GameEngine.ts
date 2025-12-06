@@ -2,7 +2,7 @@ import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, E
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
 import { DEFAULT_SHAMAN_ACTION_BAR, HEALING_WAVE, HEALING_WAVE_DOWNRANK, LESSER_HEALING_WAVE, LESSER_HEALING_WAVE_DOWNRANK, CHAIN_HEAL, CHAIN_HEAL_DOWNRANK } from './shamanSpells';
-import { PRIEST_SPELLS, type HoTSpell as PriestHoTSpell } from './priestSpells';
+import { PRIEST_SPELLS, DEFAULT_PRIEST_ACTION_BAR, type HoTSpell as PriestHoTSpell } from './priestSpells';
 import { DRUID_SPELLS, type HoTSpell as DruidHoTSpell } from './druidSpells';
 import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
@@ -617,6 +617,21 @@ export type HealAppliedCallback = (data: {
   spellName: string;
   spellId: string;
   playerName: string;
+  // Optional fields for HoTs/shields that need to sync
+  hotData?: {
+    id: string;
+    spellId: string;
+    spellName: string;
+    icon: string;
+    remainingDuration: number;
+    maxDuration: number;
+    tickInterval: number;
+    healPerTick: number;
+  };
+  shieldData?: {
+    amount: number;
+    weakenedSoulDuration: number;
+  };
 }) => void;
 
 // Callback for when a dispel is applied - used for multiplayer sync
@@ -687,6 +702,10 @@ export class GameEngine {
       innervateActive: false,
       innervateRemainingDuration: 0,
       divineFavorActive: false,
+      // Priest cooldown states
+      innerFocusActive: false,
+      powerInfusionTargetId: null,
+      powerInfusionDuration: 0,
       otherHealersEnabled: true,
       otherHealersHealing: 0,
       // Loot and gear system
@@ -1264,16 +1283,13 @@ export class GameEngine {
     }
 
     // Switch action bar based on class
-    if (this.state.playerClass === 'shaman') {
-      this.actionBar = DEFAULT_SHAMAN_ACTION_BAR.map(s => ({ ...s }));
-    } else {
-      this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
-    }
+    this.loadActionBarForClass(this.state.playerClass);
 
-    // Reset paladin-specific state when switching to Horde
-    if (newFaction === 'horde') {
-      this.state.divineFavorActive = false;
-    }
+    // Reset class-specific state
+    this.state.divineFavorActive = false;
+    this.state.innerFocusActive = false;
+    this.state.powerInfusionTargetId = null;
+    this.state.powerInfusionDuration = 0;
 
     // Regenerate raid with appropriate composition (Paladins for Alliance, Shamans for Horde)
     const raidSize: 20 | 40 = 20; // Default to 20-man
@@ -1311,6 +1327,148 @@ export class GameEngine {
 
     // Recalculate party auras for the new raid composition
     this.recalculateAuras();
+
+    this.notify();
+  }
+
+  // Helper to load the correct action bar for a class
+  private loadActionBarForClass(playerClass: PlayerHealerClass): void {
+    switch (playerClass) {
+      case 'priest':
+        this.actionBar = DEFAULT_PRIEST_ACTION_BAR.map(s => ({ ...s }));
+        break;
+      case 'shaman':
+        this.actionBar = DEFAULT_SHAMAN_ACTION_BAR.map(s => ({ ...s }));
+        break;
+      case 'paladin':
+      default:
+        this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
+        break;
+    }
+  }
+
+  // Get class display name
+  private getClassDisplayName(playerClass: PlayerHealerClass): string {
+    switch (playerClass) {
+      case 'priest': return 'Holy Priest';
+      case 'shaman': return 'Restoration Shaman';
+      case 'paladin': return 'Holy Paladin';
+      default: return 'Holy Paladin';
+    }
+  }
+
+  // Get default player name for class
+  private getDefaultPlayerName(playerClass: PlayerHealerClass): string {
+    switch (playerClass) {
+      case 'priest': return 'Lightwell';
+      case 'shaman': return 'Chainheal';
+      case 'paladin': return 'Healadin';
+      default: return 'Healadin';
+    }
+  }
+
+  // Get player spec for class
+  private getPlayerSpec(playerClass: PlayerHealerClass): WoWSpec {
+    switch (playerClass) {
+      case 'priest': return 'holy_priest';
+      case 'shaman': return 'restoration_shaman';
+      case 'paladin': return 'holy_paladin';
+      default: return 'holy_paladin';
+    }
+  }
+
+  // Set player class (called after switchFaction to override default)
+  setPlayerClass(newClass: PlayerHealerClass): void {
+    if (this.state.isRunning) {
+      this.addCombatLogEntry({
+        message: 'Cannot change class during combat!',
+        type: 'system',
+      });
+      return;
+    }
+
+    if (this.state.playerClass === newClass) return;
+
+    const oldClass = this.state.playerClass;
+    this.state.playerClass = newClass;
+
+    // Load the correct action bar
+    this.loadActionBarForClass(newClass);
+
+    // Reset class-specific state
+    this.state.divineFavorActive = false;
+    this.state.innerFocusActive = false;
+    this.state.powerInfusionTargetId = null;
+    this.state.powerInfusionDuration = 0;
+    this.state.naturesSwiftnessActive = false;
+    this.state.naturesSwiftnessCooldown = 0;
+
+    // Load appropriate starting gear
+    const specKey = newClass === 'priest' ? 'holy_priest' :
+                   newClass === 'shaman' ? 'restoration_shaman' : 'holy_paladin';
+    this.state.playerEquipment = getPreRaidBisForSpec(specKey);
+
+    // Update player in raid
+    const player = this.state.raid.find(m => m.id === PLAYER_ID);
+    if (player) {
+      player.class = newClass;
+      player.spec = this.getPlayerSpec(newClass);
+      // Update equipment on the raid member as well
+      player.equipment = this.state.playerEquipment;
+      player.gearScore = this.calculateGearScore(player.equipment);
+      // Only update name if it's still the default for the old class
+      if (!this.state.isRaidLeaderMode && player.name === this.getDefaultPlayerName(oldClass)) {
+        player.name = this.getDefaultPlayerName(newClass);
+        this.state.playerName = player.name;
+      }
+
+      // Update aura/totem assignments based on new class
+      if (newClass !== 'paladin') {
+        // Remove player from paladin aura assignments
+        this.state.paladinAuraAssignments = this.state.paladinAuraAssignments.filter(
+          a => a.paladinId !== PLAYER_ID
+        );
+      } else {
+        // Player is now a paladin - add default aura assignment if needed
+        const existingAssignment = this.state.paladinAuraAssignments.find(a => a.paladinId === PLAYER_ID);
+        if (!existingAssignment) {
+          this.state.paladinAuraAssignments.push({ paladinId: PLAYER_ID, auraId: 'devotion_aura' });
+        }
+      }
+
+      if (newClass !== 'shaman') {
+        // Remove player from shaman totem assignments
+        this.state.shamanTotemAssignments = this.state.shamanTotemAssignments.filter(
+          a => a.shamanId !== PLAYER_ID
+        );
+        // Clear active totems if player was a shaman
+        this.state.activeTotems = [];
+      }
+    }
+
+    // Recalculate auras with new class (only if raid is initialized)
+    if (this.state.raid && this.state.raid.length > 0) {
+      this.recalculateAuras();
+    }
+
+    // Update player stats from new equipment
+    const newStats = this.computePlayerStats();
+    this.state.spellPower = newStats.totalSpellPower;
+    this.state.maxMana = newStats.totalMaxMana;
+    this.state.critChance = newStats.totalCritChance;
+    this.state.playerMana = this.state.maxMana;
+
+    this.addCombatLogEntry({
+      message: `Now playing ${this.getClassDisplayName(newClass)}`,
+      type: 'system',
+    });
+
+    // Track class selection in PostHog
+    posthog.capture('class_selected', {
+      class_name: newClass,
+      faction: this.state.faction,
+      previous_class: oldClass
+    });
 
     this.notify();
   }
@@ -1839,12 +1997,21 @@ export class GameEngine {
       this.castTimeout = null;
     }
 
-    // Clear all debuffs from raid members when encounter ends
+    // Clear all debuffs, HoTs, buffs, and shields from raid members when encounter ends
     // Also reset encounter participation flags (no loot on wipes)
     this.state.raid.forEach(member => {
       member.debuffs = [];
+      member.activeHoTs = [];
+      member.buffs = [];
+      member.weakenedSoulDuration = 0;
+      member.absorbShield = 0;
+      member.absorbShieldMax = 0;
       member.wasInEncounter = false;
     });
+
+    // Clear Power Infusion state
+    this.state.powerInfusionTargetId = null;
+    this.state.powerInfusionDuration = 0;
 
     this.addCombatLogEntry({ message: 'Encounter ended.', type: 'system' });
     this.notify();
@@ -2538,7 +2705,16 @@ export class GameEngine {
     if (this.state.globalCooldown > 0 && spell.isOnGlobalCooldown) return;
 
     // Calculate effective mana cost (doubled if Lucifron's Curse is active)
-    const effectiveManaCost = this.getEffectiveManaCost(spell.manaCost);
+    let effectiveManaCost = this.getEffectiveManaCost(spell.manaCost);
+
+    // Inner Focus makes the next healing spell free (Priest)
+    // Healing spells for Priest: Greater Heal, Flash Heal, Heal, Renew, Prayer of Healing, Power Word: Shield
+    const priestHealingSpells = ['greater_heal', 'greater_heal_downrank', 'greater_heal_rank1',
+      'flash_heal', 'flash_heal_downrank', 'heal', 'renew', 'prayer_of_healing', 'power_word_shield'];
+    const isInnerFocusApplicable = this.state.innerFocusActive && priestHealingSpells.includes(spell.id);
+    if (isInnerFocusApplicable) {
+      effectiveManaCost = 0;
+    }
 
     // Check mana
     if (this.state.playerMana < effectiveManaCost) {
@@ -2573,6 +2749,15 @@ export class GameEngine {
       this.state.lastSpellCastTime = this.state.elapsedTime; // FSR tracking
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
       this.addCombatLogEntry({ message: "Nature's Swiftness activated - next nature spell is instant!", type: 'buff' });
+      this.notify();
+      return;
+    }
+
+    // Inner Focus - makes next spell free and +25% crit (Priest)
+    if (spell.id === 'inner_focus') {
+      this.state.innerFocusActive = true;
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+      this.addCombatLogEntry({ message: 'Inner Focus activated - next spell is free and +25% crit!', type: 'buff' });
       this.notify();
       return;
     }
@@ -2817,7 +3002,290 @@ export class GameEngine {
       return;
     }
 
-    // Cast time spells (Holy Light, Flash of Light, Healing Wave, Lesser Healing Wave, Chain Heal)
+    // Power Infusion - buff target's spell damage by 20% for 15s (Priest)
+    if (spell.id === 'power_infusion') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot buff dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Remove any existing Power Infusion buff from anyone else first
+      if (this.state.powerInfusionTargetId) {
+        const oldTarget = this.state.raid.find(m => m.id === this.state.powerInfusionTargetId);
+        if (oldTarget) {
+          oldTarget.buffs = oldTarget.buffs.filter(b => b.id !== 'power_infusion');
+        }
+      }
+
+      // Apply Power Infusion buff to target
+      this.state.powerInfusionTargetId = target.id;
+      this.state.powerInfusionDuration = 15;
+
+      // Add the buff to the target's buffs array
+      target.buffs = target.buffs.filter(b => b.id !== 'power_infusion'); // Remove existing if any
+      target.buffs.push({
+        id: 'power_infusion',
+        name: 'Power Infusion',
+        icon: spell.icon,
+        duration: 15,
+        maxDuration: 15,
+        effect: {
+          spellDamageBonus: 0.20, // +20% spell damage
+        },
+      });
+
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+
+      this.addCombatLogEntry({
+        message: `Power Infusion cast on ${target.name} - +20% spell damage for 15s!`,
+        type: 'buff',
+      });
+      this.notify();
+      return;
+    }
+
+    // Renew - instant HoT (Priest)
+    if (spell.id === 'renew') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot heal dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Handle Inner Focus - free spell
+      const actualManaCost = this.state.innerFocusActive ? 0 : effectiveManaCost;
+      if (this.state.innerFocusActive) {
+        this.state.innerFocusActive = false;
+        this.addCombatLogEntry({ message: 'Inner Focus consumed!', type: 'buff' });
+      }
+
+      this.state.playerMana -= actualManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Calculate heal per tick with spell power
+      const baseHealPerTick = 194; // Renew R10 base tick
+      const spellPowerBonus = Math.floor(this.state.spellPower * 0.20);
+      const healPerTick = baseHealPerTick + spellPowerBonus;
+
+      const hotId = `renew_${Date.now()}`;
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set - send HoT data to host
+      if (this.onHealApplied) {
+        this.onHealApplied({
+          targetIndex,
+          targetId: target.id,
+          healAmount: 0, // No immediate heal
+          spellName: spell.name,
+          spellId: spell.id,
+          playerName: this.state.playerName,
+          hotData: {
+            id: hotId,
+            spellId: 'renew',
+            spellName: 'Renew',
+            icon: spell.icon,
+            remainingDuration: 15,
+            maxDuration: 15,
+            tickInterval: 3,
+            healPerTick: healPerTick,
+          },
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (this.isMultiplayerClient) {
+        this.addCombatLogEntry({ message: `Renew applied to ${target.name} (syncing...)`, type: 'heal' });
+        this.notify();
+        return;
+      }
+
+      // Check if target already has Renew - refresh if so
+      if (!target.activeHoTs) target.activeHoTs = [];
+      const existingRenew = target.activeHoTs.find(h => h.spellId === 'renew');
+
+      if (existingRenew) {
+        // Refresh the HoT
+        existingRenew.remainingDuration = 15;
+        existingRenew.maxDuration = 15;
+        existingRenew.healPerTick = healPerTick;
+        existingRenew.timeSinceLastTick = 0;
+        this.addCombatLogEntry({ message: `Renew refreshed on ${target.name}`, type: 'heal' });
+      } else {
+        // Apply new HoT
+        target.activeHoTs.push({
+          id: hotId,
+          spellId: 'renew',
+          spellName: 'Renew',
+          icon: spell.icon,
+          casterId: PLAYER_ID,
+          casterName: this.state.playerName,
+          remainingDuration: 15,
+          maxDuration: 15,
+          tickInterval: 3,
+          timeSinceLastTick: 0,
+          healPerTick: healPerTick,
+        });
+        this.addCombatLogEntry({ message: `Renew applied to ${target.name}`, type: 'heal' });
+      }
+
+      this.notify();
+      return;
+    }
+
+    // Power Word: Shield - instant absorb shield (Priest)
+    if (spell.id === 'power_word_shield') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot shield dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Check Weakened Soul debuff
+      if (target.weakenedSoulDuration && target.weakenedSoulDuration > 0) {
+        this.addCombatLogEntry({
+          message: `Cannot shield ${target.name} - Weakened Soul (${Math.ceil(target.weakenedSoulDuration)}s)`,
+          type: 'system',
+        });
+        this.notify();
+        return;
+      }
+
+      // Handle Inner Focus - free spell
+      const actualManaCost = this.state.innerFocusActive ? 0 : effectiveManaCost;
+      if (this.state.innerFocusActive) {
+        this.state.innerFocusActive = false;
+        this.addCombatLogEntry({ message: 'Inner Focus consumed!', type: 'buff' });
+      }
+
+      this.state.playerMana -= actualManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Calculate shield amount with spell power
+      const baseShield = 942; // PW:S R10 base absorb
+      const spellPowerBonus = Math.floor(this.state.spellPower * 0.10);
+      const shieldAmount = baseShield + spellPowerBonus;
+
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set - send shield data to host
+      if (this.onHealApplied) {
+        this.onHealApplied({
+          targetIndex,
+          targetId: target.id,
+          healAmount: 0, // No direct heal
+          spellName: spell.name,
+          spellId: spell.id,
+          playerName: this.state.playerName,
+          shieldData: {
+            amount: shieldAmount,
+            weakenedSoulDuration: 15,
+          },
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (this.isMultiplayerClient) {
+        this.addCombatLogEntry({
+          message: `Power Word: Shield on ${target.name} (${shieldAmount} absorb) (syncing...)`,
+          type: 'buff',
+        });
+        this.notify();
+        return;
+      }
+
+      // Apply shield
+      target.absorbShield = shieldAmount;
+      target.absorbShieldMax = shieldAmount;
+      target.weakenedSoulDuration = 15; // 15 second debuff
+
+      this.addCombatLogEntry({
+        message: `Power Word: Shield on ${target.name} (${shieldAmount} absorb)`,
+        type: 'buff',
+      });
+      this.notify();
+      return;
+    }
+
+    // Dispel Magic - remove a magic debuff only (Priest)
+    if (spell.id === 'dispel_magic') {
+      const magicDebuff = target.debuffs.find(d => d.type === 'magic' && d.dispellable !== false);
+
+      if (!magicDebuff) {
+        this.addCombatLogEntry({ message: 'No magic effect to dispel!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Find target index for multiplayer sync
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: magicDebuff.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (!this.isMultiplayerClient) {
+        target.debuffs = target.debuffs.filter(d => d.id !== magicDebuff.id);
+        this.state.dispelsDone++;
+      }
+      this.addCombatLogEntry({ message: `Dispelled ${magicDebuff.name} from ${target.name}`, type: 'buff' });
+      this.notify();
+      return;
+    }
+
+    // Abolish Disease - remove a disease debuff (Priest)
+    if (spell.id === 'abolish_disease') {
+      const disease = target.debuffs.find(d => d.type === 'disease');
+
+      if (!disease) {
+        this.addCombatLogEntry({ message: 'No disease to remove!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Find target index for multiplayer sync
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: disease.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (!this.isMultiplayerClient) {
+        target.debuffs = target.debuffs.filter(d => d.id !== disease.id);
+        this.state.dispelsDone++;
+      }
+      this.addCombatLogEntry({ message: `Abolished ${disease.name} from ${target.name}`, type: 'buff' });
+      this.notify();
+      return;
+    }
+
+    // Cast time spells (Holy Light, Flash of Light, Healing Wave, Lesser Healing Wave, Chain Heal, Priest heals)
     if (spell.castTime > 0) {
       if (!target.isAlive) {
         this.addCombatLogEntry({ message: 'Cannot heal dead target!', type: 'system' });
@@ -2870,7 +3338,14 @@ export class GameEngine {
       this.castTimeout = window.setTimeout(() => {
         if (this.state.isCasting && this.state.castingSpell?.id === spell.id) {
           // Recalculate effective mana cost when cast completes (curse may have been dispelled)
-          const finalManaCost = this.getEffectiveManaCost(spell.manaCost);
+          let finalManaCost = this.getEffectiveManaCost(spell.manaCost);
+
+          // Inner Focus makes the next healing spell free (Priest)
+          const priestHealingSpellIds = ['greater_heal', 'greater_heal_downrank', 'greater_heal_rank1',
+            'flash_heal', 'flash_heal_downrank', 'heal', 'renew', 'prayer_of_healing', 'power_word_shield'];
+          if (this.state.innerFocusActive && priestHealingSpellIds.includes(spell.id)) {
+            finalManaCost = 0;
+          }
 
           // Check if we still have enough mana when cast completes
           if (this.state.playerMana < finalManaCost) {
@@ -2889,8 +3364,12 @@ export class GameEngine {
           // Use the original target from when cast started (stored in targetId closure)
           const currentTarget = this.state.raid.find(m => m.id === targetId);
           if (currentTarget && currentTarget.isAlive) {
+            // Check if this is a Prayer of Healing spell (group heal)
+            if (spell.id === 'prayer_of_healing') {
+              this.applyPrayerOfHealing(currentTarget, spell);
+            }
             // Check if this is a Chain Heal spell
-            if (spell.maxBounces && spell.maxBounces > 0) {
+            else if (spell.maxBounces && spell.maxBounces > 0) {
               this.applyChainHeal(currentTarget, spell);
             } else {
               this.applyHeal(currentTarget, spell);
@@ -2939,11 +3418,21 @@ export class GameEngine {
     // Check for crit
     let isCrit = Math.random() * 100 < this.state.critChance;
 
-    // Divine Favor guarantees crit
+    // Divine Favor guarantees crit (Paladin)
     if (this.state.divineFavorActive) {
       isCrit = true;
       this.state.divineFavorActive = false;
       this.addCombatLogEntry({ message: 'Divine Favor consumed!', type: 'buff' });
+    }
+
+    // Inner Focus gives +25% crit chance (Priest)
+    if (this.state.innerFocusActive) {
+      // 25% bonus crit chance from Inner Focus
+      if (!isCrit && Math.random() * 100 < 25) {
+        isCrit = true;
+      }
+      this.state.innerFocusActive = false;
+      this.addCombatLogEntry({ message: 'Inner Focus consumed!', type: 'buff' });
     }
 
     if (isCrit) {
@@ -3044,6 +3533,89 @@ export class GameEngine {
     }
 
     return remainingDamage;
+  }
+
+  // Prayer of Healing - heals all party members in the target's group
+  private applyPrayerOfHealing(target: RaidMember, spell: Spell) {
+    // Find all alive members in the target's group
+    const groupMembers = this.state.raid.filter(
+      m => m.group === target.group && m.isAlive
+    );
+
+    // Calculate base heal (same for all targets)
+    const baseHeal = spell.healAmount.min + Math.random() * (spell.healAmount.max - spell.healAmount.min);
+    const spellPowerBonus = this.state.spellPower * spell.spellPowerCoefficient;
+    let totalHeal = Math.floor(baseHeal + spellPowerBonus);
+
+    // Check for crit (one roll for all targets)
+    let isCrit = Math.random() * 100 < this.state.critChance;
+
+    // Inner Focus gives +25% crit chance (Priest)
+    if (this.state.innerFocusActive) {
+      if (!isCrit && Math.random() * 100 < 25) {
+        isCrit = true;
+      }
+      this.state.innerFocusActive = false;
+      this.addCombatLogEntry({ message: 'Inner Focus consumed!', type: 'buff' });
+    }
+
+    if (isCrit) {
+      totalHeal = Math.floor(totalHeal * 1.5);
+    }
+
+    // Apply heal to each group member
+    let totalActualHeal = 0;
+    let totalOverheal = 0;
+
+    groupMembers.forEach(member => {
+      // Check for healing reduction debuffs on each member
+      let memberHeal = totalHeal;
+      const healingReductionDebuff = member.debuffs.find(d => d.healingReduction && d.healingReduction > 0);
+      if (healingReductionDebuff && healingReductionDebuff.healingReduction) {
+        memberHeal = Math.floor(memberHeal * (1 - healingReductionDebuff.healingReduction));
+      }
+
+      const actualHeal = Math.round(Math.min(memberHeal, member.maxHealth - member.currentHealth));
+      const overheal = Math.round(memberHeal - actualHeal);
+
+      // Apply healing
+      if (!this.isMultiplayerClient) {
+        member.currentHealth = Math.min(member.maxHealth, member.currentHealth + memberHeal);
+      }
+
+      if (isCrit) {
+        member.lastCritHealTime = Date.now();
+      }
+
+      totalActualHeal += actualHeal;
+      totalOverheal += overheal;
+    });
+
+    // Track healing stats
+    this.state.healingDone += totalActualHeal;
+    this.state.overhealing += totalOverheal;
+    this.state.spellHealing[spell.id] = (this.state.spellHealing[spell.id] || 0) + totalActualHeal;
+
+    // Combat log
+    this.addCombatLogEntry({
+      message: `Prayer of Healing ${isCrit ? 'CRITS' : 'heals'} ${groupMembers.length} targets for ${totalActualHeal}${totalOverheal > 0 ? ` (${totalOverheal} overheal)` : ''}`,
+      type: 'heal',
+      amount: totalActualHeal,
+      isCrit,
+    });
+
+    // Illumination: Refund 60% of base mana cost on crit (for Priest talent)
+    if (isCrit) {
+      const illuminationRefund = Math.floor(spell.manaCost * 0.6);
+      this.state.playerMana = Math.min(
+        this.state.maxMana,
+        this.state.playerMana + illuminationRefund
+      );
+      this.addCombatLogEntry({
+        message: `Illumination! Refunded ${illuminationRefund} mana`,
+        type: 'buff',
+      });
+    }
   }
 
   // Chain Heal - bounces to nearby injured targets within the same position zone
@@ -3700,6 +4272,33 @@ export class GameEngine {
             message: 'Innervate fades.',
             type: 'buff',
           });
+        }
+      }
+
+      // Update Power Infusion buff duration
+      if (this.state.powerInfusionTargetId && this.state.powerInfusionDuration > 0) {
+        this.state.powerInfusionDuration -= delta;
+
+        // Also update the buff duration on the target's buffs array for UI display
+        const piTarget = this.state.raid.find(m => m.id === this.state.powerInfusionTargetId);
+        if (piTarget) {
+          const piBuff = piTarget.buffs.find(b => b.id === 'power_infusion');
+          if (piBuff) {
+            piBuff.duration = Math.max(0, this.state.powerInfusionDuration);
+          }
+        }
+
+        if (this.state.powerInfusionDuration <= 0) {
+          // Remove the buff from the target
+          if (piTarget) {
+            piTarget.buffs = piTarget.buffs.filter(b => b.id !== 'power_infusion');
+          }
+          this.addCombatLogEntry({
+            message: 'Power Infusion fades.',
+            type: 'buff',
+          });
+          this.state.powerInfusionTargetId = null;
+          this.state.powerInfusionDuration = 0;
         }
       }
 
@@ -5968,10 +6567,11 @@ export class GameEngine {
 
             // Apply HoT if the spell has HoT properties
             if (hotSpell.isHoT && hotSpell.hotDuration && hotSpell.hotTickInterval) {
-              // Check if target already has this HoT from this caster (don't stack, refresh)
-              const existingHotIndex = target.activeHoTs.findIndex(
-                h => h.spellId === spell.id && h.casterId === healer.id
-              );
+              // Check if target already has this HoT type (Renew/Rejuv don't stack from different casters in Classic)
+              // For Renew specifically - only one can be active at a time (any caster)
+              const existingHotIndex = spell.id === 'renew'
+                ? target.activeHoTs.findIndex(h => h.spellId === 'renew')
+                : target.activeHoTs.findIndex(h => h.spellId === spell.id && h.casterId === healer.id);
 
               // Calculate heal per tick (base + spell power contribution)
               const spellPower = healer.gearScore * 0.3;
@@ -6199,6 +6799,11 @@ export class GameEngine {
             memberDps *= 0.5;
           }
 
+          // Power Infusion: +20% spell damage for casters
+          if (isCaster && m.buffs.some(b => b.id === 'power_infusion')) {
+            memberDps *= 1.2;
+          }
+
           return sum + memberDps;
         }, 0);
 
@@ -6409,11 +7014,20 @@ export class GameEngine {
       this.castTimeout = null;
     }
 
-    // Clear all debuffs from raid members after boss kill
+    // Clear all debuffs, HoTs, buffs, and shields from raid members after boss kill
     // Note: wasInEncounter is preserved until loot is distributed, then cleared in closeLootModal
     this.state.raid.forEach(member => {
       member.debuffs = [];
+      member.activeHoTs = [];
+      member.buffs = [];
+      member.weakenedSoulDuration = 0;
+      member.absorbShield = 0;
+      member.absorbShieldMax = 0;
     });
+
+    // Clear Power Infusion state
+    this.state.powerInfusionTargetId = null;
+    this.state.powerInfusionDuration = 0;
 
     // Clear tank swap warning
     this.state.tankSwapWarning = null;

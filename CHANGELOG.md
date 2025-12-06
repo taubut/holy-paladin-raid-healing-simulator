@@ -2,6 +2,25 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.32.0] - 2025-12-06
+
+### Added
+- **Playable Holy Priest**: Full spell kit including Flash Heal, Greater Heal, Renew, Power Word: Shield, Prayer of Healing, Dispel Magic
+- **Power Word: Shield**: Absorb incoming damage with visible absorb bars on raid frames
+- **Weakened Soul Indicator**: 15-second debuff prevents re-shielding with visible indicator on raid frames
+- **Renew HoT**: Heal over Time spell with visible HoT icon on raid frames
+- **Power Infusion**: Boost a healer's spell haste and reduce mana costs (added for fun - it's technically a Disc spell!)
+- **Multiplayer Cross-Class Sync**: Priest spells (Renew, PW:S, Weakened Soul) now sync properly between host and client
+- **Faction Matching**: Players must be same faction to join multiplayer rooms
+- **Auto-Share Raid**: Host's raid composition automatically shares when client joins
+
+### Changed
+- **Streamlined Multiplayer Lobby**: Class selection removed - uses your save file class automatically
+
+### Fixed
+- **Player Name Not Saving**: Fixed bug where custom character names were being overwritten by default class names
+- **Priest Class Display**: Player frame now correctly shows "Holy Priest" instead of "Holy Paladin"
+
 ## [0.31.0] - 2025-12-05
 
 ### Added

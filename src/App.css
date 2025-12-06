@@ -852,6 +852,92 @@ body {
   }
 }
 
+/* ============================================= */
+/* POWER INFUSION EFFECT (Priest buff)           */
+/* ============================================= */
+
+/* Power Infusion frame - pulsing gold glow */
+.raid-frame.has-power-infusion,
+.mobile-raid-frame.has-power-infusion {
+  border-color: #ffd700 !important;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.9), inset 0 0 10px rgba(255, 215, 0, 0.4);
+  animation: power-infusion-pulse 1s ease-in-out infinite;
+  z-index: 10;
+}
+
+@keyframes power-infusion-pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.7), inset 0 0 8px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 230, 100, 1), inset 0 0 15px rgba(255, 230, 100, 0.5);
+  }
+}
+
+/* ============================================= */
+/* WEAKENED SOUL EFFECT (Cannot receive PW:S)   */
+/* ============================================= */
+
+/* Weakened Soul frame - white border that counts down clockwise using SVG */
+.raid-frame.has-weakened-soul,
+.mobile-raid-frame.has-weakened-soul {
+  position: relative;
+  border: 3px solid transparent !important;
+  box-sizing: border-box;
+}
+
+/* SVG-based countdown border */
+.weakened-soul-border {
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: calc(100% + 6px);
+  height: calc(100% + 6px);
+  pointer-events: none;
+  z-index: 100;
+  overflow: visible;
+}
+
+.raid-frame .weakened-soul-border rect {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3;
+  stroke-linecap: square;
+  /* Total perimeter: 2*(123 + 58) = 362 */
+  stroke-dasharray: 362;
+  stroke-dashoffset: 0;
+  animation: weakened-soul-wipe-desktop 15s linear forwards;
+}
+
+.mobile-raid-frame .weakened-soul-border rect {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+  stroke-linecap: square;
+  /* Total perimeter: 2*(77 + 33) = 220 */
+  stroke-dasharray: 220;
+  stroke-dashoffset: 0;
+  animation: weakened-soul-wipe-mobile 15s linear forwards;
+}
+
+@keyframes weakened-soul-wipe-desktop {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 362;
+  }
+}
+
+@keyframes weakened-soul-wipe-mobile {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: 220;
+  }
+}
+
 /* Mind Control raid warning */
 .mind-control-warning {
   position: fixed;

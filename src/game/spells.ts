@@ -85,6 +85,61 @@ export const SPELL_TOOLTIPS: Record<string, SpellTooltip> = {
     description: 'Cures 1 disease effect on the target.',
     additionalInfo: 'Use to remove disease debuffs from raid members.',
   },
+  // ============================================
+  // PRIEST SPELLS
+  // ============================================
+  greater_heal: {
+    description: 'A slow casting spell that heals a single target for 1966 to 2195.',
+    additionalInfo: 'Your biggest heal. Use on tanks or badly injured targets.',
+  },
+  greater_heal_downrank: {
+    description: 'A slow casting spell that heals a single target for 1437 to 1610.',
+    additionalInfo: 'Rank 3 - More mana efficient for moderate damage.',
+  },
+  greater_heal_rank1: {
+    description: 'A slow casting spell that heals a single target for 899 to 1014.',
+    additionalInfo: 'Rank 1 - Emergency spam rank when mana is critical.',
+  },
+  flash_heal: {
+    description: 'Heals a friendly target for 812 to 959.',
+    additionalInfo: 'Fast 1.5s cast. Your go-to spell for quick healing.',
+  },
+  flash_heal_downrank: {
+    description: 'Heals a friendly target for 400 to 479.',
+    additionalInfo: 'Rank 4 - Mana efficient for light damage.',
+  },
+  heal: {
+    description: 'Heal your target for 566 to 643.',
+    additionalInfo: 'Most mana-efficient heal. Use during light damage phases.',
+  },
+  renew: {
+    description: 'Heals the target for 970 over 15 sec.',
+    additionalInfo: 'Instant HoT! Keep rolling on tanks. 5 ticks of 194 healing.',
+  },
+  prayer_of_healing: {
+    description: 'A powerful prayer heals party members within 30 yards for 1041 to 1100.',
+    additionalInfo: 'Heals your entire group! Expensive but powerful for AoE damage.',
+  },
+  power_word_shield: {
+    description: 'Draws on the soul of the party member to shield them, absorbing 942 damage. Lasts 30 sec. While the shield holds, spellcasting will not be interrupted by damage. Once shielded, the target cannot be shielded again for 15 sec.',
+    additionalInfo: 'Instant absorb shield. Weakened Soul prevents re-shielding for 15 sec.',
+  },
+  inner_focus: {
+    description: 'When activated, reduces the mana cost of your next spell by 100% and increases its critical effect chance by 25%.',
+    additionalInfo: 'Combine with Greater Heal for a free, likely-to-crit big heal!',
+  },
+  power_infusion: {
+    description: "Infuses the target with power, increasing their spell damage and healing by 20% for 15 sec.",
+    additionalInfo: 'Cast on a caster DPS to boost raid damage! Watch them glow gold.',
+  },
+  dispel_magic: {
+    description: 'Dispels magic on the target, removing 1 harmful spell from a friend.',
+    additionalInfo: 'Use to remove magic debuffs from raid members.',
+  },
+  abolish_disease: {
+    description: 'Attempts to cure 1 disease on the target, and 1 more disease every 5 sec for 20 sec.',
+    additionalInfo: 'Removes diseases over time. Great for fights with disease mechanics.',
+  },
 };
 
 // Holy Light - Rank 9 (max rank)

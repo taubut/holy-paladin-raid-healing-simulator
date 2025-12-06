@@ -166,6 +166,7 @@ export interface GameSession {
     raidSize?: 20 | 40;
     selectedRaid?: string;
     selectedBoss?: string;
+    faction?: 'alliance' | 'horde';
   };
   created_at: string;
   updated_at: string;
@@ -194,7 +195,7 @@ export function generateRoomCode(): string {
 }
 
 // Session management functions
-export async function createGameSession(hostName: string, hostClass: SessionPlayer['player_class']) {
+export async function createGameSession(hostName: string, hostClass: SessionPlayer['player_class'], faction: 'alliance' | 'horde' = 'alliance') {
   const roomCode = generateRoomCode();
 
   // Create the session first
@@ -203,7 +204,7 @@ export async function createGameSession(hostName: string, hostClass: SessionPlay
     .insert({
       room_code: roomCode,
       status: 'lobby',
-      settings: { raidSize: 20 }
+      settings: { raidSize: 20, faction }
     })
     .select()
     .single();
@@ -248,7 +249,7 @@ export async function createGameSession(hostName: string, hostClass: SessionPlay
   return { session, player };
 }
 
-export async function joinGameSession(roomCode: string, playerName: string, playerClass: SessionPlayer['player_class']) {
+export async function joinGameSession(roomCode: string, playerName: string, playerClass: SessionPlayer['player_class'], playerFaction: 'alliance' | 'horde' = 'alliance') {
   // Find the session
   const { data: session, error: sessionError } = await supabase
     .from('game_sessions')
@@ -263,6 +264,14 @@ export async function joinGameSession(roomCode: string, playerName: string, play
 
   if (session.status !== 'lobby') {
     return { error: 'Game already in progress. Cannot join.' };
+  }
+
+  // Check faction matches
+  const sessionFaction = session.settings?.faction || 'alliance';
+  if (playerFaction !== sessionFaction) {
+    const hostFactionName = sessionFaction.charAt(0).toUpperCase() + sessionFaction.slice(1);
+    const playerFactionName = playerFaction.charAt(0).toUpperCase() + playerFaction.slice(1);
+    return { error: `Cannot join: Host is ${hostFactionName} but you are ${playerFactionName}. You must be the same faction to play together.` };
   }
 
   // Check player count (max 4 for now)

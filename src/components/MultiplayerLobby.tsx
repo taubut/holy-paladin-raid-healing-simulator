@@ -56,6 +56,7 @@ interface MultiplayerLobbyProps {
   onStartGame: (session: GameSession, players: SessionPlayer[], localPlayer: SessionPlayer, hostSpectating?: boolean) => void;
   onCancel: () => void;
   initialPlayerName?: string;
+  initialPlayerClass?: SessionPlayer['player_class'];  // Player's class from save file
   hostEquipment?: Equipment;  // Host's current equipment to share with others
   hostRaid?: SyncableRaidMember[];  // Host's raid composition
   onRaidSync?: (raid: SyncableRaidMember[]) => void;  // Callback when client accepts raid sync
@@ -64,11 +65,11 @@ interface MultiplayerLobbyProps {
 
 type LobbyView = 'menu' | 'create' | 'join' | 'lobby';
 
-export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = '', hostEquipment, hostRaid, onRaidSync, faction = 'alliance' }: MultiplayerLobbyProps) {
+export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = '', initialPlayerClass, hostEquipment, hostRaid, onRaidSync, faction = 'alliance' }: MultiplayerLobbyProps) {
   const [view, setView] = useState<LobbyView>('menu');
   const [playerName, setPlayerName] = useState(initialPlayerName);
-  // Default to faction-appropriate class
-  const [playerClass, setPlayerClass] = useState<SessionPlayer['player_class']>(faction === 'horde' ? 'shaman' : 'paladin');
+  // Use player's class from their save file, fallback to faction-appropriate class
+  const playerClass: SessionPlayer['player_class'] = initialPlayerClass ?? (faction === 'horde' ? 'shaman' : 'paladin');
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -99,6 +100,7 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
   const onRaidSyncRef = useRef(onRaidSync);
   const hostSpectatingRef = useRef(hostSpectating);
   const receivedHostSpectatingRef = useRef<boolean | null>(null);
+  const previousPlayerIdsRef = useRef<Set<string>>(new Set());
 
   // Keep callback refs in sync
   useEffect(() => {
@@ -133,6 +135,39 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
   useEffect(() => {
     localPlayerRef.current = localPlayer;
   }, [localPlayer]);
+
+  // Auto-share raid composition when a new player joins (host only)
+  // This shares the raid NPCs and their gear, NOT the host's player equipment
+  useEffect(() => {
+    if (!localPlayer?.is_host || !hostRaid || !channelRef.current) return;
+
+    // Get current player IDs
+    const currentIds = new Set(players.map(p => p.id));
+    const previousIds = previousPlayerIdsRef.current;
+
+    // Check if there's a new non-host player
+    const newPlayerIds = [...currentIds].filter(id => !previousIds.has(id));
+    const hasNewNonHostPlayer = newPlayerIds.some(id => {
+      const player = players.find(p => p.id === id);
+      return player && !player.is_host;
+    });
+
+    if (hasNewNonHostPlayer && players.length > 1) {
+      // Auto-send gear share request to sync raid composition
+      setGearSharePending(true);
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'gear_share_request',
+        payload: {
+          hostName: localPlayer.player_name,
+          raid: hostRaid  // Only the raid composition (NPCs), not player equipment
+        }
+      });
+    }
+
+    // Update previous player IDs
+    previousPlayerIdsRef.current = currentIds;
+  }, [players, localPlayer, hostRaid]);
 
   // Subscribe to player changes in lobby
   useEffect(() => {
@@ -213,19 +248,16 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
           }
         }
       )
-      // Listen for gear share acceptance (host listens for this)
+      // Listen for gear share acceptance (host listens to clear pending state)
       .on(
         'broadcast',
         { event: 'gear_share_response' },
         (payload) => {
-          // Use ref to get current value
+          // Just track that someone responded - no longer copying host's player equipment
           const currentPlayer = localPlayerRef.current;
-          const equipment = hostEquipmentRef.current;
-          if (currentPlayer?.is_host && payload.payload?.accepted && payload.payload?.playerId && equipment) {
-            // Update this specific player's gear
-            const gearScore = calculateGearScore(equipment);
-            const equipmentRecord = equipmentToRecord(equipment);
-            updatePlayerEquipment(payload.payload.playerId, equipmentRecord, gearScore);
+          if (currentPlayer?.is_host && payload.payload?.accepted) {
+            // Raid composition sync is complete, clear the pending state
+            setGearSharePending(false);
           }
         }
       )
@@ -264,7 +296,7 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
     setLoading(true);
     setError(null);
 
-    const result = await createGameSession(playerName.trim(), playerClass);
+    const result = await createGameSession(playerName.trim(), playerClass, faction);
     if (result) {
       setSession(result.session);
       setLocalPlayer(result.player);
@@ -288,7 +320,7 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
     setLoading(true);
     setError(null);
 
-    const result = await joinGameSession(roomCode.trim(), playerName.trim(), playerClass);
+    const result = await joinGameSession(roomCode.trim(), playerName.trim(), playerClass, faction);
     if ('error' in result && result.error) {
       setError(result.error);
     } else {
@@ -462,36 +494,11 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
               maxLength={20}
             />
 
-            <label className="mp-label">Healer Class</label>
-            <div className="mp-class-select">
-              {(['paladin', 'priest', 'druid', 'shaman'] as const)
-                // Filter out wrong faction class: Alliance can't be Shaman, Horde can't be Paladin
-                .filter((cls) => {
-                  if (faction === 'alliance' && cls === 'shaman') return false;
-                  if (faction === 'horde' && cls === 'paladin') return false;
-                  return true;
-                })
-                .map((cls) => {
-                const isDisabled = cls === 'priest' || cls === 'druid';
-                return (
-                  <button
-                    key={cls}
-                    className={`mp-class-btn ${playerClass === cls ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-                    style={{
-                      borderColor: playerClass === cls ? CLASS_COLORS[cls] : undefined,
-                      color: isDisabled ? '#666' : CLASS_COLORS[cls],
-                      opacity: isDisabled ? 0.5 : 1,
-                      cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    }}
-                    onClick={() => !isDisabled && setPlayerClass(cls)}
-                    disabled={isDisabled}
-                    title={isDisabled ? 'Coming soon!' : undefined}
-                  >
-                    {cls.charAt(0).toUpperCase() + cls.slice(1)}
-                    {isDisabled && ' (Soon)'}
-                  </button>
-                );
-              })}
+            <div className="mp-class-display">
+              <span className="mp-class-label">Playing as: </span>
+              <span className="mp-class-name" style={{ color: CLASS_COLORS[playerClass] }}>
+                {playerClass.charAt(0).toUpperCase() + playerClass.slice(1)}
+              </span>
             </div>
 
             {error && <div className="mp-error">{error}</div>}
@@ -532,36 +539,11 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
               maxLength={20}
             />
 
-            <label className="mp-label">Healer Class</label>
-            <div className="mp-class-select">
-              {(['paladin', 'priest', 'druid', 'shaman'] as const)
-                // Filter out wrong faction class: Alliance can't be Shaman, Horde can't be Paladin
-                .filter((cls) => {
-                  if (faction === 'alliance' && cls === 'shaman') return false;
-                  if (faction === 'horde' && cls === 'paladin') return false;
-                  return true;
-                })
-                .map((cls) => {
-                const isDisabled = cls === 'priest' || cls === 'druid';
-                return (
-                  <button
-                    key={cls}
-                    className={`mp-class-btn ${playerClass === cls ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-                    style={{
-                      borderColor: playerClass === cls ? CLASS_COLORS[cls] : undefined,
-                      color: isDisabled ? '#666' : CLASS_COLORS[cls],
-                      opacity: isDisabled ? 0.5 : 1,
-                      cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    }}
-                    onClick={() => !isDisabled && setPlayerClass(cls)}
-                    disabled={isDisabled}
-                    title={isDisabled ? 'Coming soon!' : undefined}
-                  >
-                    {cls.charAt(0).toUpperCase() + cls.slice(1)}
-                    {isDisabled && ' (Soon)'}
-                  </button>
-                );
-              })}
+            <div className="mp-class-display">
+              <span className="mp-class-label">Playing as: </span>
+              <span className="mp-class-name" style={{ color: CLASS_COLORS[playerClass] }}>
+                {playerClass.charAt(0).toUpperCase() + playerClass.slice(1)}
+              </span>
             </div>
 
             <label className="mp-label">Room Code</label>
@@ -678,17 +660,6 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
                 >
                   {allReady ? 'Start Raid!' : 'Waiting for Ready...'}
                 </button>
-
-                {hostEquipment && players.length > 1 && (
-                  <button
-                    className="mp-btn mp-btn-secondary"
-                    onClick={handleShareGear}
-                    disabled={loading || gearSharePending}
-                    title="Share your equipped gear with all players"
-                  >
-                    {gearSharePending ? 'Request Sent!' : loading ? 'Sharing...' : 'Share Your Gear'}
-                  </button>
-                )}
 
                 <label className="mp-spectate-toggle" title="Watch the raid without playing - an AI healer will take your spot">
                   <input

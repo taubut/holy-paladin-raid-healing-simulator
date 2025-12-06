@@ -136,7 +136,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.31.0';
+  const CURRENT_PATCH_VERSION = '0.32.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -806,9 +806,17 @@ function App() {
       engine.setRaidLeaderMode(true);
     }
 
-    // Apply character config
-    engine.setPlayerName(config.playerName);
+    // Apply character config - order matters!
+    // 1. Switch faction first (this sets default class and regenerates raid)
     engine.switchFaction(config.faction);
+
+    // 2. Set player class (may override faction default if playing Priest)
+    if (config.playerClass && !config.isRaidLeaderMode) {
+      engine.setPlayerClass(config.playerClass as 'paladin' | 'shaman' | 'priest');
+    }
+
+    // 3. Set player name LAST so it doesn't get overwritten by faction/class changes
+    engine.setPlayerName(config.playerName);
 
     // Continue raid leader setup if selected
     if (config.isRaidLeaderMode) {
@@ -860,7 +868,7 @@ function App() {
         email: currentUser.email,
         provider: currentUser.app_metadata?.provider,
         character_name: config.playerName,
-        character_class: config.faction === 'alliance' ? 'paladin' : 'shaman',
+        character_class: config.playerClass || (config.faction === 'alliance' ? 'paladin' : 'shaman'),
         faction: config.faction
       });
     }
@@ -992,6 +1000,9 @@ function App() {
                   debuffs: m.debuffs, // Sync debuffs!
                   buffs: m.buffs,     // Sync buffs too
                   activeHoTs: m.activeHoTs, // Sync HoTs (Rejuv, Regrowth, Renew icons)
+                  absorbShield: m.absorbShield, // Sync Power Word: Shield
+                  absorbShieldMax: m.absorbShieldMax,
+                  weakenedSoulDuration: m.weakenedSoulDuration, // Sync Weakened Soul debuff
                 })),
                 // Send full boss data so client can start any boss
                 boss: gameState.boss ? {
@@ -1073,6 +1084,7 @@ function App() {
           debuffId?: string;
           playerName: string;
           spellName?: string;
+          spellId?: string;
           playerId?: string;
           playerClass?: string;
           // Loot bid fields
@@ -1083,6 +1095,21 @@ function App() {
           // Mana sync for raid frames
           currentMana?: number;
           maxMana?: number;
+          // Priest HoT/shield data
+          hotData?: {
+            id: string;
+            spellId: string;
+            spellName: string;
+            icon: string;
+            remainingDuration: number;
+            maxDuration: number;
+            tickInterval: number;
+            healPerTick: number;
+          };
+          shieldData?: {
+            amount: number;
+            weakenedSoulDuration: number;
+          };
         };
         const gameState = engine.getState();
 
@@ -1098,38 +1125,86 @@ function App() {
         } else if (data.type === 'loot_pass' && data.itemId && data.playerId) {
           // Handle loot pass from client
           engine.removeLootBid(data.itemId, data.playerId);
-        } else if (data.type === 'heal' && data.healAmount !== undefined && data.targetIndex !== undefined) {
+        } else if (data.type === 'heal' && data.targetIndex !== undefined) {
           // Apply the heal from remote player
           const target = gameState.raid[data.targetIndex];
           if (target && target.isAlive) {
-            const actualHeal = Math.min(data.healAmount, target.maxHealth - target.currentHealth);
-            target.currentHealth = Math.min(target.maxHealth, target.currentHealth + data.healAmount);
-            engine.addCombatLogEntry({
-              message: `${data.playerName}'s ${data.spellName} heals ${target.name} for ${actualHeal}`,
-              type: 'heal',
-            });
+            // Apply direct heal if there is one
+            if (data.healAmount && data.healAmount > 0) {
+              const actualHeal = Math.min(data.healAmount, target.maxHealth - target.currentHealth);
+              target.currentHealth = Math.min(target.maxHealth, target.currentHealth + data.healAmount);
+              engine.addCombatLogEntry({
+                message: `${data.playerName}'s ${data.spellName} heals ${target.name} for ${actualHeal}`,
+                type: 'heal',
+              });
 
-            // Track this player's healing for the meter
-            if (data.playerId) {
-              const existing = multiplayerHealingStatsRef.current[data.playerId] || {
-                name: data.playerName,
-                class: data.playerClass || 'paladin',
-                healingDone: 0,
-                dispelsDone: 0,
-              };
-              existing.healingDone += actualHeal;
-              multiplayerHealingStatsRef.current[data.playerId] = existing;
-              // Trigger re-render so healing meter updates
-              setMultiplayerHealingStats({ ...multiplayerHealingStatsRef.current });
-
-              // Track this player's mana for raid frame display
-              if (data.currentMana !== undefined && data.maxMana !== undefined) {
-                multiplayerPlayerManaRef.current[data.playerId] = {
-                  current: data.currentMana,
-                  max: data.maxMana,
+              // Track healing for meter
+              if (data.playerId) {
+                const existing = multiplayerHealingStatsRef.current[data.playerId] || {
+                  name: data.playerName,
+                  class: data.playerClass || 'paladin',
+                  healingDone: 0,
+                  dispelsDone: 0,
                 };
-                setMultiplayerPlayerMana({ ...multiplayerPlayerManaRef.current });
+                existing.healingDone += actualHeal;
+                multiplayerHealingStatsRef.current[data.playerId] = existing;
+                setMultiplayerHealingStats({ ...multiplayerHealingStatsRef.current });
               }
+            }
+
+            // Apply HoT if present (Renew, etc.)
+            if (data.hotData) {
+              if (!target.activeHoTs) target.activeHoTs = [];
+              // Check if HoT already exists - refresh if so
+              const existingHot = target.activeHoTs.find(h => h.spellId === data.hotData!.spellId);
+              if (existingHot) {
+                existingHot.remainingDuration = data.hotData.remainingDuration;
+                existingHot.maxDuration = data.hotData.maxDuration;
+                existingHot.healPerTick = data.hotData.healPerTick;
+                existingHot.timeSinceLastTick = 0;
+                engine.addCombatLogEntry({
+                  message: `${data.playerName}'s ${data.hotData.spellName} refreshed on ${target.name}`,
+                  type: 'heal',
+                });
+              } else {
+                target.activeHoTs.push({
+                  id: data.hotData.id,
+                  spellId: data.hotData.spellId,
+                  spellName: data.hotData.spellName,
+                  icon: data.hotData.icon,
+                  casterId: data.playerId || 'client',
+                  casterName: data.playerName,
+                  remainingDuration: data.hotData.remainingDuration,
+                  maxDuration: data.hotData.maxDuration,
+                  tickInterval: data.hotData.tickInterval,
+                  timeSinceLastTick: 0,
+                  healPerTick: data.hotData.healPerTick,
+                });
+                engine.addCombatLogEntry({
+                  message: `${data.playerName}'s ${data.hotData.spellName} applied to ${target.name}`,
+                  type: 'heal',
+                });
+              }
+            }
+
+            // Apply shield if present (Power Word: Shield)
+            if (data.shieldData) {
+              target.absorbShield = data.shieldData.amount;
+              target.absorbShieldMax = data.shieldData.amount;
+              target.weakenedSoulDuration = data.shieldData.weakenedSoulDuration;
+              engine.addCombatLogEntry({
+                message: `${data.playerName}'s Power Word: Shield on ${target.name} (${data.shieldData.amount} absorb)`,
+                type: 'buff',
+              });
+            }
+
+            // Track mana for raid frame display
+            if (data.playerId && data.currentMana !== undefined && data.maxMana !== undefined) {
+              multiplayerPlayerManaRef.current[data.playerId] = {
+                current: data.currentMana,
+                max: data.maxMana,
+              };
+              setMultiplayerPlayerMana({ ...multiplayerPlayerManaRef.current });
             }
           }
         } else if (data.type === 'dispel' && data.debuffId && data.targetIndex !== undefined) {
@@ -1231,6 +1306,9 @@ function App() {
             debuffs?: Array<{ id: string; name: string; icon: string; duration: number; maxDuration: number; type?: string }>;
             buffs?: Array<{ id: string; name: string; icon: string; duration: number; maxDuration: number }>;
             activeHoTs?: Array<{ id: string; spellId: string; spellName: string; icon: string; casterId: string; casterName: string; remainingDuration: number; maxDuration: number; tickInterval: number; timeSinceLastTick: number; healPerTick: number }>;
+            absorbShield?: number;
+            absorbShieldMax?: number;
+            weakenedSoulDuration?: number;
           }) => {
             if (memberData.index < gameState.raid.length) {
               const member = gameState.raid[memberData.index];
@@ -1254,6 +1332,11 @@ function App() {
               if (memberData.activeHoTs) {
                 member.activeHoTs = memberData.activeHoTs as typeof member.activeHoTs;
               }
+              // Sync Power Word: Shield absorb
+              member.absorbShield = memberData.absorbShield ?? 0;
+              member.absorbShieldMax = memberData.absorbShieldMax ?? 0;
+              // Sync Weakened Soul debuff
+              member.weakenedSoulDuration = memberData.weakenedSoulDuration ?? 0;
             }
           });
         }
@@ -1510,11 +1593,15 @@ function App() {
               healAmount: data.healAmount,
               playerName: data.playerName,
               spellName: data.spellName,
+              spellId: data.spellId,
               playerId: localPlayer.id,
               playerClass: localPlayer.player_class,
               // Include mana so host can display on raid frames
               currentMana: gameState.playerMana,
               maxMana: gameState.maxMana,
+              // Include HoT/shield data for Priest spells
+              hotData: data.hotData,
+              shieldData: data.shieldData,
             },
           });
         }
@@ -2447,6 +2534,33 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.32.0 - Playable Holy Priest</h3>
+                  <span className="patch-date">December 6, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Holy Priest - New Playable Class</h4>
+                  <ul>
+                    <li><strong>Full Spell Kit</strong>: Flash Heal, Greater Heal, Renew, Power Word: Shield, Prayer of Healing, and more</li>
+                    <li><strong>Power Word: Shield</strong>: Absorb incoming damage with shields that show absorb bars on raid frames</li>
+                    <li><strong>Weakened Soul</strong>: 15-second debuff prevents re-shielding - visible indicator on raid frames when active</li>
+                    <li><strong>Renew</strong>: Heal over Time spell with visible HoT icon on raid frames</li>
+                    <li><strong>Dispel Magic</strong>: Remove harmful magic effects from raid members</li>
+                    <li><strong>Power Infusion</strong>: Boost a healer's spell haste and reduce mana costs (added for fun - it's technically a Disc spell!)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Multiplayer Improvements</h4>
+                  <ul>
+                    <li><strong>Cross-Class Sync</strong>: Priest spells (Renew, PW:S, Weakened Soul) now sync properly between host and client</li>
+                    <li><strong>Faction Matching</strong>: Players must be same faction to join multiplayer rooms</li>
+                    <li><strong>Auto-Share Raid</strong>: Host's raid composition automatically shares when client joins</li>
+                    <li><strong>Streamlined Lobby</strong>: Class selection removed - uses your save file class automatically</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.31.0 - AI Healer Overhaul</h3>
                   <span className="patch-date">December 5, 2025</span>
                 </div>
@@ -2978,6 +3092,7 @@ function App() {
           onStartGame={handleMultiplayerStart}
           onCancel={handleLeaveMultiplayer}
           initialPlayerName={state.playerName}
+          initialPlayerClass={state.playerClass}
           hostEquipment={state.playerEquipment}
           hostRaid={state.raid.map(m => ({
             id: m.id,
@@ -3121,8 +3236,10 @@ function App() {
               <img
                 src={state.playerClass === 'shaman'
                   ? "/icons/spell_nature_magicimmunity.jpg"
-                  : "/icons/spell_holy_holybolt.jpg"}
-                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : "Holy Paladin"}
+                  : state.playerClass === 'priest'
+                    ? "/icons/spell_holy_powerwordshield.jpg"
+                    : "/icons/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : state.playerClass === 'priest' ? "Holy Priest" : "Holy Paladin"}
                 className="player-class-icon"
               />
             </div>
@@ -3167,7 +3284,7 @@ function App() {
                   </span>
                 )}
                 <span className="player-class" style={{ color: CLASS_COLORS[state.playerClass] }}>
-                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : 'Holy Paladin'}
+                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : 'Holy Paladin'}
                 </span>
                 {state.playerClass === 'paladin' && state.divineFavorActive && <span className="divine-favor-active">Divine Favor!</span>}
                 {state.playerClass === 'shaman' && state.naturesSwiftnessActive && <span className="divine-favor-active">Nature&apos;s Swiftness!</span>}
@@ -3570,13 +3687,19 @@ function App() {
                         // Lava Bomb mechanic - check if member has the debuff (orange glow)
                         const hasLavaBomb = member.debuffs.some(d => d.id === 'lava_bomb');
 
+                        // Power Infusion buff - check if member has the buff (gold glow)
+                        const hasPowerInfusion = member.buffs.some(b => b.id === 'power_infusion');
+
+                        // Weakened Soul - check if member has the debuff (can't receive PW:S)
+                        const hasWeakenedSoul = (member.weakenedSoulDuration || 0) > 0;
+
                         // Skip rendering in normal grid if evacuated to safe zone
                         if (evacuatedMembers.has(member.id)) return null;
 
                         return (
                           <div
                             key={member.id}
-                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''}`}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''} ${hasPowerInfusion ? 'has-power-infusion' : ''} ${hasWeakenedSoul ? 'has-weakened-soul' : ''}`}
                             draggable={hasLivingBomb}
                             onDragStart={(e) => {
                               if (hasLivingBomb) {
@@ -3597,6 +3720,12 @@ function App() {
                             onMouseEnter={() => mouseoverHealingEnabled && engine.setMouseoverTarget(member.id)}
                             onMouseLeave={() => mouseoverHealingEnabled && engine.setMouseoverTarget(null)}
                           >
+                            {/* Weakened Soul countdown border */}
+                            {hasWeakenedSoul && (
+                              <svg className="weakened-soul-border" viewBox="0 0 126 61" preserveAspectRatio="none">
+                                <rect x="1.5" y="1.5" width="123" height="58" rx="3" />
+                              </svg>
+                            )}
                             <div className="class-indicator" style={{ backgroundColor: classColor }} />
                             <div className="member-name" style={{ color: classColor }}>
                               {member.name}
@@ -4562,7 +4691,7 @@ function App() {
                   {state.playerName}
                 </span>
                 <span className="mobile-player-class">
-                  {state.playerClass === 'shaman' ? 'Resto Shaman' : 'Holy Paladin'}
+                  {state.playerClass === 'shaman' ? 'Resto Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : 'Holy Paladin'}
                 </span>
               </div>
               <div className="mobile-dkp">
@@ -4833,13 +4962,19 @@ function App() {
                             // Lava Bomb detection for mobile (orange glow)
                             const hasLavaBomb = member.debuffs.some(d => d.id === 'lava_bomb');
 
+                            // Power Infusion buff detection (gold glow)
+                            const hasPowerInfusion = member.buffs.some(b => b.id === 'power_infusion');
+
+                            // Weakened Soul detection (can't receive PW:S)
+                            const hasWeakenedSoul = (member.weakenedSoulDuration || 0) > 0;
+
                             // Skip if evacuated on mobile too
                             if (evacuatedMembers.has(member.id)) return null;
 
                             return (
                               <div
                                 key={member.id}
-                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''}`}
+                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''} ${hasPowerInfusion ? 'has-power-infusion' : ''} ${hasWeakenedSoul ? 'has-weakened-soul' : ''}`}
                                 onClick={() => {
                                   if (state.isRunning) {
                                     // In mouseover mode, don't select target on click
@@ -4853,6 +4988,12 @@ function App() {
                                 onMouseEnter={() => mouseoverHealingEnabled && engine.setMouseoverTarget(member.id)}
                                 onMouseLeave={() => mouseoverHealingEnabled && engine.setMouseoverTarget(null)}
                               >
+                                {/* Weakened Soul countdown border (mobile) */}
+                                {hasWeakenedSoul && (
+                                  <svg className="weakened-soul-border" viewBox="0 0 80 36" preserveAspectRatio="none">
+                                    <rect x="1.5" y="1.5" width="77" height="33" rx="2" />
+                                  </svg>
+                                )}
                                 <div
                                   className="mobile-frame-health"
                                   style={{
@@ -5267,9 +5408,8 @@ function App() {
               {state.pendingLoot.map(item => {
                 const cost = calculateDKPCost(item);
                 const canAfford = state.playerDKP.points >= cost;
-                const playerClass = state.faction === 'alliance' ? 'paladin' : 'shaman';
                 // Use engine's canEquip which allows healers to wear any healer-category gear
-                const canEquip = engine.canEquip(playerClass, item);
+                const canEquip = engine.canEquip(state.playerClass, item);
                 const itemBids = state.lootBids[item.id] || [];
                 const myPlayerId = localPlayer?.id || 'player';
                 const hasPlayerBid = itemBids.some(b => b.playerId === myPlayerId);
@@ -5292,7 +5432,7 @@ function App() {
                         {item.stats.mp5 && <span>+{item.stats.mp5} MP5</span>}
                         {item.stats.critChance && <span>+{item.stats.critChance}% Crit</span>}
                       </div>
-                      {!canEquip && !state.isRaidLeaderMode && <div className="loot-item-warning">Cannot equip ({playerClass === 'paladin' ? 'Paladin' : 'Shaman'} cannot use)</div>}
+                      {!canEquip && !state.isRaidLeaderMode && <div className="loot-item-warning">Cannot equip ({state.playerClass === 'paladin' ? 'Paladin' : state.playerClass === 'shaman' ? 'Shaman' : 'Priest'} cannot use)</div>}
                       {/* Show current bids in multiplayer */}
                       {isMultiplayerMode && itemBids.length > 0 && (
                         <div className="loot-item-bids">

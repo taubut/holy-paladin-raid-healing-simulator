@@ -207,6 +207,21 @@ export const INNER_FOCUS: Spell = {
   isOnGlobalCooldown: false, // Does not trigger GCD
 };
 
+// Power Infusion - Discipline talent (buffs target's spell damage/healing)
+// Source: classicdb.ch - 3 min cooldown, instant, +20% spell damage for 15s
+export const POWER_INFUSION: Spell = {
+  id: 'power_infusion',
+  name: 'Power Infusion',
+  icon: `${ICON_BASE}/spell_holy_powerinfusion.jpg`,
+  manaCost: 0,
+  castTime: 0, // Instant
+  cooldown: 180, // 3 minute cooldown
+  currentCooldown: 0,
+  healAmount: { min: 0, max: 0 },
+  spellPowerCoefficient: 0,
+  isOnGlobalCooldown: false, // Does not trigger GCD
+};
+
 // All priest spells for AI healer selection
 export const PRIEST_SPELLS = {
   GREATER_HEAL,
@@ -221,16 +236,18 @@ export const PRIEST_SPELLS = {
   ABOLISH_DISEASE,
   POWER_WORD_SHIELD,
   INNER_FOCUS,
+  POWER_INFUSION,
 };
 
-// Default action bar for Priest (matching pattern of other healers)
+// Default action bar for Priest player (9 spells like Paladin)
 export const DEFAULT_PRIEST_ACTION_BAR: Spell[] = [
-  GREATER_HEAL,           // 1 - Big heal (710 mana, 1966-2195)
-  FLASH_HEAL,             // 2 - Fast heal (380 mana, 812-959)
-  HEAL,                   // 3 - Efficient heal (255 mana, 566-643) - use for low damage
-  RENEW,                  // 4 - HoT (410 mana, 970 over 15s)
-  PRAYER_OF_HEALING,      // 5 - Group heal (1070 mana, 1041-1099)
-  POWER_WORD_SHIELD,      // 6 - Damage absorb (500 mana, 942 absorb)
-  DISPEL_MAGIC,           // 7 - Magic dispel
-  ABOLISH_DISEASE,        // 8 - Disease dispel
+  GREATER_HEAL,           // 1 - Big heal (710 mana, 3.0s, 1966-2195)
+  FLASH_HEAL,             // 2 - Fast heal (380 mana, 1.5s, 812-959)
+  HEAL,                   // 3 - Efficient heal (255 mana, 3.0s, 566-643)
+  RENEW,                  // 4 - HoT instant (410 mana, 970 over 15s)
+  PRAYER_OF_HEALING,      // 5 - Group heal (1070 mana, 3.0s, heals whole group)
+  POWER_WORD_SHIELD,      // 6 - Shield instant (500 mana, 942 absorb)
+  INNER_FOCUS,            // 7 - Next spell free + 25% crit (3 min CD)
+  POWER_INFUSION,         // 8 - Buff target +20% spell damage (3 min CD)
+  DISPEL_MAGIC,           // 9 - Magic dispel instant
 ];
