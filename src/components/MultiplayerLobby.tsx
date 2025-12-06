@@ -82,7 +82,7 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
   // Gear share confirmation state
   const [showGearShareConfirm, setShowGearShareConfirm] = useState(false);
   const [gearShareHostName, setGearShareHostName] = useState('');
-  const [gearSharePending, setGearSharePending] = useState(false); // Host waiting for responses
+  const [_gearSharePending, setGearSharePending] = useState(false); // Host waiting for responses
   const [pendingRaidSync, setPendingRaidSync] = useState<SyncableRaidMember[] | null>(null);
 
   // Spectator mode state (host only toggles this, clients receive it)
@@ -382,7 +382,8 @@ export function MultiplayerLobby({ onStartGame, onCancel, initialPlayerName = ''
   };
 
   // Host shares their raid setup with all other players (with confirmation)
-  const handleShareGear = async () => {
+  // @ts-expect-error Reserved for future use
+  const _handleShareGear = async () => {
     if (!localPlayer?.is_host || !hostEquipment) {
       setError('Only the host can share gear');
       return;

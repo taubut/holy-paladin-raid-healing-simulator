@@ -4323,7 +4323,7 @@ function App() {
               const handleInnervateRequest = () => {
                 if (!isAvailable) return;
                 // In multiplayer, send request to host AND apply buff locally
-                if (isMultiplayerMode && !isMultiplayerHost && mpChannelRef.current) {
+                if (isMultiplayerMode && !localPlayer?.is_host && mpChannelRef.current) {
                   // Send to host so cooldown gets synced to all players
                   mpChannelRef.current.send({
                     type: 'broadcast',

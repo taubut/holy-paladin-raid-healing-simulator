@@ -336,10 +336,10 @@ export function compressGameState(
       debuffs[index] = member.debuffs.map(d => ({
         id: d.id,
         name: d.name,
-        icon: d.icon,
+        icon: d.icon || '',
         type: d.type,
-        dur: d.remainingDuration,
-        max: d.maxDuration,
+        dur: d.duration,
+        max: d.maxDuration || d.duration,
       }));
     }
 
@@ -409,14 +409,13 @@ export function applyCompressedState(
         spellId: h.spellId,
         spellName: h.spellName, // Include spell name for tooltip display
         icon: h.icon,
+        casterId: '', // Not needed for display
+        casterName: '', // Not needed for display
         remainingDuration: h.rem,
         maxDuration: h.max,
         tickInterval: 3, // Default tick interval
+        timeSinceLastTick: 0, // Not needed for display
         healPerTick: 0, // Not needed for display
-        nextTickTime: 0,
-        casterId: '', // Not needed for display
-        spellPower: 0,
-        coefficient: 0,
       }));
     } else {
       state.raid[i].activeHoTs = [];
@@ -429,7 +428,7 @@ export function applyCompressedState(
         name: d.name,
         icon: d.icon,
         type: d.type as 'magic' | 'disease' | 'poison' | 'curse',
-        remainingDuration: d.dur,
+        duration: d.dur,
         maxDuration: d.max,
         damagePerTick: 0, // Not needed for display
         tickInterval: 3,

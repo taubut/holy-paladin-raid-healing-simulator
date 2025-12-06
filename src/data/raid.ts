@@ -1,7 +1,47 @@
-import type { RaidMember, WoWClass } from '../types/game';
+import type { RaidMember, WoWClass, WoWSpec, Equipment, PositionZone } from '../game/types';
+
+// Empty equipment for default raid members
+const EMPTY_EQUIPMENT: Equipment = {
+  head: null, neck: null, shoulders: null, back: null, chest: null,
+  wrist: null, hands: null, waist: null, legs: null, feet: null,
+  ring1: null, ring2: null, trinket1: null, trinket2: null,
+  weapon: null, offhand: null, ranged: null,
+};
+
+// Map class/role to spec
+const getSpec = (wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): WoWSpec => {
+  if (role === 'tank') return 'protection_warrior';
+  if (role === 'healer') {
+    if (wowClass === 'priest') return 'holy_priest';
+    if (wowClass === 'paladin') return 'holy_paladin';
+    if (wowClass === 'druid') return 'restoration';
+    return 'restoration_shaman';
+  }
+  // DPS specs
+  const dpsSpecs: Record<WoWClass, WoWSpec> = {
+    warrior: 'fury',
+    rogue: 'combat',
+    hunter: 'marksmanship',
+    mage: 'frost_mage',
+    warlock: 'affliction',
+    priest: 'shadow',
+    paladin: 'retribution',
+    druid: 'feral_dps',
+    shaman: 'elemental',
+  };
+  return dpsSpecs[wowClass] || 'fury';
+};
+
+// Map role to position zone
+const getPositionZone = (role: 'tank' | 'healer' | 'dps', wowClass: WoWClass): PositionZone => {
+  if (role === 'tank') return 'tank';
+  if (role === 'healer') return 'ranged';
+  // DPS - melee or ranged based on class
+  const meleeClasses: WoWClass[] = ['warrior', 'rogue'];
+  return meleeClasses.includes(wowClass) ? 'melee' : 'ranged';
+};
 
 // Classic WoW style names - extensive lists to avoid duplicates
-// Note: This file uses the limited WoWClass type from types/game.ts (no shaman)
 const CLASS_NAMES: Record<WoWClass, string[]> = {
   warrior: [
     'Thunderfury', 'Shieldwall', 'Ironfoe', 'Grommash', 'Lothar', 'Saurfang', 'Nazgrel', 'Broxigar',
@@ -68,6 +108,13 @@ const CLASS_NAMES: Record<WoWClass, string[]> = {
     'Wrath', 'Starfire', 'Hurricane', 'Typhoon', 'Entangle', 'Thorns', 'Barkskin', 'Tranquility',
     'Innervate', 'Rebirth', 'Dreamwalk', 'Moonshadow', 'Starweaver', 'Nightwing', 'Dawnfeather'
   ],
+  shaman: [
+    'Thrall', 'Drektar', 'Nobundo', 'Rehgar', 'Muln', 'Earthfury', 'Farseer', 'Spiritwalker',
+    'Stormcaller', 'Thunderhorn', 'Earthshaker', 'Tidecaller', 'Windspeaker', 'Flamekeeper',
+    'Chainlightning', 'Chainheal', 'Earthshock', 'Flameshock', 'Frostshock', 'Purge', 'Hex',
+    'Totemic', 'Ancestral', 'Elemental', 'Restoration', 'Enhancement', 'Bloodlust', 'Heroism',
+    'Maelstrom', 'Lavaburster', 'Stormstrike', 'Windfury', 'Grounding', 'Earthbind', 'Manaspring'
+  ],
 };
 
 // Health pools based on Classic WoW (pre-AQ gear)
@@ -80,6 +127,7 @@ const CLASS_HEALTH: Record<WoWClass, { min: number; max: number }> = {
   mage: { min: 2800, max: 3500 },
   warlock: { min: 3200, max: 4000 },
   druid: { min: 3800, max: 4800 },
+  shaman: { min: 3600, max: 4500 },
 };
 
 function getRandomName(wowClass: WoWClass, usedNames: Set<string>): string {
@@ -126,14 +174,19 @@ export function generateRaid(size: 20 | 40 = 40): RaidMember[] {
       id: `member_${id++}`,
       name,
       class: 'warrior',
+      spec: getSpec('warrior', 'tank'),
       role: 'tank',
       currentHealth: maxHealth,
       maxHealth,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps: 150, // Tanks do low DPS
       group: Math.floor(i / 5) + 1,
+      equipment: { ...EMPTY_EQUIPMENT },
+      gearScore: 0,
+      positionZone: getPositionZone('tank', 'warrior'),
     });
   }
 
@@ -148,14 +201,19 @@ export function generateRaid(size: 20 | 40 = 40): RaidMember[] {
       id: `member_${id++}`,
       name,
       class: wowClass,
+      spec: getSpec(wowClass, 'healer'),
       role: 'healer',
       currentHealth: maxHealth,
       maxHealth,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps: 0, // Healers do no DPS
       group: Math.floor((composition.tanks + i) / 5) + 1,
+      equipment: { ...EMPTY_EQUIPMENT },
+      gearScore: 0,
+      positionZone: getPositionZone('healer', wowClass),
     });
   }
 
@@ -170,14 +228,19 @@ export function generateRaid(size: 20 | 40 = 40): RaidMember[] {
       id: `member_${id++}`,
       name,
       class: wowClass,
+      spec: getSpec(wowClass, 'dps'),
       role: 'dps',
       currentHealth: maxHealth,
       maxHealth,
       buffs: [],
       debuffs: [],
+      activeHoTs: [],
       isAlive: true,
       dps: 400 + Math.floor(Math.random() * 200), // DPS do 400-600 DPS
       group: Math.floor((composition.tanks + composition.healers + i) / 5) + 1,
+      equipment: { ...EMPTY_EQUIPMENT },
+      gearScore: 0,
+      positionZone: getPositionZone('dps', wowClass),
     });
   }
 
@@ -194,4 +257,5 @@ export const CLASS_COLORS: Record<WoWClass, string> = {
   mage: '#69CCF0',
   warlock: '#9482C9',
   druid: '#FF7D0A',
+  shaman: '#0070DE',
 };

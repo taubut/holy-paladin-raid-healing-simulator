@@ -1,13 +1,13 @@
 import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff, BenchPlayer, ActiveHoT } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
-import { DEFAULT_SHAMAN_ACTION_BAR, HEALING_WAVE, HEALING_WAVE_DOWNRANK, LESSER_HEALING_WAVE, LESSER_HEALING_WAVE_DOWNRANK, CHAIN_HEAL, CHAIN_HEAL_DOWNRANK } from './shamanSpells';
+import { DEFAULT_SHAMAN_ACTION_BAR, HEALING_WAVE, LESSER_HEALING_WAVE, LESSER_HEALING_WAVE_DOWNRANK, CHAIN_HEAL, CHAIN_HEAL_DOWNRANK } from './shamanSpells';
 import { PRIEST_SPELLS, DEFAULT_PRIEST_ACTION_BAR, type HoTSpell as PriestHoTSpell } from './priestSpells';
 import { DRUID_SPELLS, DEFAULT_DRUID_ACTION_BAR, type HoTSpell as DruidHoTSpell } from './druidSpells';
 import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
-import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES, HOLY_LIGHT, HOLY_LIGHT_DOWNRANK, FLASH_OF_LIGHT, FLASH_OF_LIGHT_DOWNRANK } from './spells';
+import { DEFAULT_ACTION_BAR, BLESSING_OF_LIGHT_VALUES, HOLY_LIGHT, FLASH_OF_LIGHT, FLASH_OF_LIGHT_DOWNRANK } from './spells';
 import type { GearItem, WearableClass, EquipmentSlot, LegendaryMaterialId, LegendaryMaterial, QuestMaterialId, QuestRewardId, EnchantId, EnchantSlot } from './items';
 import { ALL_ITEMS, LEGENDARY_MATERIALS, QUEST_MATERIALS, ALL_QUEST_REWARDS, ENCHANTS, CLASS_ARMOR_PROFICIENCY } from './items';
 import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } from './lootTables';
@@ -109,8 +109,9 @@ const CLASS_HEALTH: Record<WoWClass, { min: number; max: number }> = {
   druid: { min: 3800, max: 4800 },
 };
 
-// AI Healer configuration - HPS per healer based on class
-const AI_HEALER_HPS: Record<string, number> = {
+// AI Healer configuration - HPS per healer based on class (reserved for future use)
+// @ts-expect-error Reserved for future use
+const _AI_HEALER_HPS: Record<string, number> = {
   priest: 350,   // Strong raid healer
   paladin: 280,  // Good single target
   shaman: 320,   // Chain Heal is powerful for raid healing
@@ -2552,6 +2553,7 @@ export class GameEngine {
         maxHealth: existing?.maxHealth || 4000,
         buffs: existing?.buffs || [],
         debuffs: existing?.debuffs || [],
+        activeHoTs: existing?.activeHoTs || [],
         isAlive: existing?.isAlive ?? true,
         dps: existing?.dps || 100,
         wasInEncounter: existing?.wasInEncounter || false,
