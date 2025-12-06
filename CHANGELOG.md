@@ -2,6 +2,24 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.33.0] - 2025-12-06
+
+### Added
+- **Playable Restoration Druid**: Full spell kit including Healing Touch, Regrowth, Rejuvenation, Swiftmend, Nature's Swiftness, Remove Curse, Abolish Poison, Innervate
+- **HoT Mastery**: Stack Rejuvenation and Regrowth HoTs on multiple targets with visible icons on raid frames
+- **Swiftmend**: Instant emergency heal that consumes a HoT on the target (15s CD)
+- **Nature's Swiftness**: Make your next Healing Touch instant cast (3 min CD)
+- **Remove Curse**: Cleanse curse debuffs from raid members
+- **Abolish Poison**: Remove poison effects from raid members
+- **Innervate Targeting**: Cast Innervate on yourself, AI healers, or other players in multiplayer
+- **Innervate Blue Glow**: Target's raid frame pulses with blue glow when Innervate buff is active
+- **AI Healer Mana Regen**: AI healers actually receive 400% mana regen when you Innervate them
+- **Druid HoT Multiplayer Sync**: Rejuvenation and Regrowth HoT icons sync between host and client
+- **Innervate Visual Sync**: Blue glow effect visible on all clients when any druid casts Innervate
+
+### Fixed
+- **Multiplayer Buff Sync**: Client-cast buffs (like Innervate) now properly sync to host and other clients
+
 ## [0.32.0] - 2025-12-06
 
 ### Added

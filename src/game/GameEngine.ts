@@ -3,7 +3,7 @@ import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
 import { DEFAULT_SHAMAN_ACTION_BAR, HEALING_WAVE, HEALING_WAVE_DOWNRANK, LESSER_HEALING_WAVE, LESSER_HEALING_WAVE_DOWNRANK, CHAIN_HEAL, CHAIN_HEAL_DOWNRANK } from './shamanSpells';
 import { PRIEST_SPELLS, DEFAULT_PRIEST_ACTION_BAR, type HoTSpell as PriestHoTSpell } from './priestSpells';
-import { DRUID_SPELLS, type HoTSpell as DruidHoTSpell } from './druidSpells';
+import { DRUID_SPELLS, DEFAULT_DRUID_ACTION_BAR, type HoTSpell as DruidHoTSpell } from './druidSpells';
 import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
@@ -632,6 +632,12 @@ export type HealAppliedCallback = (data: {
     amount: number;
     weakenedSoulDuration: number;
   };
+  buffData?: {
+    id: string;
+    name: string;
+    icon: string;
+    duration: number;
+  };
 }) => void;
 
 // Callback for when a dispel is applied - used for multiplayer sync
@@ -701,6 +707,7 @@ export class GameEngine {
       manaPotionCooldown: 0,
       innervateActive: false,
       innervateRemainingDuration: 0,
+      innervateTargetId: null,
       divineFavorActive: false,
       // Priest cooldown states
       innerFocusActive: false,
@@ -1290,6 +1297,7 @@ export class GameEngine {
     this.state.innerFocusActive = false;
     this.state.powerInfusionTargetId = null;
     this.state.powerInfusionDuration = 0;
+    this.state.innervateTargetId = null;
 
     // Regenerate raid with appropriate composition (Paladins for Alliance, Shamans for Horde)
     const raidSize: 20 | 40 = 20; // Default to 20-man
@@ -1340,6 +1348,9 @@ export class GameEngine {
       case 'shaman':
         this.actionBar = DEFAULT_SHAMAN_ACTION_BAR.map(s => ({ ...s }));
         break;
+      case 'druid':
+        this.actionBar = DEFAULT_DRUID_ACTION_BAR.map(s => ({ ...s }));
+        break;
       case 'paladin':
       default:
         this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
@@ -1352,6 +1363,7 @@ export class GameEngine {
     switch (playerClass) {
       case 'priest': return 'Holy Priest';
       case 'shaman': return 'Restoration Shaman';
+      case 'druid': return 'Restoration Druid';
       case 'paladin': return 'Holy Paladin';
       default: return 'Holy Paladin';
     }
@@ -1362,6 +1374,7 @@ export class GameEngine {
     switch (playerClass) {
       case 'priest': return 'Lightwell';
       case 'shaman': return 'Chainheal';
+      case 'druid': return 'Treehugger';
       case 'paladin': return 'Healadin';
       default: return 'Healadin';
     }
@@ -1372,6 +1385,7 @@ export class GameEngine {
     switch (playerClass) {
       case 'priest': return 'holy_priest';
       case 'shaman': return 'restoration_shaman';
+      case 'druid': return 'restoration';
       case 'paladin': return 'holy_paladin';
       default: return 'holy_paladin';
     }
@@ -1400,12 +1414,14 @@ export class GameEngine {
     this.state.innerFocusActive = false;
     this.state.powerInfusionTargetId = null;
     this.state.powerInfusionDuration = 0;
+    this.state.innervateTargetId = null;
     this.state.naturesSwiftnessActive = false;
     this.state.naturesSwiftnessCooldown = 0;
 
     // Load appropriate starting gear
     const specKey = newClass === 'priest' ? 'holy_priest' :
-                   newClass === 'shaman' ? 'restoration_shaman' : 'holy_paladin';
+                   newClass === 'shaman' ? 'restoration_shaman' :
+                   newClass === 'druid' ? 'restoration' : 'holy_paladin';
     this.state.playerEquipment = getPreRaidBisForSpec(specKey);
 
     // Update player in raid
@@ -2012,6 +2028,8 @@ export class GameEngine {
     // Clear Power Infusion state
     this.state.powerInfusionTargetId = null;
     this.state.powerInfusionDuration = 0;
+    // Clear Innervate state
+    this.state.innervateTargetId = null;
 
     this.addCombatLogEntry({ message: 'Encounter ended.', type: 'system' });
     this.notify();
@@ -2762,14 +2780,25 @@ export class GameEngine {
       return;
     }
 
+    // Nature's Swiftness - makes next nature spell instant (Druid)
+    if (spell.id === 'natures_swiftness_druid') {
+      this.state.naturesSwiftnessActive = true;
+      this.state.naturesSwiftnessCooldown = spell.cooldown;
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+      this.addCombatLogEntry({ message: "Nature's Swiftness activated - next spell is instant!", type: 'buff' });
+      this.notify();
+      return;
+    }
+
     // Determine target based on mouseover healing mode
     // When mouseover healing is enabled, use mouseoverTargetId; otherwise use selectedTargetId
     const targetId = this.state.mouseoverHealingEnabled
       ? this.state.mouseoverTargetId
       : this.state.selectedTargetId;
 
-    // Need a target for most spells
-    if (!targetId && spell.id !== 'divine_favor') {
+    // Need a target for most spells (except buffs that apply to self)
+    const noTargetNeeded = ['divine_favor', 'natures_swiftness_druid'];
+    if (!targetId && !noTargetNeeded.includes(spell.id)) {
       const message = this.state.mouseoverHealingEnabled
         ? 'No mouseover target!'
         : 'No target selected!';
@@ -3134,6 +3163,354 @@ export class GameEngine {
       return;
     }
 
+    // Rejuvenation - instant HoT (Druid)
+    if (spell.id === 'rejuvenation' || spell.id === 'rejuvenation_downrank') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot heal dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Calculate heal per tick with spell power
+      // Rejuvenation R11: 222 per tick, R7: 126 per tick
+      const baseHealPerTick = spell.id === 'rejuvenation' ? 222 : 126;
+      const spellPowerBonus = Math.floor(this.state.spellPower * 0.20);
+      const healPerTick = baseHealPerTick + spellPowerBonus;
+
+      const hotId = `rejuv_${Date.now()}`;
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set
+      if (this.onHealApplied) {
+        this.onHealApplied({
+          targetIndex,
+          targetId: target.id,
+          healAmount: 0,
+          spellName: spell.name,
+          spellId: spell.id,
+          playerName: this.state.playerName,
+          hotData: {
+            id: hotId,
+            spellId: spell.id,
+            spellName: 'Rejuvenation',
+            icon: spell.icon,
+            remainingDuration: 12,
+            maxDuration: 12,
+            tickInterval: 3,
+            healPerTick: healPerTick,
+          },
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (this.isMultiplayerClient) {
+        this.addCombatLogEntry({ message: `Rejuvenation applied to ${target.name} (syncing...)`, type: 'heal' });
+        this.notify();
+        return;
+      }
+
+      // Check if target already has Rejuvenation - refresh if so
+      if (!target.activeHoTs) target.activeHoTs = [];
+      const existingRejuv = target.activeHoTs.find(h => h.spellId === 'rejuvenation' || h.spellId === 'rejuvenation_downrank');
+
+      if (existingRejuv) {
+        // Refresh the HoT
+        existingRejuv.remainingDuration = 12;
+        existingRejuv.maxDuration = 12;
+        existingRejuv.healPerTick = healPerTick;
+        existingRejuv.timeSinceLastTick = 0;
+        existingRejuv.spellId = spell.id; // Update to current rank
+        this.addCombatLogEntry({ message: `Rejuvenation refreshed on ${target.name}`, type: 'heal' });
+      } else {
+        // Apply new HoT
+        target.activeHoTs.push({
+          id: hotId,
+          spellId: spell.id,
+          spellName: 'Rejuvenation',
+          icon: spell.icon,
+          casterId: PLAYER_ID,
+          casterName: this.state.playerName,
+          remainingDuration: 12,
+          maxDuration: 12,
+          tickInterval: 3,
+          timeSinceLastTick: 0,
+          healPerTick: healPerTick,
+        });
+        this.addCombatLogEntry({ message: `Rejuvenation applied to ${target.name}`, type: 'heal' });
+      }
+
+      this.notify();
+      return;
+    }
+
+    // Swiftmend - consumes HoT for instant heal (Druid)
+    if (spell.id === 'swiftmend') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot heal dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Check if target has a Rejuvenation or Regrowth HoT
+      if (!target.activeHoTs) target.activeHoTs = [];
+      const consumableHoT = target.activeHoTs.find(
+        h => h.spellId === 'rejuvenation' || h.spellId === 'rejuvenation_downrank' || h.spellId === 'regrowth'
+      );
+
+      if (!consumableHoT) {
+        this.addCombatLogEntry({
+          message: `Cannot cast Swiftmend - ${target.name} has no Rejuvenation or Regrowth!`,
+          type: 'system',
+        });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+
+      // Calculate heal amount based on consumed HoT
+      // Swiftmend heals for 12 seconds worth of the HoT (4 ticks of Rejuv or ~4 ticks of Regrowth)
+      const ticksConsumed = 4; // 12 seconds / 3 second tick interval
+      const baseHealAmount = consumableHoT.healPerTick * ticksConsumed;
+      const healAmount = Math.min(baseHealAmount, target.maxHealth - target.currentHealth);
+
+      // Consume the HoT
+      const hotName = consumableHoT.spellName;
+      target.activeHoTs = target.activeHoTs.filter(h => h.id !== consumableHoT.id);
+
+      // Apply healing
+      target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Track healing
+      this.state.healingDone += healAmount;
+      if (!this.state.spellHealing[spell.id]) this.state.spellHealing[spell.id] = 0;
+      this.state.spellHealing[spell.id] += healAmount;
+
+      // Multiplayer callback
+      if (this.onHealApplied) {
+        this.onHealApplied({
+          targetIndex,
+          targetId: target.id,
+          healAmount: healAmount,
+          spellName: spell.name,
+          spellId: spell.id,
+          playerName: this.state.playerName,
+        });
+      }
+
+      this.addCombatLogEntry({
+        message: `Swiftmend consumes ${hotName} on ${target.name} for ${healAmount} healing!`,
+        type: 'heal',
+      });
+
+      this.notify();
+      return;
+    }
+
+    // Remove Curse (Druid)
+    if (spell.id === 'remove_curse') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot dispel dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Find a curse debuff on the target
+      const curseDebuff = target.debuffs?.find(d => d.type === 'curse');
+      if (!curseDebuff) {
+        this.addCombatLogEntry({ message: `${target.name} has no curse to remove!`, type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Remove the curse
+      target.debuffs = target.debuffs?.filter(d => d.id !== curseDebuff.id);
+
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: curseDebuff.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      this.addCombatLogEntry({
+        message: `Remove Curse dispels ${curseDebuff.name} from ${target.name}!`,
+        type: 'buff',
+      });
+
+      this.notify();
+      return;
+    }
+
+    // Abolish Poison (Druid)
+    if (spell.id === 'abolish_poison') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot dispel dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Find a poison debuff on the target
+      const poisonDebuff = target.debuffs?.find(d => d.type === 'poison');
+      if (!poisonDebuff) {
+        this.addCombatLogEntry({ message: `${target.name} has no poison to remove!`, type: 'system' });
+        this.notify();
+        return;
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Remove the poison
+      target.debuffs = target.debuffs?.filter(d => d.id !== poisonDebuff.id);
+
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+      if (this.onDispelApplied) {
+        this.onDispelApplied({
+          targetIndex,
+          targetId: target.id,
+          debuffId: poisonDebuff.id,
+          spellName: spell.name,
+          playerName: this.state.playerName,
+        });
+      }
+
+      this.addCombatLogEntry({
+        message: `Abolish Poison dispels ${poisonDebuff.name} from ${target.name}!`,
+        type: 'buff',
+      });
+
+      this.notify();
+      return;
+    }
+
+    // Innervate (Druid) - 400% mana regen for 20 seconds
+    // Self-cast = you get mana regen
+    // Cast on healer = AI healer gets mana regen
+    // Cast on non-healer = visual only
+    if (spell.id === 'innervate') {
+      if (!target.isAlive) {
+        this.addCombatLogEntry({ message: 'Cannot buff dead target!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // Remove any existing Innervate buff from anyone else first
+      if (this.state.innervateTargetId) {
+        const oldTarget = this.state.raid.find(m => m.id === this.state.innervateTargetId);
+        if (oldTarget) {
+          oldTarget.buffs = oldTarget.buffs.filter(b => b.id !== 'innervate');
+        }
+        // Also clear from AI healer if it was an AI healer
+        const oldAiHealer = this.state.aiHealerStats[this.state.innervateTargetId];
+        if (oldAiHealer) {
+          oldAiHealer.innervateActive = false;
+          oldAiHealer.innervateRemainingDuration = 0;
+        }
+      }
+
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
+
+      // Check if target is the player themselves (self-cast)
+      const isSelfCast = target.id === this.state.playerId;
+      // Check if target is an AI healer (role='healer' and has aiHealerStats entry)
+      const isAiHealer = target.role === 'healer' && !isSelfCast && this.state.aiHealerStats[target.id];
+
+      const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+      // Call multiplayer callback if set - send buff data to host
+      if (this.onHealApplied) {
+        this.onHealApplied({
+          targetIndex,
+          targetId: target.id,
+          healAmount: 0,
+          spellName: spell.name,
+          spellId: spell.id,
+          playerName: this.state.playerName,
+          buffData: {
+            id: 'innervate',
+            name: 'Innervate',
+            icon: spell.icon,
+            duration: 20,
+          },
+        });
+      }
+
+      // In multiplayer client mode, don't apply locally - host will sync it
+      if (this.isMultiplayerClient) {
+        this.addCombatLogEntry({ message: `Innervate cast on ${target.name} (syncing...)`, type: 'buff' });
+        this.notify();
+        return;
+      }
+
+      // Apply Innervate buff to target (visual on raid frame)
+      this.state.innervateTargetId = target.id;
+      this.state.innervateRemainingDuration = 20;
+
+      // Apply mana regen based on target type
+      if (isSelfCast) {
+        // Self-cast: player gets mana regen
+        this.state.innervateActive = true;
+        this.addCombatLogEntry({
+          message: `Innervate cast on yourself - 400% mana regeneration for 20 seconds!`,
+          type: 'buff',
+        });
+      } else if (isAiHealer) {
+        // AI healer: they get mana regen
+        this.state.innervateActive = false; // Player doesn't get it
+        const aiHealer = this.state.aiHealerStats[target.id];
+        aiHealer.innervateActive = true;
+        aiHealer.innervateRemainingDuration = 20;
+        this.addCombatLogEntry({
+          message: `Innervate cast on ${target.name} - 400% mana regeneration for 20 seconds!`,
+          type: 'buff',
+        });
+      } else {
+        // Non-healer NPC: visual only
+        this.state.innervateActive = false;
+        this.addCombatLogEntry({
+          message: `Innervate cast on ${target.name} - visual only (not a healer)`,
+          type: 'buff',
+        });
+      }
+
+      // Add the buff to the target's buffs array for visual display
+      target.buffs = target.buffs.filter(b => b.id !== 'innervate');
+      target.buffs.push({
+        id: 'innervate',
+        name: 'Innervate',
+        icon: spell.icon,
+        duration: 20,
+        maxDuration: 20,
+        effect: {
+          manaRegenBonus: 4.0, // 400% mana regen
+        },
+      });
+
+      this.notify();
+      return;
+    }
+
     // Power Word: Shield - instant absorb shield (Priest)
     if (spell.id === 'power_word_shield') {
       if (!target.isAlive) {
@@ -3373,6 +3750,11 @@ export class GameEngine {
               this.applyChainHeal(currentTarget, spell);
             } else {
               this.applyHeal(currentTarget, spell);
+
+              // Regrowth also applies a HoT after the direct heal
+              if (spell.id === 'regrowth') {
+                this.applyRegrowthHoT(currentTarget, spell);
+              }
             }
           }
 
@@ -3500,6 +3882,74 @@ export class GameEngine {
       amount: actualHeal,
       isCrit,
     });
+  }
+
+  // Apply Regrowth HoT component after the direct heal
+  private applyRegrowthHoT(target: RaidMember, spell: Spell) {
+    // Regrowth HoT: 1064 total over 21 seconds (7 ticks, ~152 per tick)
+    const baseHealPerTick = 152;
+    const spellPowerBonus = Math.floor(this.state.spellPower * 0.10); // HoT portion has lower coefficient
+    const healPerTick = baseHealPerTick + spellPowerBonus;
+
+    const hotId = `regrowth_${Date.now()}`;
+    const targetIndex = this.state.raid.findIndex(m => m.id === target.id);
+
+    // Call multiplayer callback if set
+    if (this.onHealApplied) {
+      this.onHealApplied({
+        targetIndex,
+        targetId: target.id,
+        healAmount: 0,
+        spellName: 'Regrowth HoT',
+        spellId: 'regrowth',
+        playerName: this.state.playerName,
+        hotData: {
+          id: hotId,
+          spellId: 'regrowth',
+          spellName: 'Regrowth',
+          icon: spell.icon,
+          remainingDuration: 21,
+          maxDuration: 21,
+          tickInterval: 3,
+          healPerTick: healPerTick,
+        },
+      });
+    }
+
+    // In multiplayer client mode, don't apply locally
+    if (this.isMultiplayerClient) {
+      this.addCombatLogEntry({ message: `Regrowth HoT applied to ${target.name} (syncing...)`, type: 'heal' });
+      return;
+    }
+
+    // Check if target already has Regrowth HoT - refresh if so
+    if (!target.activeHoTs) target.activeHoTs = [];
+    const existingRegrowth = target.activeHoTs.find(h => h.spellId === 'regrowth');
+
+    if (existingRegrowth) {
+      // Refresh the HoT
+      existingRegrowth.remainingDuration = 21;
+      existingRegrowth.maxDuration = 21;
+      existingRegrowth.healPerTick = healPerTick;
+      existingRegrowth.timeSinceLastTick = 0;
+      this.addCombatLogEntry({ message: `Regrowth HoT refreshed on ${target.name}`, type: 'heal' });
+    } else {
+      // Apply new HoT
+      target.activeHoTs.push({
+        id: hotId,
+        spellId: 'regrowth',
+        spellName: 'Regrowth',
+        icon: spell.icon,
+        casterId: PLAYER_ID,
+        casterName: this.state.playerName,
+        remainingDuration: 21,
+        maxDuration: 21,
+        tickInterval: 3,
+        timeSinceLastTick: 0,
+        healPerTick: healPerTick,
+      });
+      this.addCombatLogEntry({ message: `Regrowth HoT applied to ${target.name}`, type: 'heal' });
+    }
   }
 
   /**
@@ -4262,12 +4712,38 @@ export class GameEngine {
       // Update NPC shaman totem effects (mana regen, healing, cleansing)
       this.tickNpcShamanTotems(delta);
 
-      // Update Innervate buff duration
-      if (this.state.innervateActive && this.state.innervateRemainingDuration > 0) {
+      // Update Innervate buff duration (player and AI healers)
+      if (this.state.innervateTargetId && this.state.innervateRemainingDuration > 0) {
         this.state.innervateRemainingDuration -= delta;
+
+        // Also update the buff duration on the target's buffs array for UI display
+        const innervateTarget = this.state.raid.find(m => m.id === this.state.innervateTargetId);
+        if (innervateTarget) {
+          const innervateBuff = innervateTarget.buffs.find(b => b.id === 'innervate');
+          if (innervateBuff) {
+            innervateBuff.duration = Math.max(0, this.state.innervateRemainingDuration);
+          }
+        }
+
+        // Update AI healer Innervate duration if applicable
+        const aiHealer = this.state.aiHealerStats[this.state.innervateTargetId];
+        if (aiHealer && aiHealer.innervateActive) {
+          aiHealer.innervateRemainingDuration = Math.max(0, this.state.innervateRemainingDuration);
+        }
+
         if (this.state.innervateRemainingDuration <= 0) {
+          // Remove the buff from the target
+          if (innervateTarget) {
+            innervateTarget.buffs = innervateTarget.buffs.filter(b => b.id !== 'innervate');
+          }
+          // Clear AI healer Innervate if applicable
+          if (aiHealer) {
+            aiHealer.innervateActive = false;
+            aiHealer.innervateRemainingDuration = 0;
+          }
           this.state.innervateActive = false;
           this.state.innervateRemainingDuration = 0;
+          this.state.innervateTargetId = null;
           this.addCombatLogEntry({
             message: 'Innervate fades.',
             type: 'buff',
@@ -6287,7 +6763,9 @@ export class GameEngine {
           const stats = this.state.aiHealerStats[healer.id];
 
           // MP5 regeneration (mana per 5 seconds, scaled to delta)
-          stats.currentMana = Math.min(stats.maxMana, stats.currentMana + (stats.mp5 * delta / 5));
+          // Apply 400% (5x) bonus if Innervate is active on this healer
+          const manaRegenMultiplier = stats.innervateActive ? 5.0 : 1.0;
+          stats.currentMana = Math.min(stats.maxMana, stats.currentMana + (stats.mp5 * delta / 5 * manaRegenMultiplier));
 
           // Tick down mana potion cooldown
           if (stats.manaPotionCooldown > 0) {
@@ -7028,6 +7506,8 @@ export class GameEngine {
     // Clear Power Infusion state
     this.state.powerInfusionTargetId = null;
     this.state.powerInfusionDuration = 0;
+    // Clear Innervate state
+    this.state.innervateTargetId = null;
 
     // Clear tank swap warning
     this.state.tankSwapWarning = null;

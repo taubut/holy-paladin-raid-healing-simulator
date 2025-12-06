@@ -17,7 +17,7 @@ export type WoWClass =
 export type Faction = 'alliance' | 'horde';
 
 // Player healer class (expandable for future classes)
-export type PlayerHealerClass = 'paladin' | 'shaman' | 'priest';
+export type PlayerHealerClass = 'paladin' | 'shaman' | 'priest' | 'druid';
 
 // Position zone for Chain Heal bouncing (melee/ranged/tank)
 export type PositionZone = 'melee' | 'ranged' | 'tank';
@@ -606,6 +606,9 @@ export interface AIHealerStats {
   // Priest-specific cooldowns
   innerFocusCooldown?: number;        // Inner Focus (3 min cooldown)
   innerFocusActive?: boolean;         // Next spell is free + 25% crit
+  // Innervate buff from player druid
+  innervateActive?: boolean;          // Has Innervate buff (400% mana regen)
+  innervateRemainingDuration?: number; // Duration remaining on buff
 }
 
 // Multiplayer loot bidding
@@ -660,6 +663,7 @@ export interface GameState {
   // Innervate buff state (400% mana regen for 20 seconds)
   innervateActive: boolean;
   innervateRemainingDuration: number;
+  innervateTargetId: string | null;    // Who has Innervate buff (raid member ID)
   otherHealersEnabled: boolean;
   otherHealersHealing: number;
   // Loot and gear system

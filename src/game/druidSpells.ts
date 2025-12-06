@@ -124,7 +124,7 @@ export const NATURES_SWIFTNESS_DRUID: Spell = {
 export const REMOVE_CURSE: Spell = {
   id: 'remove_curse',
   name: 'Remove Curse',
-  icon: `${ICON_BASE}/spell_nature_removecurse.jpg`,
+  icon: `${ICON_BASE}/spell_holy_removecurse.jpg`,
   manaCost: 50,
   castTime: 0, // Instant
   cooldown: 0,
@@ -201,5 +201,7 @@ export const DEFAULT_DRUID_ACTION_BAR: Spell[] = [
   REJUVENATION_DOWNRANK,   // 5 - Efficient HoT
   SWIFTMEND,               // 6 - Emergency instant (consumes HoT)
   NATURES_SWIFTNESS_DRUID, // 7 - Makes next spell instant
-  REMOVE_CURSE,            // 8 - Curse dispel
+  INNERVATE,               // 8 - Mana regen buff
+  REMOVE_CURSE,            // 9 - Curse dispel
+  ABOLISH_POISON,          // 0 - Poison dispel
 ];

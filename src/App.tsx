@@ -136,7 +136,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.32.0';
+  const CURRENT_PATCH_VERSION = '0.33.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -810,9 +810,9 @@ function App() {
     // 1. Switch faction first (this sets default class and regenerates raid)
     engine.switchFaction(config.faction);
 
-    // 2. Set player class (may override faction default if playing Priest)
+    // 2. Set player class (may override faction default if playing Priest or Druid)
     if (config.playerClass && !config.isRaidLeaderMode) {
-      engine.setPlayerClass(config.playerClass as 'paladin' | 'shaman' | 'priest');
+      engine.setPlayerClass(config.playerClass as 'paladin' | 'shaman' | 'priest' | 'druid');
     }
 
     // 3. Set player name LAST so it doesn't get overwritten by faction/class changes
@@ -1110,6 +1110,12 @@ function App() {
             amount: number;
             weakenedSoulDuration: number;
           };
+          buffData?: {
+            id: string;
+            name: string;
+            icon: string;
+            duration: number;
+          };
         };
         const gameState = engine.getState();
 
@@ -1194,6 +1200,24 @@ function App() {
               target.weakenedSoulDuration = data.shieldData.weakenedSoulDuration;
               engine.addCombatLogEntry({
                 message: `${data.playerName}'s Power Word: Shield on ${target.name} (${data.shieldData.amount} absorb)`,
+                type: 'buff',
+              });
+            }
+
+            // Apply buff if present (Innervate, etc.)
+            if (data.buffData) {
+              // Remove existing buff of same type
+              target.buffs = target.buffs.filter(b => b.id !== data.buffData!.id);
+              // Add the new buff
+              target.buffs.push({
+                id: data.buffData.id,
+                name: data.buffData.name,
+                icon: data.buffData.icon,
+                duration: data.buffData.duration,
+                maxDuration: data.buffData.duration,
+              });
+              engine.addCombatLogEntry({
+                message: `${data.playerName}'s ${data.buffData.name} applied to ${target.name}`,
                 type: 'buff',
               });
             }
@@ -2534,6 +2558,42 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.33.0 - Playable Restoration Druid</h3>
+                  <span className="patch-date">December 6, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Restoration Druid - New Playable Class</h4>
+                  <ul>
+                    <li><strong>Full Spell Kit</strong>: Healing Touch, Regrowth, Rejuvenation, Swiftmend, Nature's Swiftness, and more</li>
+                    <li><strong>HoT Mastery</strong>: Stack Rejuvenation and Regrowth HoTs on multiple targets - visible icons on raid frames</li>
+                    <li><strong>Swiftmend</strong>: Instant emergency heal that consumes a HoT on the target (15s CD)</li>
+                    <li><strong>Nature's Swiftness</strong>: Make your next Healing Touch instant cast (3 min CD)</li>
+                    <li><strong>Remove Curse</strong>: Cleanse curse debuffs from raid members</li>
+                    <li><strong>Abolish Poison</strong>: Remove poison effects from raid members</li>
+                    <li><strong>Innervate</strong>: Grant 400% mana regeneration to yourself or another healer for 20 seconds</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Innervate Targeting</h4>
+                  <ul>
+                    <li><strong>Target Any Healer</strong>: Cast Innervate on yourself, AI healers, or other players in multiplayer</li>
+                    <li><strong>Blue Glow Effect</strong>: Innervate target's raid frame pulses with a blue glow when buff is active</li>
+                    <li><strong>AI Healer Mana Regen</strong>: AI healers actually receive the 400% mana regen when you Innervate them</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Multiplayer Sync</h4>
+                  <ul>
+                    <li><strong>Druid HoTs Synced</strong>: Rejuvenation and Regrowth HoT icons sync between host and client</li>
+                    <li><strong>Innervate Visual Sync</strong>: Blue glow effect visible on all clients when any druid casts Innervate</li>
+                    <li><strong>Cross-Class Support</strong>: Druid effects work alongside Priest and Paladin spells in multiplayer</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.32.0 - Playable Holy Priest</h3>
                   <span className="patch-date">December 6, 2025</span>
                 </div>
@@ -3238,8 +3298,10 @@ function App() {
                   ? "/icons/spell_nature_magicimmunity.jpg"
                   : state.playerClass === 'priest'
                     ? "/icons/spell_holy_powerwordshield.jpg"
-                    : "/icons/spell_holy_holybolt.jpg"}
-                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : state.playerClass === 'priest' ? "Holy Priest" : "Holy Paladin"}
+                    : state.playerClass === 'druid'
+                      ? "/icons/spell_nature_healingtouch.jpg"
+                      : "/icons/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : state.playerClass === 'priest' ? "Holy Priest" : state.playerClass === 'druid' ? "Restoration Druid" : "Holy Paladin"}
                 className="player-class-icon"
               />
             </div>
@@ -3284,10 +3346,10 @@ function App() {
                   </span>
                 )}
                 <span className="player-class" style={{ color: CLASS_COLORS[state.playerClass] }}>
-                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : 'Holy Paladin'}
+                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : state.playerClass === 'druid' ? 'Restoration Druid' : 'Holy Paladin'}
                 </span>
                 {state.playerClass === 'paladin' && state.divineFavorActive && <span className="divine-favor-active">Divine Favor!</span>}
-                {state.playerClass === 'shaman' && state.naturesSwiftnessActive && <span className="divine-favor-active">Nature&apos;s Swiftness!</span>}
+                {(state.playerClass === 'shaman' || state.playerClass === 'druid') && state.naturesSwiftnessActive && <span className="divine-favor-active">Nature&apos;s Swiftness!</span>}
               </div>
               <div className={`mana-bar-container ${
                 state.innervateActive || state.activeTotems?.some(t => t.id === 'mana_tide_totem') ? 'mana-boost-active' : ''
@@ -3690,6 +3752,9 @@ function App() {
                         // Power Infusion buff - check if member has the buff (gold glow)
                         const hasPowerInfusion = member.buffs.some(b => b.id === 'power_infusion');
 
+                        // Innervate buff - check if member has the buff (blue glow)
+                        const hasInnervate = member.buffs.some(b => b.id === 'innervate');
+
                         // Weakened Soul - check if member has the debuff (can't receive PW:S)
                         const hasWeakenedSoul = (member.weakenedSoulDuration || 0) > 0;
 
@@ -3699,7 +3764,7 @@ function App() {
                         return (
                           <div
                             key={member.id}
-                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''} ${hasPowerInfusion ? 'has-power-infusion' : ''} ${hasWeakenedSoul ? 'has-weakened-soul' : ''}`}
+                            className={`raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'has-dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${recentCritHeal ? 'crit-heal' : ''} ${isChainHealBounceTarget ? 'chain-heal-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''} ${hasPowerInfusion ? 'has-power-infusion' : ''} ${hasInnervate ? 'has-innervate' : ''} ${hasWeakenedSoul ? 'has-weakened-soul' : ''}`}
                             draggable={hasLivingBomb}
                             onDragStart={(e) => {
                               if (hasLivingBomb) {
@@ -4682,8 +4747,12 @@ function App() {
               <img
                 src={state.playerClass === 'shaman'
                   ? "/icons/spell_nature_magicimmunity.jpg"
-                  : "/icons/spell_holy_holybolt.jpg"}
-                alt={state.playerClass === 'shaman' ? "Shaman" : "Paladin"}
+                  : state.playerClass === 'priest'
+                    ? "/icons/spell_holy_powerwordshield.jpg"
+                    : state.playerClass === 'druid'
+                      ? "/icons/spell_nature_healingtouch.jpg"
+                      : "/icons/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Shaman" : state.playerClass === 'priest' ? "Priest" : state.playerClass === 'druid' ? "Druid" : "Paladin"}
                 className="mobile-class-icon"
               />
               <div className="mobile-player-details">
@@ -4691,7 +4760,7 @@ function App() {
                   {state.playerName}
                 </span>
                 <span className="mobile-player-class">
-                  {state.playerClass === 'shaman' ? 'Resto Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : 'Holy Paladin'}
+                  {state.playerClass === 'shaman' ? 'Resto Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : state.playerClass === 'druid' ? 'Resto Druid' : 'Holy Paladin'}
                 </span>
               </div>
               <div className="mobile-dkp">
@@ -4965,6 +5034,9 @@ function App() {
                             // Power Infusion buff detection (gold glow)
                             const hasPowerInfusion = member.buffs.some(b => b.id === 'power_infusion');
 
+                            // Innervate buff detection (blue glow)
+                            const hasInnervate = member.buffs.some(b => b.id === 'innervate');
+
                             // Weakened Soul detection (can't receive PW:S)
                             const hasWeakenedSoul = (member.weakenedSoulDuration || 0) > 0;
 
@@ -4974,7 +5046,7 @@ function App() {
                             return (
                               <div
                                 key={member.id}
-                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''} ${hasPowerInfusion ? 'has-power-infusion' : ''} ${hasWeakenedSoul ? 'has-weakened-soul' : ''}`}
+                                className={`mobile-raid-frame ${state.selectedTargetId === member.id ? 'selected' : ''} ${mouseoverHealingEnabled && state.mouseoverTargetId === member.id ? 'mouseover-target' : ''} ${!member.isAlive ? 'dead' : ''} ${hasDispellable ? 'dispellable' : ''} ${isPlayer ? 'is-player' : ''} ${isChainHealBounce ? 'chain-bounce' : ''} ${hasLivingBomb ? `has-living-bomb ${livingBombUrgency}` : ''} ${hasInferno ? 'has-inferno' : ''} ${hasMindControl ? 'has-mind-control' : ''} ${hasLavaBomb ? 'has-lava-bomb' : ''} ${hasPowerInfusion ? 'has-power-infusion' : ''} ${hasInnervate ? 'has-innervate' : ''} ${hasWeakenedSoul ? 'has-weakened-soul' : ''}`}
                                 onClick={() => {
                                   if (state.isRunning) {
                                     // In mouseover mode, don't select target on click

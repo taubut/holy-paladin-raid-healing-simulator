@@ -140,6 +140,49 @@ export const SPELL_TOOLTIPS: Record<string, SpellTooltip> = {
     description: 'Attempts to cure 1 disease on the target, and 1 more disease every 5 sec for 20 sec.',
     additionalInfo: 'Removes diseases over time. Great for fights with disease mechanics.',
   },
+  // ============================================
+  // DRUID SPELLS
+  // ============================================
+  healing_touch: {
+    description: 'Heals a friendly target for 2267 to 2678.',
+    additionalInfo: 'Your biggest heal with a 3.5s cast time. Use on tanks or priority targets.',
+  },
+  healing_touch_downrank: {
+    description: 'Heals a friendly target for 1199 to 1427.',
+    additionalInfo: 'Rank 8 - More mana efficient for moderate damage.',
+  },
+  regrowth: {
+    description: 'Heals a friendly target for 1003 to 1119 and another 1064 over 21 sec.',
+    additionalInfo: 'Direct heal plus HoT! Great for pre-hotting and sustained healing.',
+  },
+  rejuvenation: {
+    description: 'Heals the target for 888 over 12 sec.',
+    additionalInfo: 'Instant HoT! Keep rolling on tanks. 4 ticks of 222 healing.',
+  },
+  rejuvenation_downrank: {
+    description: 'Heals the target for 504 over 12 sec.',
+    additionalInfo: 'Rank 7 - Mana efficient HoT for light incoming damage.',
+  },
+  swiftmend: {
+    description: 'Consumes a Rejuvenation or Regrowth effect on a friendly target to instantly heal them for an amount equal to 12 sec of Rejuvenation or 18 sec of Regrowth.',
+    additionalInfo: 'Emergency instant heal! Requires a HoT on the target. 15 sec cooldown.',
+  },
+  natures_swiftness_druid: {
+    description: 'When activated, your next Nature spell with a casting time less than 10 sec becomes an instant cast spell.',
+    additionalInfo: 'Emergency cooldown! Combine with Healing Touch for instant massive heals. 3 min CD.',
+  },
+  remove_curse: {
+    description: 'Dispels 1 Curse from a friendly target.',
+    additionalInfo: 'Use to remove curse debuffs from raid members.',
+  },
+  abolish_poison: {
+    description: 'Attempts to cure 1 poison effect on the target, and 1 more poison effect every 2 sec for 8 sec.',
+    additionalInfo: 'Removes poisons over time. Great for fights with poison mechanics.',
+  },
+  innervate: {
+    description: 'Increases the target\'s Mana regeneration by 400% and allows 100% of mana regeneration while casting. Lasts 20 sec.',
+    additionalInfo: 'Cast on yourself or another healer who is low on mana. 6 min cooldown.',
+  },
 };
 
 // Holy Light - Rank 9 (max rank)
