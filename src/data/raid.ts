@@ -8,6 +8,50 @@ const EMPTY_EQUIPMENT: Equipment = {
   weapon: null, offhand: null, ranged: null,
 };
 
+// Pre-Raid BiS DPS values by spec (based on warcrafttavern MC BiS scaled down ~80%)
+// MC BiS reference: Fury 625, Rogue 610, Hunter 459, Mage 420, Lock 402, SPriest 393, Ele 383, Feral 357, Enh 348, Ret 314
+const SPEC_DPS: Record<WoWSpec, number> = {
+  // DPS specs - Pre-raid BiS values
+  fury: 500,              // Fury Warrior - scales hard with gear
+  fury_prot: 480,         // Fury/Prot hybrid - nearly as much DPS as pure Fury
+  combat: 490,            // Combat Rogue - consistent melee
+  assassination: 470,     // Assassination Rogue
+  subtlety: 350,          // Subtlety Rogue - PvP spec
+  marksmanship: 370,      // Marksmanship Hunter - strong pre-raid
+  beast_mastery: 340,     // Beast Mastery Hunter
+  survival: 350,          // Survival Hunter
+  frost_mage: 335,        // Frost Mage - AoE king
+  fire_mage: 380,         // Fire Mage (when it works)
+  arcane: 300,            // Arcane Mage
+  affliction: 320,        // Affliction Warlock
+  demonology: 310,        // Demonology Warlock
+  destruction: 320,       // Destruction Warlock
+  shadow: 315,            // Shadow Priest - mana issues
+  elemental: 305,         // Elemental Shaman - mana limited
+  enhancement: 280,       // Enhancement Shaman - Windfury procs
+  feral_dps: 285,         // Feral DPS Druid - hard to gear
+  balance: 220,           // Balance Druid - Oomkin
+  retribution: 250,       // Retribution Paladin - meme spec pre-raid
+  arms: 450,              // Arms Warrior - slightly less than Fury
+  // Tank specs - low DPS, focused on threat/survival
+  protection_warrior: 150,
+  protection_paladin: 120,
+  feral_tank: 130,
+  // Healer specs - no DPS
+  holy_paladin: 0,
+  holy_priest: 0,
+  discipline: 0,
+  restoration: 0,         // Resto Druid
+  restoration_shaman: 0,  // Resto Shaman
+};
+
+// Get DPS for a spec with some variance (+/- 10%)
+export const getSpecDps = (spec: WoWSpec): number => {
+  const baseDps = SPEC_DPS[spec] || 300;
+  const variance = baseDps * 0.1; // 10% variance
+  return Math.round(baseDps + (Math.random() * variance * 2 - variance));
+};
+
 // Map class/role to spec
 const getSpec = (wowClass: WoWClass, role: 'tank' | 'healer' | 'dps'): WoWSpec => {
   if (role === 'tank') return 'protection_warrior';
@@ -182,7 +226,7 @@ export function generateRaid(size: 20 | 40 = 40): RaidMember[] {
       debuffs: [],
       activeHoTs: [],
       isAlive: true,
-      dps: 150, // Tanks do low DPS
+      dps: getSpecDps('protection_warrior'),
       group: Math.floor(i / 5) + 1,
       equipment: { ...EMPTY_EQUIPMENT },
       gearScore: 0,
@@ -217,10 +261,51 @@ export function generateRaid(size: 20 | 40 = 40): RaidMember[] {
     });
   }
 
-  // Add DPS (mixed classes)
-  const dpsClasses: WoWClass[] = ['rogue', 'mage', 'warlock', 'hunter', 'warrior'];
+  // Add DPS with realistic Classic 40-man composition (faction-aware)
+  // Typical MC raid: ~8-10 fury warriors, 4-6 rogues, 3-4 mages, 3-4 warlocks, 2-3 hunters, 1-2 shadow priests
+  // Plus faction melee: Ret Paladin (Alliance) or Enh Shaman (Horde)
+  const dpsDistribution40: WoWClass[] = [
+    // Fury Warriors (the kings of Classic DPS) - 8
+    'warrior', 'warrior', 'warrior', 'warrior', 'warrior', 'warrior', 'warrior', 'warrior',
+    // Rogues - 5
+    'rogue', 'rogue', 'rogue', 'rogue', 'rogue',
+    // Mages (for AoE and intellect buff) - 4
+    'mage', 'mage', 'mage', 'mage',
+    // Warlocks (curses, healthstones, soulstones) - 4
+    'warlock', 'warlock', 'warlock', 'warlock',
+    // Hunters (tranq shot, pulls, buffs) - 3
+    'hunter', 'hunter', 'hunter',
+    // Shadow Priest (shadow weaving debuff) - 1
+    'priest',
+    // Note: Faction melee (Ret Pally/Enh Shaman) handled by GameEngine.ts
+  ];
+
+  // 20-man version - scaled down proportionally
+  const dpsDistribution20: WoWClass[] = [
+    // Fury Warriors - 4
+    'warrior', 'warrior', 'warrior', 'warrior',
+    // Rogues - 2
+    'rogue', 'rogue',
+    // Mages - 2
+    'mage', 'mage',
+    // Warlocks - 2
+    'warlock', 'warlock',
+    // Hunters - 2
+    'hunter', 'hunter',
+    // Shadow Priest - 1
+    'priest',
+  ];
+
+  const dpsDistribution = size === 40 ? dpsDistribution40 : dpsDistribution20;
+
+  // Shuffle the DPS distribution for variety
+  const shuffledDps = [...dpsDistribution].sort(() => Math.random() - 0.5);
+
   for (let i = 0; i < composition.dps; i++) {
-    const wowClass = dpsClasses[i % dpsClasses.length];
+    // Use shuffled distribution, fallback to cycling if we need more
+    const wowClass: WoWClass = i < shuffledDps.length
+      ? shuffledDps[i]
+      : (['warrior', 'rogue', 'mage', 'warlock', 'hunter'] as WoWClass[])[i % 5];
     const name = getRandomName(wowClass, usedNames);
     usedNames.add(name);
     const maxHealth = getRandomHealth(wowClass, false);
@@ -236,7 +321,7 @@ export function generateRaid(size: 20 | 40 = 40): RaidMember[] {
       debuffs: [],
       activeHoTs: [],
       isAlive: true,
-      dps: 400 + Math.floor(Math.random() * 200), // DPS do 400-600 DPS
+      dps: getSpecDps(getSpec(wowClass, 'dps')),
       group: Math.floor((composition.tanks + composition.healers + i) / 5) + 1,
       equipment: { ...EMPTY_EQUIPMENT },
       gearScore: 0,

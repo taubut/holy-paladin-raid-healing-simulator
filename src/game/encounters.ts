@@ -722,8 +722,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'lucifron',
     name: 'Lucifron',
-    maxHealth: 1000000,
-    currentHealth: 1000000,
+    maxHealth: 1055340,
+    currentHealth: 1055340,
     enrageTimer: 180,
     damageEvents: [
       { type: 'tank_damage', damage: 600, interval: 2, damageType: 'shadow' }, // Shadow Shock on tank
@@ -738,8 +738,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'magmadar',
     name: 'Magmadar',
-    maxHealth: 1200000,
-    currentHealth: 1200000,
+    maxHealth: 2478264,
+    currentHealth: 2478264,
     enrageTimer: 240,
     damageEvents: [
       { type: 'tank_damage', damage: 900, interval: 2 }, // Normal melee (physical)
@@ -754,8 +754,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'gehennas',
     name: 'Gehennas',
-    maxHealth: 900000,
-    currentHealth: 900000,
+    maxHealth: 1055340,
+    currentHealth: 1055340,
     enrageTimer: 180,
     damageEvents: [
       { type: 'tank_damage', damage: 700, interval: 2 }, // Melee (physical)
@@ -769,8 +769,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'garr',
     name: 'Garr',
-    maxHealth: 1500000,
-    currentHealth: 1500000,
+    maxHealth: 1978614,
+    currentHealth: 1978614,
     enrageTimer: 300,
     currentPhase: 1,
     phaseTransitions: [
@@ -795,8 +795,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'baron_geddon',
     name: 'Baron Geddon',
-    maxHealth: 1300000,
-    currentHealth: 1300000,
+    maxHealth: 1758768,
+    currentHealth: 1758768,
     enrageTimer: 240,
     damageEvents: [
       { type: 'tank_damage', damage: 900, interval: 2, damageType: 'fire' }, // Fire elemental melee
@@ -810,8 +810,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'shazzrah',
     name: 'Shazzrah',
-    maxHealth: 850000,
-    currentHealth: 850000,
+    maxHealth: 1055340,
+    currentHealth: 1055340,
     enrageTimer: 180,
     damageEvents: [
       { type: 'tank_damage', damage: 500, interval: 1.5 }, // Fast melee (physical)
@@ -825,8 +825,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'golemagg',
     name: 'Golemagg the Incinerator',
-    maxHealth: 2000000,
-    currentHealth: 2000000,
+    maxHealth: 2478264,
+    currentHealth: 2478264,
     enrageTimer: 300,
     requiresTankAssignment: true, // Requires tank assignment modal
     currentPhase: 1, // 1 = normal, 2 = earthquake phase (<10%)
@@ -859,8 +859,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'sulfuron',
     name: 'Sulfuron Harbinger',
-    maxHealth: 800000, // Sulfuron's HP (only attackable after priests die)
-    currentHealth: 800000,
+    maxHealth: 1319076, // Sulfuron's HP (only attackable after priests die)
+    currentHealth: 1319076,
     enrageTimer: 420, // 7 minutes - longer fight with adds
     currentPhase: 1, // Phase 1 = priests alive, Phase 2 = Sulfuron phase
     adds: [
@@ -891,8 +891,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'majordomo',
     name: 'Majordomo Executus',
-    maxHealth: 666200, // Majordomo's HP - but he's not attackable!
-    currentHealth: 666200,
+    maxHealth: 1998600, // Majordomo's HP - but he's not attackable!
+    currentHealth: 1998600,
     enrageTimer: 420, // 7 minutes - add fight takes time
     requiresTankAssignment: true, // Requires 5-tank assignment modal
     currentPhase: 1, // Phase 1 = adds alive, Phase 2 = victory (Majordomo submits)
@@ -945,8 +945,8 @@ export const ENCOUNTERS: Boss[] = [
   {
     id: 'ragnaros',
     name: 'Ragnaros',
-    maxHealth: 3500000,
-    currentHealth: 3500000,
+    maxHealth: 3297690,
+    currentHealth: 3297690,
     enrageTimer: 480,
     requiresTankAssignment: true, // Requires 2-tank assignment for tank swap
     currentPhase: 1, // Phase 1 = fighting Ragnaros, Phase 2 = submerged (Sons), Phase 3 = Ragnaros returns

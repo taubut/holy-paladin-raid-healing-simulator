@@ -2,6 +2,18 @@
 
 All notable changes to the Holy Paladin Raid Healing Simulator will be documented in this file.
 
+## [0.34.0] - 2025-12-07
+
+### Changed
+- **AI Healer Cast Times**: AI healers now cast spells with real cast times like players - heals land when the cast completes, not instantly
+- **Instant Spells Still Instant**: Renew, Rejuvenation, Holy Shock, Power Word: Shield, and Swiftmend still apply instantly as intended
+- **No More Mana Cheating**: AI healers can no longer cast spells without enough mana - removed emergency heal override
+- **Intelligent Downranking**: When low on mana, AI healers automatically downrank to cheaper spells they can afford
+- **Class-Specific Downranking**: Each healer class has its own downrank priority list based on mana efficiency
+
+### Fixed
+- **Innervate Duration**: Fixed bug where Innervate buff lasted forever instead of properly expiring after 20 seconds
+
 ## [0.33.0] - 2025-12-06
 
 ### Added

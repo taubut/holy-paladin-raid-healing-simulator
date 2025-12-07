@@ -136,7 +136,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.33.0';
+  const CURRENT_PATCH_VERSION = '0.34.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -2558,6 +2558,35 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.34.0 - AI Healer Intelligence</h3>
+                  <span className="patch-date">December 7, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>AI Healer Cast Times</h4>
+                  <ul>
+                    <li><strong>Proper Cast Behavior</strong>: AI healers now cast spells with real cast times like players - heals land when the cast completes, not instantly</li>
+                    <li><strong>Instant Spells</strong>: Renew, Rejuvenation, Holy Shock, Power Word: Shield, and Swiftmend still apply instantly as intended</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Smart Mana Management</h4>
+                  <ul>
+                    <li><strong>No More Cheating</strong>: AI healers can no longer cast spells without enough mana - removed the emergency heal override</li>
+                    <li><strong>Intelligent Downranking</strong>: When low on mana, AI healers automatically downrank to cheaper spells they can afford</li>
+                    <li><strong>Class-Specific</strong>: Each healer class has its own downrank priority list based on mana efficiency</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bug Fixes</h4>
+                  <ul>
+                    <li><strong>Innervate Duration</strong>: Fixed bug where Innervate buff lasted forever instead of 20 seconds</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.33.0 - Playable Restoration Druid</h3>
                   <span className="patch-date">December 6, 2025</span>
                 </div>
