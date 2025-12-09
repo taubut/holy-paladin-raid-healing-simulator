@@ -1,5 +1,7 @@
 # Classic WoW Raid Simulator
 
+#ALL HEALER CLASSES NOW PLAYABLE!
+
 A browser-based Classic WoW (Vanilla) raid healing simulator. Experience the nostalgia of healing through Molten Core, Blackwing Lair, and Onyxia's Lair with authentic boss mechanics, multiplayer co-op, and full raid management.
 
 ![Game Screenshot](screenshots/screenshot.png)
