@@ -2976,7 +2976,7 @@ export class GameEngine {
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown; // 8 min CD
       this.addCombatLogEntry({
         message: 'Evocation - channeling mana regeneration',
-        type: 'mana',
+        type: 'system',
       });
       this.notify();
       return;
@@ -5231,7 +5231,7 @@ export class GameEngine {
 
           this.addCombatLogEntry({
             message: `Evocation restores ${manaGain} mana`,
-            type: 'mana',
+            type: 'system',
           });
         }
 

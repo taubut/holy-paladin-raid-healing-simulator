@@ -198,7 +198,6 @@ export const REMOVE_CURSE: Spell = {
   spellPowerCoefficient: 0,
   isOnGlobalCooldown: true,
   isDamageSpell: false,
-  requiresTarget: true,
 };
 
 // All mage spells for reference
