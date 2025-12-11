@@ -46,6 +46,11 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, isMous
   const resourceType = getResourceType(member.class, member.role);
   const resourceColor = RESOURCE_COLORS[resourceType];
 
+  // HealComm: Calculate incoming heal bar width (green bar showing predicted health)
+  const incomingHeal = member.incomingHeal || 0;
+  const predictedHealth = Math.min(member.maxHealth, member.currentHealth + incomingHeal);
+  const incomingHealPercent = Math.max(0, Math.min(100, (predictedHealth / member.maxHealth) * 100)) - healthPercent;
+
   // Check if member has a dispellable debuff (magic, poison, or disease)
   const hasDispellableDebuff = member.debuffs.some(
     d => d.type === 'magic' || d.type === 'poison' || d.type === 'disease'
@@ -92,6 +97,16 @@ export const RaidFrame: React.FC<RaidFrameProps> = ({ member, isSelected, isMous
             backgroundColor: getHealthColor(),
           }}
         />
+        {/* HealComm: Incoming heal bar (green) - shows predicted health from incoming heals */}
+        {incomingHealPercent > 0 && (
+          <div
+            className="incoming-heal-bar"
+            style={{
+              left: `${healthPercent}%`,
+              width: `${incomingHealPercent}%`,
+            }}
+          />
+        )}
         <div className="health-text">
           {member.isAlive ? (
             <>

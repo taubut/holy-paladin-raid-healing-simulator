@@ -1,9 +1,10 @@
-import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerHealerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff, BenchPlayer, ActiveHoT } from './types';
+import type { GameState, RaidMember, Spell, CombatLogEntry, WoWClass, WoWSpec, Equipment, PlayerStats, ConsumableBuff, WorldBuff, Boss, DamageType, PartyAura, BuffEffect, Faction, PlayerClass, PositionZone, Totem, TotemElement, LootBid, LootResult, Debuff, BenchPlayer, ActiveHoT } from './types';
 import { createEmptyEquipment, CLASS_SPECS } from './types';
 // Shaman imports for action bar switching and totems
 import { DEFAULT_SHAMAN_ACTION_BAR, HEALING_WAVE, LESSER_HEALING_WAVE, LESSER_HEALING_WAVE_DOWNRANK, CHAIN_HEAL, CHAIN_HEAL_DOWNRANK } from './shamanSpells';
 import { PRIEST_SPELLS, DEFAULT_PRIEST_ACTION_BAR, type HoTSpell as PriestHoTSpell } from './priestSpells';
 import { DRUID_SPELLS, DEFAULT_DRUID_ACTION_BAR, type HoTSpell as DruidHoTSpell } from './druidSpells';
+import { DEFAULT_MAGE_ACTION_BAR } from './mageSpells';
 import { getTotemById, TOTEMS_BY_ELEMENT } from './totems';
 import { PARTY_AURAS, memberProvidesAura } from './auras';
 import { DEBUFFS, ENCOUNTERS, TRAINING_ENCOUNTER } from './encounters';
@@ -164,8 +165,8 @@ function selectAIHealerSpell(
   druidContext?: DruidSpellContext,  // Optional context for druid special abilities
   priestContext?: PriestSpellContext  // Optional context for priest special abilities
 ): AISpellChoice | null {
-  // Mana conservation: if below 30% mana, prefer efficient downranked spells
-  const lowMana = healerManaPct < 0.30;
+  // Mana conservation: if below 50% mana, prefer efficient downranked spells
+  const lowMana = healerManaPct < 0.50;
 
   switch (healerClass) {
     case 'priest': {
@@ -721,12 +722,15 @@ export class GameEngine {
       isCasting: false,
       castingSpell: null,
       castProgress: 0,
+      castTargetId: null,
+      castHealAmount: 0,
       globalCooldown: 0,
       healingDone: 0,
       overhealing: 0,
       // Healing meter stats
       dispelsDone: 0,
       spellHealing: {},
+      spellDamage: {},
       aiHealerStats: {},
       lastEncounterResult: null,
       combatLog: [],
@@ -799,7 +803,16 @@ export class GameEngine {
       mouseoverHealingEnabled: false,
       // Faction and class system
       faction: 'alliance' as Faction,
-      playerClass: 'paladin' as PlayerHealerClass,
+      playerClass: 'paladin' as PlayerClass,
+      // DPS-specific state
+      selectedEnemyTargetId: null,
+      playerDamageDone: 0,
+      raidDpsStats: {},
+      // Mage-specific state (Evocation channeling)
+      isChannelingEvocation: false,
+      evocationRemainingTime: 0,
+      evocationTicksRemaining: 0,
+      threatTable: {},
       // Shaman-specific state (initialized but not used until faction is Horde)
       activeTotems: [],
       totemCooldowns: [],
@@ -1350,8 +1363,8 @@ export class GameEngine {
     return this.state.faction;
   }
 
-  // Get current player healer class
-  getPlayerClass(): PlayerHealerClass {
+  // Get current player class
+  getPlayerClass(): PlayerClass {
     return this.state.playerClass;
   }
 
@@ -1472,7 +1485,7 @@ export class GameEngine {
   }
 
   // Helper to load the correct action bar for a class
-  private loadActionBarForClass(playerClass: PlayerHealerClass): void {
+  private loadActionBarForClass(playerClass: PlayerClass): void {
     switch (playerClass) {
       case 'priest':
         this.actionBar = DEFAULT_PRIEST_ACTION_BAR.map(s => ({ ...s }));
@@ -1483,6 +1496,9 @@ export class GameEngine {
       case 'druid':
         this.actionBar = DEFAULT_DRUID_ACTION_BAR.map(s => ({ ...s }));
         break;
+      case 'mage':
+        this.actionBar = DEFAULT_MAGE_ACTION_BAR.map(s => ({ ...s }));
+        break;
       case 'paladin':
       default:
         this.actionBar = DEFAULT_ACTION_BAR.map(s => ({ ...s }));
@@ -1491,40 +1507,43 @@ export class GameEngine {
   }
 
   // Get class display name
-  private getClassDisplayName(playerClass: PlayerHealerClass): string {
+  private getClassDisplayName(playerClass: PlayerClass): string {
     switch (playerClass) {
       case 'priest': return 'Holy Priest';
       case 'shaman': return 'Restoration Shaman';
       case 'druid': return 'Restoration Druid';
+      case 'mage': return 'Frost Mage';
       case 'paladin': return 'Holy Paladin';
       default: return 'Holy Paladin';
     }
   }
 
   // Get default player name for class
-  private getDefaultPlayerName(playerClass: PlayerHealerClass): string {
+  private getDefaultPlayerName(playerClass: PlayerClass): string {
     switch (playerClass) {
       case 'priest': return 'Lightwell';
       case 'shaman': return 'Chainheal';
       case 'druid': return 'Treehugger';
+      case 'mage': return 'Frostbolt';
       case 'paladin': return 'Healadin';
       default: return 'Healadin';
     }
   }
 
   // Get player spec for class
-  private getPlayerSpec(playerClass: PlayerHealerClass): WoWSpec {
+  private getPlayerSpec(playerClass: PlayerClass): WoWSpec {
     switch (playerClass) {
       case 'priest': return 'holy_priest';
       case 'shaman': return 'restoration_shaman';
       case 'druid': return 'restoration';
+      case 'mage': return 'frost_mage';
       case 'paladin': return 'holy_paladin';
       default: return 'holy_paladin';
     }
   }
 
   // Set player class (called after switchFaction to override default)
-  setPlayerClass(newClass: PlayerHealerClass): void {
+  setPlayerClass(newClass: PlayerClass): void {
     if (this.state.isRunning) {
       this.addCombatLogEntry({
         message: 'Cannot change class during combat!',
@@ -1553,7 +1572,8 @@ export class GameEngine {
     // Load appropriate starting gear
     const specKey = newClass === 'priest' ? 'holy_priest' :
                    newClass === 'shaman' ? 'restoration_shaman' :
-                   newClass === 'druid' ? 'restoration' : 'holy_paladin';
+                   newClass === 'druid' ? 'restoration' :
+                   newClass === 'mage' ? 'frost_mage' : 'holy_paladin';
     this.state.playerEquipment = getPreRaidBisForSpec(specKey);
 
     // Update player in raid
@@ -2170,6 +2190,8 @@ export class GameEngine {
     this.state.powerInfusionDuration = 0;
     // Clear Innervate state
     this.state.innervateTargetId = null;
+    // Reset threat table
+    this.resetAllThreat();
 
     this.addCombatLogEntry({ message: 'Encounter ended.', type: 'system' });
     this.notify();
@@ -2600,6 +2622,22 @@ export class GameEngine {
     this.notify();
   }
 
+  /**
+   * Set the selected enemy target (for DPS classes)
+   * @param enemyId The ID of the enemy (boss or add) to target, or null to clear
+   */
+  setSelectedEnemy(enemyId: string | null) {
+    this.state.selectedEnemyTargetId = enemyId;
+    this.notify();
+  }
+
+  /**
+   * Get the selected enemy target ID
+   */
+  getSelectedEnemy(): string | null {
+    return this.state.selectedEnemyTargetId;
+  }
+
   setRaidLeaderMode(enabled: boolean) {
     this.state.isRaidLeaderMode = enabled;
     if (enabled) {
@@ -2617,7 +2655,7 @@ export class GameEngine {
    * Configure multiplayer healers - replaces NPC healers with player healers
    * @param players Array of player info with id, name, and class
    */
-  setupMultiplayerHealers(players: Array<{ id: string; name: string; playerClass: 'paladin' | 'shaman' | 'priest' | 'druid' }>) {
+  setupMultiplayerHealers(players: Array<{ id: string; name: string; playerClass: PlayerClass }>) {
     // Find all healer slots in the raid (excluding player)
     const healerIndices: number[] = [];
     this.state.raid.forEach((member, index) => {
@@ -2639,6 +2677,7 @@ export class GameEngine {
         shaman: 'restoration_shaman',
         priest: 'holy_priest',
         druid: 'restoration',
+        mage: 'frost_mage',
       };
 
       // Replace the NPC healer with the player
@@ -2831,6 +2870,8 @@ export class GameEngine {
       this.state.isCasting = false;
       this.state.castingSpell = null;
       this.state.castProgress = 0;
+      this.state.castTargetId = null;
+      this.state.castHealAmount = 0;
       this.addCombatLogEntry({ message: 'Cast cancelled', type: 'system' });
       this.notify();
     }
@@ -2859,6 +2900,18 @@ export class GameEngine {
     if (this.state.isCasting) {
       this.cancelCast();
       return;
+    }
+
+    // If channeling Evocation and trying to cast another spell, cancel Evocation
+    if (this.state.isChannelingEvocation && spell.id !== 'evocation') {
+      this.state.isChannelingEvocation = false;
+      this.state.evocationRemainingTime = 0;
+      this.state.evocationTicksRemaining = 0;
+      this.addCombatLogEntry({
+        message: 'Evocation interrupted!',
+        type: 'system',
+      });
+      // Continue with the new spell cast...
     }
 
     // Check GCD for spells that use it
@@ -2913,6 +2966,22 @@ export class GameEngine {
       return;
     }
 
+    // Evocation - channeled mana regeneration (Mage)
+    // 8 seconds, 4 ticks of 15% mana each (60% total)
+    // Casting any other spell interrupts it
+    if (spell.id === 'evocation') {
+      this.state.isChannelingEvocation = true;
+      this.state.evocationRemainingTime = 8;
+      this.state.evocationTicksRemaining = 4;
+      if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown; // 8 min CD
+      this.addCombatLogEntry({
+        message: 'Evocation - channeling mana regeneration',
+        type: 'mana',
+      });
+      this.notify();
+      return;
+    }
+
     // Inner Focus - makes next spell free and +25% crit (Priest)
     if (spell.id === 'inner_focus') {
       this.state.innerFocusActive = true;
@@ -2928,6 +2997,85 @@ export class GameEngine {
       this.state.naturesSwiftnessCooldown = spell.cooldown;
       if (actionBarSpell) actionBarSpell.currentCooldown = spell.cooldown;
       this.addCombatLogEntry({ message: "Nature's Swiftness activated - next spell is instant!", type: 'buff' });
+      this.notify();
+      return;
+    }
+
+    // ========================================
+    // DAMAGE SPELL HANDLING (DPS Classes)
+    // ========================================
+    if (spell.isDamageSpell && spell.damageAmount) {
+      // Check for enemy target
+      const enemyTargetId = this.state.selectedEnemyTargetId;
+      if (!enemyTargetId || !this.state.boss) {
+        this.addCombatLogEntry({ message: 'No enemy target selected!', type: 'system' });
+        this.notify();
+        return;
+      }
+
+      // For cast time spells, start casting with setTimeout for completion
+      if (spell.castTime > 0) {
+        this.state.isCasting = true;
+        this.state.castingSpell = spell;
+        this.state.castProgress = 0;
+
+        // GCD starts when cast BEGINS
+        if (spell.isOnGlobalCooldown) {
+          this.state.globalCooldown = GCD_DURATION;
+        }
+
+        // Set up cast completion via setTimeout (like healer spells)
+        this.castTimeout = window.setTimeout(() => {
+          if (this.state.isCasting && this.state.castingSpell?.id === spell.id) {
+            // Check if we still have enough mana when cast completes
+            const finalManaCost = this.getEffectiveManaCost(spell.manaCost);
+            if (this.state.playerMana < finalManaCost) {
+              this.addCombatLogEntry({ message: 'Not enough mana!', type: 'system' });
+              this.state.isCasting = false;
+              this.state.castingSpell = null;
+              this.state.castProgress = 0;
+              this.notify();
+              return;
+            }
+
+            // Deduct mana when cast completes
+            this.state.playerMana -= finalManaCost;
+            this.state.lastSpellCastTime = this.state.elapsedTime;
+
+            // Apply the damage
+            this.applyDamageSpell(spell, enemyTargetId);
+
+            // Reset casting state
+            this.state.isCasting = false;
+            this.state.castingSpell = null;
+            this.state.castProgress = 0;
+
+            // Set cooldown if spell has one
+            if (actionBarSpell && spell.cooldown > 0) {
+              actionBarSpell.currentCooldown = spell.cooldown;
+            }
+
+            this.notify();
+          }
+        }, spell.castTime * 1000);
+
+        this.notify();
+        return;
+      }
+
+      // Instant damage spells
+      this.state.playerMana -= effectiveManaCost;
+      this.state.lastSpellCastTime = this.state.elapsedTime;
+      this.state.globalCooldown = GCD_DURATION;
+
+      // Apply the damage
+      this.applyDamageSpell(spell, enemyTargetId);
+
+      // Set cooldown if spell has one
+      if (actionBarSpell && spell.cooldown > 0) {
+        actionBarSpell.currentCooldown = spell.cooldown;
+      }
+
       this.notify();
       return;
     }
@@ -3457,7 +3605,7 @@ export class GameEngine {
       return;
     }
 
-    // Remove Curse (Druid)
+    // Remove Curse (Druid and Mage)
     if (spell.id === 'remove_curse') {
       if (!target.isAlive) {
         this.addCombatLogEntry({ message: 'Cannot dispel dead target!', type: 'system' });
@@ -3848,6 +3996,18 @@ export class GameEngine {
       this.state.castingSpell = spell;
       this.state.castProgress = 0;
 
+      // HealComm: Track target and expected heal amount for incoming heal display
+      this.state.castTargetId = target.id;
+      // Calculate expected heal using player's spell power (gear score * 0.3)
+      const playerGearScore = this.state.playerEquipment
+        ? Object.values(this.state.playerEquipment).reduce((sum, item) => sum + (item?.gearScore || 0), 0)
+        : 0;
+      const minHeal = spell.healAmount.min;
+      const maxHeal = spell.healAmount.max;
+      const avgHeal = (minHeal + maxHeal) / 2;
+      const spellPowerBonus = (playerGearScore * 0.3) * spell.spellPowerCoefficient;
+      this.state.castHealAmount = Math.floor(avgHeal + spellPowerBonus);
+
       // GCD starts when cast BEGINS, not when it ends (like real WoW)
       // This allows casting the next spell immediately after a long cast finishes
       if (spell.isOnGlobalCooldown) {
@@ -3903,6 +4063,8 @@ export class GameEngine {
           this.state.isCasting = false;
           this.state.castingSpell = null;
           this.state.castProgress = 0;
+          this.state.castTargetId = null;
+          this.state.castHealAmount = 0;
           // GCD already started at cast BEGIN (line 1986-1988), not here at cast end
 
           if (actionBarSpell && spell.cooldown > 0) {
@@ -4024,6 +4186,185 @@ export class GameEngine {
       amount: actualHeal,
       isCrit,
     });
+
+    // Generate healing threat (0.5x heal amount, split among all active enemies)
+    this.addHealingThreat(this.state.playerId, actualHeal);
+  }
+
+  // Apply damage from a DPS spell to an enemy target (boss or add)
+  // For AoE spells (isAoE: true), damage is applied to ALL active enemies
+  private applyDamageSpell(spell: Spell, enemyTargetId: string) {
+    if (!spell.damageAmount || !this.state.boss) return;
+
+    // Get targets - AoE spells hit all active enemies, single target spells hit just the selected target
+    const targets: Array<{ id: string; name: string; isBoss: boolean }> = [];
+
+    if (spell.isAoE) {
+      // AoE: Hit boss (if alive) and all alive adds
+      if (this.state.boss.currentHealth > 0) {
+        targets.push({ id: this.state.boss.id, name: this.state.boss.name, isBoss: true });
+      }
+      if (this.state.boss.adds) {
+        for (const add of this.state.boss.adds) {
+          if (add.isAlive) {
+            targets.push({ id: add.id, name: add.name, isBoss: false });
+          }
+        }
+      }
+    } else {
+      // Single target: Just hit the selected target
+      if (enemyTargetId === this.state.boss.id) {
+        targets.push({ id: this.state.boss.id, name: this.state.boss.name, isBoss: true });
+      } else if (this.state.boss.adds) {
+        const add = this.state.boss.adds.find(a => a.id === enemyTargetId);
+        if (add && add.isAlive) {
+          targets.push({ id: add.id, name: add.name, isBoss: false });
+        }
+      }
+    }
+
+    // No valid targets
+    if (targets.length === 0) return;
+
+    const schoolName = spell.spellSchool ? spell.spellSchool.charAt(0).toUpperCase() + spell.spellSchool.slice(1) : '';
+
+    // Apply damage to each target (each gets its own damage roll)
+    for (const target of targets) {
+      // Calculate damage for this target
+      const minDmg = spell.damageAmount.min;
+      const maxDmg = spell.damageAmount.max;
+      const baseDamage = Math.floor(Math.random() * (maxDmg - minDmg + 1)) + minDmg;
+
+      // Apply spell power
+      const spellPower = this.state.spellPower;
+      const bonusDamage = Math.floor(spellPower * spell.spellPowerCoefficient);
+      let totalDamage = baseDamage + bonusDamage;
+
+      // Check for crit (each target gets separate crit roll)
+      const isCrit = Math.random() * 100 < this.state.critChance;
+      if (isCrit) {
+        totalDamage = Math.floor(totalDamage * 1.5);
+      }
+
+      // Apply damage to the target
+      if (target.isBoss) {
+        this.state.boss.currentHealth = Math.max(0, this.state.boss.currentHealth - totalDamage);
+      } else if (this.state.boss.adds) {
+        const add = this.state.boss.adds.find(a => a.id === target.id);
+        if (add) {
+          add.currentHealth = Math.max(0, add.currentHealth - totalDamage);
+          if (add.currentHealth <= 0 && add.isAlive) {
+            add.isAlive = false;
+            this.addCombatLogEntry({
+              message: `${add.name} dies!`,
+              type: 'system'
+            });
+          }
+        }
+      }
+
+      // Track damage done
+      this.state.playerDamageDone = (this.state.playerDamageDone || 0) + totalDamage;
+
+      // Track in spell damage breakdown
+      this.state.spellDamage[spell.id] = (this.state.spellDamage[spell.id] || 0) + totalDamage;
+
+      // Combat log for this target
+      this.addCombatLogEntry({
+        message: `${spell.name} ${isCrit ? 'CRITS ' : 'hits '}${target.name} for ${totalDamage} ${schoolName}`,
+        type: 'damage',
+        amount: totalDamage,
+        isCrit,
+      });
+
+      // Generate threat for damage (1:1 ratio) against this target
+      this.addThreat(target.id, this.state.playerId, totalDamage);
+    }
+
+    // Check for boss death (DPS killed the boss!)
+    if (this.state.boss.currentHealth <= 0) {
+      this.addCombatLogEntry({
+        message: `${this.state.boss.name} has been defeated!`,
+        type: 'system'
+      });
+      this.handleBossVictory(this.state.boss.id);
+    }
+  }
+
+  // ============================================================================
+  // THREAT SYSTEM
+  // Classic WoW threat rules:
+  // - Damage generates 1:1 threat against the target
+  // - Healing generates 0.5 threat per point healed, split among all active enemies
+  // - Tanks have threat modifiers (future: Defensive Stance = 1.3x)
+  // - Some abilities have threat modifiers (future: Sunder Armor = bonus threat)
+  // ============================================================================
+
+  // Add threat from a member against a specific enemy
+  private addThreat(enemyId: string, memberId: string, amount: number) {
+    if (!this.state.threatTable[enemyId]) {
+      this.state.threatTable[enemyId] = {};
+    }
+    this.state.threatTable[enemyId][memberId] = (this.state.threatTable[enemyId][memberId] || 0) + amount;
+  }
+
+  // Get current threat for a member against a specific enemy
+  getThreat(enemyId: string, memberId: string): number {
+    return this.state.threatTable[enemyId]?.[memberId] || 0;
+  }
+
+  // Get all active enemy IDs (boss + alive adds)
+  private getActiveEnemyIds(): string[] {
+    const enemies: string[] = [];
+    if (this.state.boss) {
+      enemies.push(this.state.boss.id);
+      if (this.state.boss.adds) {
+        this.state.boss.adds.forEach(add => {
+          if (add.isAlive) {
+            enemies.push(add.id);
+          }
+        });
+      }
+    }
+    return enemies;
+  }
+
+  // Add healing threat (split among all active enemies)
+  private addHealingThreat(healerId: string, healAmount: number) {
+    const enemies = this.getActiveEnemyIds();
+    if (enemies.length === 0) return;
+
+    // Healing generates 0.5 threat per point healed
+    const baseThreat = healAmount * 0.5;
+    // Split equally among all enemies
+    const threatPerEnemy = baseThreat / enemies.length;
+
+    enemies.forEach(enemyId => {
+      this.addThreat(enemyId, healerId, threatPerEnemy);
+    });
+  }
+
+  // Get the member with highest threat against an enemy (for aggro mechanics)
+  getHighestThreatMember(enemyId: string): string | null {
+    const threatMap = this.state.threatTable[enemyId];
+    if (!threatMap) return null;
+
+    let highestThreat = 0;
+    let highestMemberId: string | null = null;
+
+    for (const [memberId, threat] of Object.entries(threatMap)) {
+      if (threat > highestThreat) {
+        highestThreat = threat;
+        highestMemberId = memberId;
+      }
+    }
+
+    return highestMemberId;
+  }
+
+  // Reset all threat (encounter ended)
+  resetAllThreat() {
+    this.state.threatTable = {};
   }
 
   // Apply Regrowth HoT component after the direct heal
@@ -4854,6 +5195,58 @@ export class GameEngine {
       // Update NPC shaman totem effects (mana regen, healing, cleansing)
       this.tickNpcShamanTotems(delta);
 
+      // Simulate DPS damage for raid DPS members (based on their dps field)
+      if (this.state.isRunning && this.state.boss) {
+        for (const member of this.state.raid) {
+          if (member.role === 'dps' && member.isAlive && member.dps > 0) {
+            // Initialize if not exists
+            if (!this.state.raidDpsStats[member.id]) {
+              this.state.raidDpsStats[member.id] = {
+                name: member.name,
+                class: member.class,
+                damageDone: 0,
+                spec: member.spec,
+              };
+            }
+            // Accumulate damage based on DPS * time
+            this.state.raidDpsStats[member.id].damageDone += member.dps * delta;
+          }
+        }
+      }
+
+      // Update Evocation channeling (Mage mana regen)
+      if (this.state.isChannelingEvocation) {
+        this.state.evocationRemainingTime -= delta;
+
+        // Tick every 2 seconds (8s / 4 ticks = 2s per tick)
+        const tickInterval = 2;
+        const expectedTicksCompleted = 4 - this.state.evocationTicksRemaining;
+        const actualTicksCompleted = Math.floor((8 - this.state.evocationRemainingTime) / tickInterval);
+
+        if (actualTicksCompleted > expectedTicksCompleted && this.state.evocationTicksRemaining > 0) {
+          // Apply mana tick (15% of max mana per tick)
+          const manaGain = Math.floor(this.state.maxMana * 0.15);
+          this.state.playerMana = Math.min(this.state.maxMana, this.state.playerMana + manaGain);
+          this.state.evocationTicksRemaining--;
+
+          this.addCombatLogEntry({
+            message: `Evocation restores ${manaGain} mana`,
+            type: 'mana',
+          });
+        }
+
+        // Check if channel complete
+        if (this.state.evocationRemainingTime <= 0) {
+          this.state.isChannelingEvocation = false;
+          this.state.evocationRemainingTime = 0;
+          this.state.evocationTicksRemaining = 0;
+          this.addCombatLogEntry({
+            message: 'Evocation complete',
+            type: 'system',
+          });
+        }
+      }
+
       // Update Innervate buff duration (player and AI healers)
       if (this.state.innervateTargetId && this.state.innervateRemainingDuration > 0) {
         this.state.innervateRemainingDuration -= delta;
@@ -5387,32 +5780,39 @@ export class GameEngine {
             }
 
             case 'shazzrah_curse': {
-              // Shazzrah's Curse - applies curse to entire raid that doubles magic damage taken for 5 minutes
-              // Cast every 10 seconds to everyone - curse type so only mages/druids can dispel
+              // Shazzrah's Curse - applies curse to ~8 random raid members that doubles magic damage taken
+              // Curse type so only mages/druids can dispel
               const curseDebuff = DEBUFFS.shazzrahs_curse;
               const curseDuration = curseDebuff.maxDuration || 300; // 5 minutes default
-              this.state.raid.forEach(member => {
-                if (!member.isAlive) return;
-                // Check if they already have the curse - if so, refresh duration
-                const existingCurse = member.debuffs.find(d => d.id === 'shazzrahs_curse');
-                if (existingCurse) {
-                  existingCurse.duration = curseDuration;
-                } else {
-                  member.debuffs.push({
-                    ...curseDebuff,
-                    duration: curseDuration,
-                  });
-                }
+
+              // Get alive players without curse and pick random ~8
+              const aliveWithoutCurse = this.state.raid.filter(m =>
+                m.isAlive && !m.debuffs.some(d => d.id === 'shazzrahs_curse')
+              );
+
+              // Shuffle and pick up to 8 targets
+              const shuffled = [...aliveWithoutCurse].sort(() => Math.random() - 0.5);
+              const curseTargets = shuffled.slice(0, Math.min(8, shuffled.length));
+
+              curseTargets.forEach(member => {
+                member.debuffs.push({
+                  ...curseDebuff,
+                  duration: curseDuration,
+                });
               });
-              this.addCombatLogEntry({
-                message: `Shazzrah casts Shazzrah's Curse! Magic damage taken doubled!`,
-                type: 'damage'
-              });
+
+              if (curseTargets.length > 0) {
+                this.addCombatLogEntry({
+                  message: `Shazzrah's Curse afflicts ${curseTargets.length} players! Decurse them!`,
+                  type: 'damage'
+                });
+              }
               break;
             }
 
             case 'shazzrah_blink': {
               // Shazzrah Blinks to a random player and casts Arcane Explosion
+              // Only hits players within 20 yards (~8 random players to simulate positioning)
               const aliveTargets = this.state.raid.filter(m => m.isAlive);
               if (aliveTargets.length > 0) {
                 const blinkTarget = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
@@ -5423,10 +5823,19 @@ export class GameEngine {
                   type: 'system'
                 });
 
-                // Arcane Explosion hits the ENTIRE RAID - this is the dangerous part!
-                const baseArcaneExplosionDamage = event.damage; // 500 arcane damage base
+                // Arcane Explosion only hits players "near" the blink target (simulate 20-yard range)
+                // Pick ~8 random players including the blink target
+                const shuffled = [...aliveTargets].sort(() => Math.random() - 0.5);
+                const explosionTargets = shuffled.slice(0, Math.min(8, shuffled.length));
+                // Always include the blink target
+                if (!explosionTargets.includes(blinkTarget)) {
+                  explosionTargets[0] = blinkTarget;
+                }
 
-                aliveTargets.forEach(target => {
+                const baseArcaneExplosionDamage = event.damage; // 1000 arcane damage base
+                let cursedCount = 0;
+
+                explosionTargets.forEach(target => {
                   if (!target.isAlive) return;
 
                   let damage = baseArcaneExplosionDamage * enrageMultiplier;
@@ -5434,7 +5843,8 @@ export class GameEngine {
                   // Check for Shazzrah's Curse - doubles magic damage taken
                   const hasCurse = target.debuffs.some(d => d.increasesMagicDamageTaken);
                   if (hasCurse) {
-                    damage *= 2; // Double damage from curse - 1000 damage if cursed!
+                    damage *= 2; // Double damage from curse - 2000 damage if cursed!
+                    cursedCount++;
                   }
 
                   damage = this.calculateDamageReduction(target, damage, 'arcane');
@@ -5446,14 +5856,12 @@ export class GameEngine {
                   }
                 });
 
-                // Count how many had the curse for the log message
-                const cursedCount = aliveTargets.filter(t => t.debuffs.some(d => d.increasesMagicDamageTaken)).length;
                 const logDamage = cursedCount > 0
                   ? `${Math.round(baseArcaneExplosionDamage * enrageMultiplier)}-${Math.round(baseArcaneExplosionDamage * 2 * enrageMultiplier)}`
                   : `${Math.round(baseArcaneExplosionDamage * enrageMultiplier)}`;
 
                 this.addCombatLogEntry({
-                  message: `Shazzrah's Arcane Explosion hits the ENTIRE RAID for ${logDamage} arcane damage!${cursedCount > 0 ? ` (${cursedCount} cursed!)` : ''}`,
+                  message: `Shazzrah's Arcane Explosion hits ${explosionTargets.length} players for ${logDamage} arcane!${cursedCount > 0 ? ` (${cursedCount} cursed!)` : ''}`,
                   type: 'damage'
                 });
               }
@@ -5641,11 +6049,11 @@ export class GameEngine {
               const existingMagmaSplash = currentTank.debuffs.find(d => d.id === 'magma_splash');
               if (existingMagmaSplash) {
                 existingMagmaSplash.stacks = (existingMagmaSplash.stacks || 1) + 1;
-                existingMagmaSplash.duration = 30; // Refresh duration
+                existingMagmaSplash.duration = 15; // Refresh duration (matches debuff maxDuration)
               } else {
                 currentTank.debuffs.push({
                   ...DEBUFFS.magma_splash,
-                  duration: 30,
+                  duration: 15,
                   stacks: 1,
                 });
               }
@@ -5688,8 +6096,8 @@ export class GameEngine {
                 if (shouldSwapNow) {
                   tanks.currentMainTank = tanks.currentMainTank === 1 ? 2 : 1;
                   tanks.lastSwapTime = this.state.elapsedTime;
-                  // Increase threshold for next swap (5 -> 10 -> 15, etc.)
-                  tanks.nextSwapThreshold = swapThreshold + 5;
+                  // Keep threshold at 5 stacks (don't increase - was causing tanks to become unhealable)
+                  tanks.nextSwapThreshold = 5;
 
                   const newTank = this.state.raid.find(m =>
                     m.id === (tanks.currentMainTank === 1 ? tanks.tank1Id : tanks.tank2Id)
@@ -5707,7 +6115,7 @@ export class GameEngine {
                     };
                   } else {
                     this.addCombatLogEntry({
-                      message: `${newTank?.name} taunts Golemagg! (Next swap at ${tanks.nextSwapThreshold} stacks)`,
+                      message: `${newTank?.name} taunts Golemagg!`,
                       type: 'system'
                     });
                     // Show normal swap notification
@@ -6870,6 +7278,27 @@ export class GameEngine {
         }
       });
 
+      // Calculate incoming heals (HealComm-style) for all raid members
+      // Sum up heals from AI healers currently casting + player cast if any
+      const incomingHeals: Record<string, number> = {};
+
+      // Add incoming heals from AI healers
+      Object.values(this.aiHealerCasting).forEach(castInfo => {
+        if (castInfo && castInfo.targetId && castInfo.healAmount > 0) {
+          incomingHeals[castInfo.targetId] = (incomingHeals[castInfo.targetId] || 0) + castInfo.healAmount;
+        }
+      });
+
+      // Add incoming heal from player if casting a heal spell
+      if (this.state.isCasting && this.state.castTargetId && this.state.castHealAmount > 0) {
+        incomingHeals[this.state.castTargetId] = (incomingHeals[this.state.castTargetId] || 0) + this.state.castHealAmount;
+      }
+
+      // Update incomingHeal on all raid members
+      this.state.raid.forEach(member => {
+        member.incomingHeal = incomingHeals[member.id] || 0;
+      });
+
       // AI Healers - other healers in the raid automatically heal
       // Disable AI healers in multiplayer client mode (host handles all AI healing)
       // Also exclude raid members controlled by multiplayer players
@@ -7069,9 +7498,17 @@ export class GameEngine {
             return;
           }
 
+          // Add random base delay between heals to prevent all healers casting simultaneously
+          // Even with full mana, add 0.3-1.0s random delay to stagger heals
+          if (Math.random() < 0.30) {
+            this.aiHealerCooldowns[healer.id] = 0.3 + Math.random() * 0.7;
+            return;
+          }
+
           // Find injured raid members (prioritize tanks, then lowest health %)
+          // Only consider targets below 70% health to be more conservative
           const injured = this.state.raid
-            .filter(m => m.isAlive && m.currentHealth < m.maxHealth * 0.9)
+            .filter(m => m.isAlive && m.currentHealth < m.maxHealth * 0.70)
             .sort((a, b) => {
               // Tanks get priority
               if (a.role === 'tank' && b.role !== 'tank') return -1;
@@ -7080,276 +7517,325 @@ export class GameEngine {
               return (a.currentHealth / a.maxHealth) - (b.currentHealth / b.maxHealth);
             });
 
-          if (injured.length > 0) {
-            const target = injured[0];
-            const targetHealthPct = target.currentHealth / target.maxHealth;
-            const healerManaPct = stats.currentMana / stats.maxMana;
+          // Proactive mana conservation at ALL mana levels
+          const healerManaPct = stats.currentMana / stats.maxMana;
+          const hasCriticalTarget = injured.some(m => m.currentHealth / m.maxHealth < 0.40);
 
-            // Build druid context if this is a druid healer
-            let druidContext: DruidSpellContext | undefined;
-            if (healer.class === 'druid') {
-              druidContext = {
-                healerId: healer.id,
-                targetHoTs: target.activeHoTs || [],
-                naturesSwiftnessCooldown: stats.naturesSwiftnessCooldown || 0,
-                swiftmendCooldown: stats.swiftmendCooldown || 0,
-              };
+          // Skip chance based on mana level (more mana = less likely to skip, but never 0%)
+          // At 100% mana: 15% skip chance | At 50% mana: 40% skip chance | At 20% mana: 60% skip chance
+          const baseSkipChance = 0.15 + (1 - healerManaPct) * 0.55;
+
+          // If there's a critical target (<40% HP), halve the skip chance
+          const skipChance = hasCriticalTarget ? baseSkipChance * 0.5 : baseSkipChance;
+
+          if (Math.random() < skipChance) {
+            this.aiHealerCooldowns[healer.id] = 1.0 + Math.random() * 0.5; // Wait 1-1.5s before checking again
+            return;
+          }
+
+          // If no one is injured enough, skip this cycle
+          if (injured.length === 0) {
+            return;
+          }
+
+          // Check which targets already have incoming heals from other AI healers
+          const targetsWithIncomingHeals = new Set<string>();
+          Object.entries(this.aiHealerCasting).forEach(([casterId, castInfo]) => {
+            if (castInfo && casterId !== healer.id) {
+              targetsWithIncomingHeals.add(castInfo.targetId);
             }
+          });
 
-            // Build priest context if this is a priest healer
-            let priestContext: PriestSpellContext | undefined;
-            if (healer.class === 'priest') {
-              // Calculate group membership (5 members per group, index 0-4 = group 0, etc.)
-              const targetIndex = this.state.raid.indexOf(target);
-              const targetGroup = Math.floor(targetIndex / 5);
+          // Filter out targets that already have incoming heals (unless they're critical)
+          const availableTargets = injured.filter(m => {
+            const healthPct = m.currentHealth / m.maxHealth;
+            // Critical targets (<40% HP) or tanks always available
+            if (healthPct < 0.40 || m.role === 'tank') return true;
+            // Skip targets with incoming heals
+            return !targetsWithIncomingHeals.has(m.id);
+          });
 
-              // Count injured members in the same group (for Prayer of Healing consideration)
-              const injuredInGroup = this.state.raid.filter((m, idx) => {
-                const memberGroup = Math.floor(idx / 5);
-                return memberGroup === targetGroup && m.isAlive && m.currentHealth < m.maxHealth * 0.75;
-              }).length;
-
-              priestContext = {
-                healerId: healer.id,
-                targetHoTs: target.activeHoTs || [],
-                injuredInGroup,
-                targetHasWeakenedSoul: (target.weakenedSoulDuration || 0) > 0,
-                targetHasShield: (target.absorbShield || 0) > 0,
-                innerFocusCooldown: stats.innerFocusCooldown || 0,
-              };
-            }
-
-            // Select appropriate spell based on class, target health, and mana
-            const spellChoice = selectAIHealerSpell(
-              healer.class,
-              targetHealthPct,
-              healerManaPct,
-              injured.length,
-              druidContext,
-              priestContext
-            );
-
-            if (!spellChoice) {
-              // No spell available for this class (shouldn't happen)
+          // If all targets have incoming heals, check if any are critical
+          // If no critical targets, skip this cycle (let other healers handle it)
+          if (availableTargets.length === 0) {
+            const hasCritical = injured.some(m => m.currentHealth / m.maxHealth < 0.40 || m.role === 'tank');
+            if (!hasCritical) {
+              this.aiHealerCooldowns[healer.id] = 0.5; // Short delay, check again soon
               return;
             }
+            // Fall back to most injured if all have incoming heals but there's a critical
+          }
 
-            const { spell, spellName, useNaturesSwiftness, consumeHoT, applyShield, useInnerFocus } = spellChoice;
-            let manaCost = spell.manaCost;
-            let innerFocusCritBonus = false;  // Track if we should apply Inner Focus crit bonus
+          // Select target: prioritize critical/tanks, then first available
+          const targetPool = availableTargets.length > 0 ? availableTargets : injured;
+          const criticalTarget = targetPool.find(m => m.role === 'tank' || m.currentHealth / m.maxHealth < 0.40);
+          const target = criticalTarget || targetPool[0];
+          const targetHealthPct = target.currentHealth / target.maxHealth;
 
-            // Handle Nature's Swiftness activation (Druid)
-            if (useNaturesSwiftness && healer.class === 'druid') {
-              // Add NS combat log
-              this.addCombatLogEntry({
-                message: `${healer.name} activates Nature's Swiftness!`,
-                type: 'buff',
-              });
-              // Put NS on 3 minute cooldown
-              stats.naturesSwiftnessCooldown = 180;
+          // Build druid context if this is a druid healer
+          let druidContext: DruidSpellContext | undefined;
+          if (healer.class === 'druid') {
+            druidContext = {
+              healerId: healer.id,
+              targetHoTs: target.activeHoTs || [],
+              naturesSwiftnessCooldown: stats.naturesSwiftnessCooldown || 0,
+              swiftmendCooldown: stats.swiftmendCooldown || 0,
+            };
+          }
+
+          // Build priest context if this is a priest healer
+          let priestContext: PriestSpellContext | undefined;
+          if (healer.class === 'priest') {
+            // Calculate group membership (5 members per group, index 0-4 = group 0, etc.)
+            const targetIndex = this.state.raid.indexOf(target);
+            const targetGroup = Math.floor(targetIndex / 5);
+
+            // Count injured members in the same group (for Prayer of Healing consideration)
+            const injuredInGroup = this.state.raid.filter((m, idx) => {
+              const memberGroup = Math.floor(idx / 5);
+              return memberGroup === targetGroup && m.isAlive && m.currentHealth < m.maxHealth * 0.75;
+            }).length;
+
+            priestContext = {
+              healerId: healer.id,
+              targetHoTs: target.activeHoTs || [],
+              injuredInGroup,
+              targetHasWeakenedSoul: (target.weakenedSoulDuration || 0) > 0,
+              targetHasShield: (target.absorbShield || 0) > 0,
+              innerFocusCooldown: stats.innerFocusCooldown || 0,
+            };
+          }
+
+          // Select appropriate spell based on class, target health, and mana
+          const spellChoice = selectAIHealerSpell(
+            healer.class,
+            targetHealthPct,
+            healerManaPct,
+            injured.length,
+            druidContext,
+            priestContext
+          );
+
+          if (!spellChoice) {
+            // No spell available for this class (shouldn't happen)
+            return;
+          }
+
+          const { spell, spellName, useNaturesSwiftness, consumeHoT, applyShield, useInnerFocus } = spellChoice;
+          let manaCost = spell.manaCost;
+          let innerFocusCritBonus = false;  // Track if we should apply Inner Focus crit bonus
+
+          // Handle Nature's Swiftness activation (Druid)
+          if (useNaturesSwiftness && healer.class === 'druid') {
+            // Add NS combat log
+            this.addCombatLogEntry({
+              message: `${healer.name} activates Nature's Swiftness!`,
+              type: 'buff',
+            });
+            // Put NS on 3 minute cooldown
+            stats.naturesSwiftnessCooldown = 180;
+          }
+
+          // Handle Inner Focus activation (Priest)
+          // Inner Focus: Next spell is FREE + 25% crit bonus
+          if (useInnerFocus && healer.class === 'priest') {
+            // Add Inner Focus combat log
+            this.addCombatLogEntry({
+              message: `${healer.name} activates Inner Focus!`,
+              type: 'buff',
+            });
+            // Put Inner Focus on 3 minute cooldown
+            stats.innerFocusCooldown = 180;
+            // Make the spell free
+            manaCost = 0;
+            // Apply 25% crit bonus
+            innerFocusCritBonus = true;
+          }
+
+          // Handle Swiftmend HoT consumption (Druid)
+          if (consumeHoT && healer.class === 'druid') {
+            // Find and consume the HoT from this druid
+            const hotToConsume = target.activeHoTs.find(
+              h => (h.spellId === 'rejuvenation' || h.spellId === 'rejuvenation_downrank' || h.spellId === 'regrowth')
+                   && h.casterId === healer.id
+            );
+            if (hotToConsume) {
+              // Remove the consumed HoT
+              target.activeHoTs = target.activeHoTs.filter(h => h.id !== hotToConsume.id);
+              // Put Swiftmend on 15 second cooldown
+              stats.swiftmendCooldown = 15;
             }
+          }
 
-            // Handle Inner Focus activation (Priest)
-            // Inner Focus: Next spell is FREE + 25% crit bonus
-            if (useInnerFocus && healer.class === 'priest') {
-              // Add Inner Focus combat log
-              this.addCombatLogEntry({
-                message: `${healer.name} activates Inner Focus!`,
-                type: 'buff',
-              });
-              // Put Inner Focus on 3 minute cooldown
-              stats.innerFocusCooldown = 180;
-              // Make the spell free
-              manaCost = 0;
-              // Apply 25% crit bonus
-              innerFocusCritBonus = true;
+          // Lucifron's Curse doubles mana costs!
+          const hasCurse = healer.debuffs.some(d => d.increasesManaCost);
+          if (hasCurse) {
+            manaCost *= 2;
+          }
+
+          // OOM behavior - must have enough mana to cast (no exceptions)
+          if (stats.currentMana < manaCost) {
+            // Try to find a cheaper spell we CAN afford
+            const cheaperSpell = this.findAffordableSpell(healer, target, stats.currentMana, hasCurse);
+            if (cheaperSpell) {
+              // Use the cheaper spell instead
+              manaCost = hasCurse ? cheaperSpell.spell.manaCost * 2 : cheaperSpell.spell.manaCost;
+              // Re-assign spell choice variables (we need to use the cheaper spell)
+              Object.assign(spellChoice, cheaperSpell);
+            } else {
+              // No affordable spell - wait for mana regen
+              this.aiHealerCooldowns[healer.id] = 0.5;
+              return;
             }
+          }
 
-            // Handle Swiftmend HoT consumption (Druid)
-            if (consumeHoT && healer.class === 'druid') {
-              // Find and consume the HoT from this druid
-              const hotToConsume = target.activeHoTs.find(
-                h => (h.spellId === 'rejuvenation' || h.spellId === 'rejuvenation_downrank' || h.spellId === 'regrowth')
-                     && h.casterId === healer.id
-              );
-              if (hotToConsume) {
-                // Remove the consumed HoT
-                target.activeHoTs = target.activeHoTs.filter(h => h.id !== hotToConsume.id);
-                // Put Swiftmend on 15 second cooldown
-                stats.swiftmendCooldown = 15;
-              }
+          // Spend mana
+          stats.currentMana -= manaCost;
+
+          // Check if this is a HoT spell
+          const hotSpell = spell as DruidHoTSpell | PriestHoTSpell;
+          const isPureHoT = hotSpell.isHoT && !hotSpell.hasDirectHeal;
+
+          // Pre-calculate heal amounts
+          const baseHeal = calculateSpellHeal(spell, healer.gearScore);
+          const critChance = innerFocusCritBonus ? 0.37 : 0.12;
+          const isCrit = Math.random() < critChance;
+          const healAmount = Math.floor(isCrit ? baseHeal * 1.5 : baseHeal);
+
+          // Calculate HoT data if applicable
+          let hotData: { duration: number; tickInterval: number; healPerTick: number } | undefined;
+          if (hotSpell.isHoT && hotSpell.hotDuration && hotSpell.hotTickInterval) {
+            const spellPower = healer.gearScore * 0.3;
+            const perTickBonus = spellPower * (hotSpell.spellPowerCoefficient || 0.2);
+            let healPerTick: number;
+            if (hotSpell.hasDirectHeal) {
+              healPerTick = Math.floor((hotSpell.hotTotalHealing || 0) / (hotSpell.hotDuration / hotSpell.hotTickInterval) + perTickBonus);
+            } else {
+              healPerTick = Math.floor(spell.healAmount.min + perTickBonus);
             }
+            hotData = {
+              duration: hotSpell.hotDuration,
+              tickInterval: hotSpell.hotTickInterval,
+              healPerTick,
+            };
+          }
 
-            // Lucifron's Curse doubles mana costs!
-            const hasCurse = healer.debuffs.some(d => d.increasesManaCost);
-            if (hasCurse) {
-              manaCost *= 2;
-            }
+          // Calculate shield amount for PW:S
+          let shieldAmount = 0;
+          if (applyShield && spell.id === 'power_word_shield') {
+            const baseShield = spell.healAmount.min;
+            const spellPower = healer.gearScore * 0.3;
+            shieldAmount = Math.floor(baseShield + (spellPower * spell.spellPowerCoefficient));
+          }
 
-            // OOM behavior - must have enough mana to cast (no exceptions)
-            if (stats.currentMana < manaCost) {
-              // Try to find a cheaper spell we CAN afford
-              const cheaperSpell = this.findAffordableSpell(healer, target, stats.currentMana, hasCurse);
-              if (cheaperSpell) {
-                // Use the cheaper spell instead
-                manaCost = hasCurse ? cheaperSpell.spell.manaCost * 2 : cheaperSpell.spell.manaCost;
-                // Re-assign spell choice variables (we need to use the cheaper spell)
-                Object.assign(spellChoice, cheaperSpell);
-              } else {
-                // No affordable spell - wait for mana regen
-                this.aiHealerCooldowns[healer.id] = 0.5;
-                return;
-              }
-            }
+          // Determine the cast time
+          // Instant spells: PW:S, Swiftmend (consumeHoT), Nature's Swiftness, or spell has castTime: 0
+          // Note: Use ?? instead of || because castTime: 0 is falsy but valid
+          const spellCastTime = spell.castTime ?? 1.5; // Nullish coalescing - 0 is valid, only undefined defaults to 1.5
+          const isInstantSpell = applyShield || consumeHoT || useNaturesSwiftness || spellCastTime === 0;
+          const castTime = isInstantSpell ? 0 : spellCastTime;
 
-            // Spend mana
-            stats.currentMana -= manaCost;
-
-            // Check if this is a HoT spell
-            const hotSpell = spell as DruidHoTSpell | PriestHoTSpell;
-            const isPureHoT = hotSpell.isHoT && !hotSpell.hasDirectHeal;
-
-            // Pre-calculate heal amounts
-            const baseHeal = calculateSpellHeal(spell, healer.gearScore);
-            const critChance = innerFocusCritBonus ? 0.37 : 0.12;
-            const isCrit = Math.random() < critChance;
-            const healAmount = Math.floor(isCrit ? baseHeal * 1.5 : baseHeal);
-
-            // Calculate HoT data if applicable
-            let hotData: { duration: number; tickInterval: number; healPerTick: number } | undefined;
-            if (hotSpell.isHoT && hotSpell.hotDuration && hotSpell.hotTickInterval) {
-              const spellPower = healer.gearScore * 0.3;
-              const perTickBonus = spellPower * (hotSpell.spellPowerCoefficient || 0.2);
-              let healPerTick: number;
-              if (hotSpell.hasDirectHeal) {
-                healPerTick = Math.floor((hotSpell.hotTotalHealing || 0) / (hotSpell.hotDuration / hotSpell.hotTickInterval) + perTickBonus);
-              } else {
-                healPerTick = Math.floor(spell.healAmount.min + perTickBonus);
-              }
-              hotData = {
-                duration: hotSpell.hotDuration,
-                tickInterval: hotSpell.hotTickInterval,
-                healPerTick,
-              };
-            }
-
-            // Calculate shield amount for PW:S
-            let shieldAmount = 0;
+          // =======================
+          // INSTANT SPELLS - Apply immediately
+          // =======================
+          if (isInstantSpell) {
+            // Power Word: Shield (instant)
             if (applyShield && spell.id === 'power_word_shield') {
-              const baseShield = spell.healAmount.min;
-              const spellPower = healer.gearScore * 0.3;
-              shieldAmount = Math.floor(baseShield + (spellPower * spell.spellPowerCoefficient));
-            }
+              target.absorbShield = shieldAmount;
+              target.absorbShieldMax = shieldAmount;
+              target.weakenedSoulDuration = 15;
 
-            // Determine the cast time
-            // Instant spells: PW:S, Swiftmend (consumeHoT), Nature's Swiftness, or spell has castTime: 0
-            // Note: Use ?? instead of || because castTime: 0 is falsy but valid
-            const spellCastTime = spell.castTime ?? 1.5; // Nullish coalescing - 0 is valid, only undefined defaults to 1.5
-            const isInstantSpell = applyShield || consumeHoT || useNaturesSwiftness || spellCastTime === 0;
-            const castTime = isInstantSpell ? 0 : spellCastTime;
-
-            // =======================
-            // INSTANT SPELLS - Apply immediately
-            // =======================
-            if (isInstantSpell) {
-              // Power Word: Shield (instant)
-              if (applyShield && spell.id === 'power_word_shield') {
-                target.absorbShield = shieldAmount;
-                target.absorbShieldMax = shieldAmount;
-                target.weakenedSoulDuration = 15;
-
-                this.state.combatLog.push({
-                  timestamp: this.state.elapsedTime,
-                  message: `${healer.name} casts Power Word: Shield on ${target.name} (${shieldAmount} absorb)`,
-                  type: 'buff',
-                });
-
-                this.aiHealerCooldowns[healer.id] = 1.5 + (Math.random() * 0.3 - 0.15);
-                return;
-              }
-
-              // Swiftmend or Nature's Swiftness instant heal
-              const actualHeal = isPureHoT ? 0 : Math.min(healAmount, target.maxHealth - target.currentHealth);
-              if (!isPureHoT) {
-                target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
-                this.state.otherHealersHealing += actualHeal;
-                stats.healingDone += actualHeal;
-              }
-
-              // Combat log
-              if (isPureHoT) {
-                this.state.combatLog.push({
-                  timestamp: this.state.elapsedTime,
-                  message: `${healer.name} casts ${spellName} on ${target.name}`,
-                  type: 'buff',
-                });
-              } else {
-                this.state.combatLog.push({
-                  timestamp: this.state.elapsedTime,
-                  message: `${healer.name} casts ${spellName} on ${target.name}${isCrit ? ' (Critical)' : ''} for ${actualHeal}`,
-                  type: 'heal',
-                  amount: actualHeal,
-                  isCrit,
-                });
-              }
-
-              // Apply HoT if applicable
-              if (hotData) {
-                const existingHotIndex = spell.id === 'renew'
-                  ? target.activeHoTs.findIndex(h => h.spellId === 'renew')
-                  : target.activeHoTs.findIndex(h => h.spellId === spell.id && h.casterId === healer.id);
-
-                const newHoT: ActiveHoT = {
-                  id: `hot_${healer.id}_${target.id}_${spell.id}_${Date.now()}`,
-                  spellId: spell.id,
-                  spellName: spell.name,
-                  icon: spell.icon,
-                  casterId: healer.id,
-                  casterName: healer.name,
-                  remainingDuration: hotData.duration,
-                  maxDuration: hotData.duration,
-                  tickInterval: hotData.tickInterval,
-                  timeSinceLastTick: 0,
-                  healPerTick: hotData.healPerTick,
-                };
-
-                if (existingHotIndex >= 0) {
-                  target.activeHoTs[existingHotIndex] = newHoT;
-                } else {
-                  target.activeHoTs.push(newHoT);
-                }
-              }
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts Power Word: Shield on ${target.name} (${shieldAmount} absorb)`,
+                type: 'buff',
+              });
 
               this.aiHealerCooldowns[healer.id] = 1.5 + (Math.random() * 0.3 - 0.15);
               return;
             }
 
-            // =======================
-            // CAST TIME SPELLS - Start casting (heal applies when cast completes)
-            // =======================
-            this.aiHealerCasting[healer.id] = {
-              spellId: spell.id,
-              spellName: spellName,
-              spellIcon: spell.icon,
-              targetId: target.id,
-              castTimeRemaining: castTime,
-              totalCastTime: castTime,
-              healAmount: isPureHoT ? 0 : healAmount,
-              isCrit,
-              manaCost,
-              isHoT: !!hotData,
-              hotData,
-              isShield: false,
-              shieldAmount: 0,
-              isPrayerOfHealing: spell.id === 'prayer_of_healing',
-              useNaturesSwiftness: false,
-              useInnerFocus: useInnerFocus || false,
-              consumeHoT: false,
-            };
+            // Swiftmend or Nature's Swiftness instant heal
+            const actualHeal = isPureHoT ? 0 : Math.min(healAmount, target.maxHealth - target.currentHealth);
+            if (!isPureHoT) {
+              target.currentHealth = Math.min(target.maxHealth, target.currentHealth + healAmount);
+              this.state.otherHealersHealing += actualHeal;
+              stats.healingDone += actualHeal;
+            }
 
-            // AI is now casting - no cooldown until cast completes
+            // Combat log
+            if (isPureHoT) {
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts ${spellName} on ${target.name}`,
+                type: 'buff',
+              });
+            } else {
+              this.state.combatLog.push({
+                timestamp: this.state.elapsedTime,
+                message: `${healer.name} casts ${spellName} on ${target.name}${isCrit ? ' (Critical)' : ''} for ${actualHeal}`,
+                type: 'heal',
+                amount: actualHeal,
+                isCrit,
+              });
+            }
+
+            // Apply HoT if applicable
+            if (hotData) {
+              const existingHotIndex = spell.id === 'renew'
+                ? target.activeHoTs.findIndex(h => h.spellId === 'renew')
+                : target.activeHoTs.findIndex(h => h.spellId === spell.id && h.casterId === healer.id);
+
+              const newHoT: ActiveHoT = {
+                id: `hot_${healer.id}_${target.id}_${spell.id}_${Date.now()}`,
+                spellId: spell.id,
+                spellName: spell.name,
+                icon: spell.icon,
+                casterId: healer.id,
+                casterName: healer.name,
+                remainingDuration: hotData.duration,
+                maxDuration: hotData.duration,
+                tickInterval: hotData.tickInterval,
+                timeSinceLastTick: 0,
+                healPerTick: hotData.healPerTick,
+              };
+
+              if (existingHotIndex >= 0) {
+                target.activeHoTs[existingHotIndex] = newHoT;
+              } else {
+                target.activeHoTs.push(newHoT);
+              }
+            }
+
+            this.aiHealerCooldowns[healer.id] = 1.5 + (Math.random() * 0.3 - 0.15);
             return;
           }
+
+          // =======================
+          // CAST TIME SPELLS - Start casting (heal applies when cast completes)
+          // =======================
+          this.aiHealerCasting[healer.id] = {
+            spellId: spell.id,
+            spellName: spellName,
+            spellIcon: spell.icon,
+            targetId: target.id,
+            castTimeRemaining: castTime,
+            totalCastTime: castTime,
+            healAmount: isPureHoT ? 0 : healAmount,
+            isCrit,
+            manaCost,
+            isHoT: !!hotData,
+            hotData,
+            isShield: false,
+            shieldAmount: 0,
+            isPrayerOfHealing: spell.id === 'prayer_of_healing',
+            useNaturesSwiftness: false,
+            useInnerFocus: useInnerFocus || false,
+            consumeHoT: false,
+          };
+
+          // AI is now casting - no cooldown until cast completes
+          return;
         });
 
         // AI Healer Dispelling - separate from healing cooldown
@@ -7442,6 +7928,70 @@ export class GameEngine {
 
               // Set GCD cooldown (1.5s with slight variance)
               this.aiHealerDispelCooldowns[healer.id] = 1.5 + (Math.random() * 0.2 - 0.1);
+            }
+          }
+        });
+
+        // AI Mage Decursing - DPS mages also help decurse raid members
+        // Mages are DPS (not healers) but can Remove Curse
+        const aiMages = this.state.raid.filter(m =>
+          m.class === 'mage' && m.role === 'dps' && m.isAlive &&
+          m.id !== 'player' // Exclude player-controlled mage
+        );
+
+        aiMages.forEach(mage => {
+          // Use the same dispel cooldown system
+          const dispelCooldown = this.aiHealerDispelCooldowns[mage.id] || 0;
+          if (dispelCooldown > 0) {
+            this.aiHealerDispelCooldowns[mage.id] = dispelCooldown - delta;
+            return;
+          }
+
+          // AI mages wait 2-3 seconds before decursing to give player a chance
+          const AI_DECURSE_REACTION_DELAY = 2.5;
+
+          // Find raid members with curse debuffs that are old enough for AI to decurse
+          const membersWithCurses = this.state.raid
+            .filter(m => m.isAlive && m.debuffs.some(d => {
+              if (d.type !== 'curse') return false;
+              if (d.dispellable === false) return false;
+              // Check if debuff has been active long enough for AI to react
+              const maxDur = d.maxDuration || d.duration;
+              const timeActive = maxDur - d.duration;
+              return timeActive >= AI_DECURSE_REACTION_DELAY;
+            }))
+            .sort((a, b) => {
+              // Tanks get highest priority
+              if (a.role === 'tank' && b.role !== 'tank') return -1;
+              if (b.role === 'tank' && a.role !== 'tank') return 1;
+              // Healers get second priority
+              if (a.role === 'healer' && b.role !== 'healer') return -1;
+              if (b.role === 'healer' && a.role !== 'healer') return 1;
+              return 0;
+            });
+
+          if (membersWithCurses.length > 0) {
+            const target = membersWithCurses[0];
+            const curseToDispel = target.debuffs.find(d => {
+              if (d.type !== 'curse') return false;
+              if (d.dispellable === false) return false;
+              const maxDur = d.maxDuration || d.duration;
+              const timeActive = maxDur - d.duration;
+              return timeActive >= AI_DECURSE_REACTION_DELAY;
+            });
+
+            if (curseToDispel) {
+              // Remove the curse
+              target.debuffs = target.debuffs.filter(d => d.id !== curseToDispel.id);
+
+              // Add combat log entry
+              this.addCombatLogEntry({
+                message: `${mage.name} decurses ${curseToDispel.name} from ${target.name}`,
+                type: 'system',
+              });
+
+              // Set GCD cooldown (1.5s with slight variance)
+              this.aiHealerDispelCooldowns[mage.id] = 1.5 + (Math.random() * 0.2 - 0.1);
             }
           }
         });

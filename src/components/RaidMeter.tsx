@@ -1,5 +1,14 @@
 import { useState } from 'react';
-import type { AIHealerStats, WoWClass, PlayerHealerClass } from '../game/types';
+import type { AIHealerStats, WoWClass, WoWSpec, PlayerClass } from '../game/types';
+import { getPlayerRole } from '../game/types';
+
+// Type for raid DPS stats passed from GameEngine
+interface RaidDpsStats {
+  name: string;
+  class: WoWClass;
+  damageDone: number;
+  spec: WoWSpec;
+}
 
 // Class colors matching WoW
 const CLASS_COLORS: Record<string, string> = {
@@ -7,6 +16,11 @@ const CLASS_COLORS: Record<string, string> = {
   shaman: '#0070DE',
   priest: '#FFFFFF',
   druid: '#FF7D0A',
+  mage: '#69CCF0',
+  warrior: '#C79C6E',
+  rogue: '#FFF569',
+  hunter: '#ABD473',
+  warlock: '#9482C9',
 };
 
 // Spell name mappings for breakdown display
@@ -27,97 +41,149 @@ const SPELL_NAMES: Record<string, string> = {
   chain_heal_downrank: 'Chain Heal (R2)',
   // Totems
   healing_stream_totem: 'Healing Stream',
+  // Mage spells (Frost)
+  frostbolt: 'Frostbolt',
+  frostbolt_downrank: 'Frostbolt (R8)',
+  frost_nova: 'Frost Nova',
+  cone_of_cold: 'Cone of Cold',
+  ice_barrier: 'Ice Barrier',
+  blizzard: 'Blizzard',
 };
 
-interface HealerEntry {
+interface MeterEntry {
   id: string;
   name: string;
   healingDone: number;
   dispelsDone: number;
-  class: WoWClass | PlayerHealerClass;
+  damageDone: number;
+  class: WoWClass | PlayerClass;
   isPlayer: boolean;
   spellBreakdown?: Record<string, number>;
+  damageBreakdown?: Record<string, number>;
 }
 
 interface RaidMeterProps {
   playerHealing: number;
   playerDispels: number;
+  playerDamage: number;
   playerSpellBreakdown: Record<string, number>;
+  playerDamageBreakdown?: Record<string, number>;
   playerName: string;
-  playerClass: PlayerHealerClass;
+  playerClass: PlayerClass;
   aiHealerStats: Record<string, AIHealerStats>;
   showAiHealers: boolean;
   isMultiplayer?: boolean;
-  multiplayerHealers?: HealerEntry[];
+  multiplayerPlayers?: MeterEntry[];
   hidePlayer?: boolean; // For Raid Leader mode where player doesn't heal
+  raidDpsStats?: Record<string, RaidDpsStats>; // Simulated DPS damage from raid members
 }
 
 export function RaidMeter({
   playerHealing,
   playerDispels,
+  playerDamage,
   playerSpellBreakdown,
+  playerDamageBreakdown = {},
   playerName,
   playerClass,
   aiHealerStats,
   showAiHealers,
   isMultiplayer = false,
-  multiplayerHealers = [],
+  multiplayerPlayers = [],
   hidePlayer = false,
+  raidDpsStats = {},
 }: RaidMeterProps) {
-  const [activeTab, setActiveTab] = useState<'healing' | 'dispels'>('healing');
+  const playerRole = getPlayerRole(playerClass);
+  const [activeTab, setActiveTab] = useState<'healing' | 'dispels' | 'damage'>(
+    playerRole === 'dps' ? 'damage' : 'healing'
+  );
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
-  // Build the healers list
-  const healers: HealerEntry[] = [];
+  // Build the players list (healers and DPS)
+  const players: MeterEntry[] = [];
 
   // Add player (unless hidden, e.g. in Raid Leader mode)
   if (!hidePlayer) {
-    healers.push({
+    players.push({
       id: 'player',
       name: playerName,
       healingDone: playerHealing,
       dispelsDone: playerDispels,
+      damageDone: playerDamage,
       class: playerClass,
       isPlayer: true,
       spellBreakdown: playerSpellBreakdown,
+      damageBreakdown: playerDamageBreakdown,
     });
   }
 
   // In multiplayer, add other players
-  if (isMultiplayer && multiplayerHealers.length > 0) {
-    healers.push(...multiplayerHealers.filter(h => h.id !== 'player'));
+  if (isMultiplayer && multiplayerPlayers.length > 0) {
+    players.push(...multiplayerPlayers.filter(p => p.id !== 'player'));
   }
 
-  // In solo mode, add AI healers
+  // In solo mode, add AI healers for Healing/Dispels tabs
   if (!isMultiplayer && showAiHealers) {
     Object.entries(aiHealerStats).forEach(([id, stats]) => {
-      healers.push({
+      players.push({
         id,
         name: stats.name,
         healingDone: stats.healingDone,
         dispelsDone: stats.dispelsDone || 0,
+        damageDone: 0,
         class: stats.class,
         isPlayer: false,
       });
     });
   }
 
+  // Add raid DPS players for Damage tab (simulated damage)
+  if (!isMultiplayer && Object.keys(raidDpsStats).length > 0) {
+    Object.entries(raidDpsStats).forEach(([id, stats]) => {
+      players.push({
+        id,
+        name: stats.name,
+        healingDone: 0,
+        dispelsDone: 0,
+        damageDone: stats.damageDone,
+        class: stats.class,
+        isPlayer: false,
+      });
+    });
+  }
+
+  // Filter players based on active tab:
+  // - Healing/Dispels: show healers (those with healingDone > 0 OR player role is healer)
+  // - Damage: show DPS (those with damageDone > 0 OR player role is DPS)
+  const filteredPlayers = players.filter(p => {
+    if (activeTab === 'damage') {
+      // On Damage tab, show players with damage > 0 OR if it's the player and they're a DPS
+      return p.damageDone > 0 || (p.isPlayer && playerRole === 'dps');
+    } else {
+      // On Healing/Dispels tab, show players with healing > 0 OR if it's the player and they're a healer
+      return p.healingDone > 0 || (p.isPlayer && playerRole === 'healer');
+    }
+  });
+
   // Sort by the active metric
-  const sortedHealers = [...healers].sort((a, b) => {
+  const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     if (activeTab === 'healing') {
       return b.healingDone - a.healingDone;
+    } else if (activeTab === 'damage') {
+      return b.damageDone - a.damageDone;
     }
     return b.dispelsDone - a.dispelsDone;
   });
 
   // Calculate max and total for bar scaling
-  const maxValue = sortedHealers.length > 0
-    ? (activeTab === 'healing' ? sortedHealers[0].healingDone : sortedHealers[0].dispelsDone)
-    : 1;
-  const totalValue = healers.reduce(
-    (sum, h) => sum + (activeTab === 'healing' ? h.healingDone : h.dispelsDone),
-    0
-  );
+  const getValue = (p: MeterEntry) => {
+    if (activeTab === 'healing') return p.healingDone;
+    if (activeTab === 'damage') return p.damageDone;
+    return p.dispelsDone;
+  };
+
+  const maxValue = sortedPlayers.length > 0 ? getValue(sortedPlayers[0]) : 1;
+  const totalValue = filteredPlayers.reduce((sum, p) => sum + getValue(p), 0);
 
   // Format numbers for display
   const formatNumber = (num: number): string => {
@@ -139,10 +205,11 @@ export function RaidMeter({
   };
 
   // Get spell breakdown for expanded player
-  const getSpellBreakdown = (healer: HealerEntry): Array<{ name: string; value: number }> => {
-    if (!healer.spellBreakdown) return [];
+  const getSpellBreakdown = (player: MeterEntry): Array<{ name: string; value: number }> => {
+    const breakdown = activeTab === 'damage' ? player.damageBreakdown : player.spellBreakdown;
+    if (!breakdown) return [];
 
-    return Object.entries(healer.spellBreakdown)
+    return Object.entries(breakdown)
       .map(([spellId, value]) => ({
         name: SPELL_NAMES[spellId] || spellId,
         value,
@@ -162,6 +229,12 @@ export function RaidMeter({
           Healing
         </button>
         <button
+          className={`raid-meter-tab ${activeTab === 'damage' ? 'active' : ''}`}
+          onClick={() => setActiveTab('damage')}
+        >
+          Damage
+        </button>
+        <button
           className={`raid-meter-tab ${activeTab === 'dispels' ? 'active' : ''}`}
           onClick={() => setActiveTab('dispels')}
         >
@@ -169,21 +242,24 @@ export function RaidMeter({
         </button>
       </div>
 
-      {/* Healer list */}
+      {/* Player list */}
       <div className="raid-meter-list">
-        {sortedHealers.map((healer, index) => {
-          const value = activeTab === 'healing' ? healer.healingDone : healer.dispelsDone;
+        {sortedPlayers.map((player, index) => {
+          const value = getValue(player);
           const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
           const sharePercentage = totalValue > 0 ? (value / totalValue) * 100 : 0;
-          const classColor = CLASS_COLORS[healer.class] || '#FFFFFF';
-          const isExpanded = expandedPlayer === healer.id;
-          const hasBreakdown = healer.isPlayer && activeTab === 'healing' && healer.spellBreakdown;
+          const classColor = CLASS_COLORS[player.class] || '#FFFFFF';
+          const isExpanded = expandedPlayer === player.id;
+          const hasBreakdown = player.isPlayer && (
+            (activeTab === 'healing' && player.spellBreakdown) ||
+            (activeTab === 'damage' && player.damageBreakdown)
+          );
 
           return (
-            <div key={healer.id}>
+            <div key={player.id}>
               <div
-                className={`raid-meter-row ${healer.isPlayer ? 'is-player' : ''} ${hasBreakdown ? 'clickable' : ''}`}
-                onClick={() => hasBreakdown && handleRowClick(healer.id)}
+                className={`raid-meter-row ${player.isPlayer ? 'is-player' : ''} ${hasBreakdown ? 'clickable' : ''}`}
+                onClick={() => hasBreakdown && handleRowClick(player.id)}
               >
                 {/* Background bar */}
                 <div
@@ -198,8 +274,8 @@ export function RaidMeter({
                 <div className="raid-meter-content">
                   <span className="raid-meter-rank">{index + 1}.</span>
                   <span className="raid-meter-name" style={{ color: classColor }}>
-                    {healer.name}
-                    {healer.isPlayer && <span className="raid-meter-you">(You)</span>}
+                    {player.name}
+                    {player.isPlayer && <span className="raid-meter-you">(You)</span>}
                   </span>
                   <span className="raid-meter-value">{formatNumber(value)}</span>
                   <span className="raid-meter-percent">({sharePercentage.toFixed(0)}%)</span>
@@ -212,8 +288,8 @@ export function RaidMeter({
               {/* Spell breakdown (expanded view) */}
               {isExpanded && hasBreakdown && (
                 <div className="raid-meter-breakdown">
-                  {getSpellBreakdown(healer).map((spell) => {
-                    const spellMax = getSpellBreakdown(healer)[0]?.value || 1;
+                  {getSpellBreakdown(player).map((spell) => {
+                    const spellMax = getSpellBreakdown(player)[0]?.value || 1;
                     const spellPercent = (spell.value / spellMax) * 100;
 
                     return (
@@ -235,8 +311,10 @@ export function RaidMeter({
           );
         })}
 
-        {sortedHealers.length === 0 && (
-          <div className="raid-meter-empty">No healing data yet</div>
+        {sortedPlayers.length === 0 && (
+          <div className="raid-meter-empty">
+            {activeTab === 'damage' ? 'No damage data yet' : 'No healing data yet'}
+          </div>
         )}
       </div>
 

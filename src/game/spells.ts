@@ -183,6 +183,45 @@ export const SPELL_TOOLTIPS: Record<string, SpellTooltip> = {
     description: 'Increases the target\'s Mana regeneration by 400% and allows 100% of mana regeneration while casting. Lasts 20 sec.',
     additionalInfo: 'Cast on yourself or another healer who is low on mana. 6 min cooldown.',
   },
+  // ============================================
+  // MAGE SPELLS (Frost)
+  // ============================================
+  frostbolt: {
+    description: 'Launches a bolt of frost at the enemy, causing 515 to 556 Frost damage and slowing movement speed by 40% for 9 sec.',
+    additionalInfo: 'Your main nuke. High damage with built-in slow.',
+  },
+  frostbolt_downrank: {
+    description: 'Launches a bolt of frost at the enemy, causing 330 to 356 Frost damage and slowing movement speed by 40% for 9 sec.',
+    additionalInfo: 'More mana efficient for longer fights.',
+  },
+  frost_nova: {
+    description: 'Blasts enemies near the caster for 71 to 81 Frost damage and freezes them in place for up to 8 sec.',
+    additionalInfo: 'Instant AoE root. 25 sec cooldown.',
+  },
+  ice_barrier: {
+    description: 'Instantly shields you, absorbing 818 damage. Lasts 1 min. Prevents spell pushback while shield holds.',
+    additionalInfo: 'Self-shield for survivability. 30 sec cooldown.',
+  },
+  cone_of_cold: {
+    description: 'Targets in a cone in front of the caster take 98 to 107 Frost damage and are slowed by 50% for 8 sec.',
+    additionalInfo: 'Instant AoE damage. 10 sec cooldown.',
+  },
+  blizzard: {
+    description: 'Ice shards pelt the target area doing 936 Frost damage over 8 sec.',
+    additionalInfo: 'Channeled AoE. Stay still while channeling!',
+  },
+  evocation: {
+    description: 'While channeling this spell, you regain 60% of your total mana over 8 sec.',
+    additionalInfo: 'Emergency mana recovery. 8 min cooldown.',
+  },
+  cold_snap: {
+    description: 'When activated, this spell finishes the cooldown on all Frost spells.',
+    additionalInfo: 'Reset Ice Barrier, Frost Nova, and Ice Block! 10 min cooldown.',
+  },
+  ice_block: {
+    description: 'You become encased in a block of ice, protecting you from all attacks and spells for 10 sec, but you cannot attack, move or cast spells.',
+    additionalInfo: 'Complete immunity but can\'t do anything. 5 min cooldown.',
+  },
 };
 
 // Holy Light - Rank 9 (max rank)

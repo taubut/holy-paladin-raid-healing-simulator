@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { GameEngine, CONSUMABLES, WORLD_BUFFS } from './game/GameEngine';
-import { CLASS_COLORS, CLASS_SPECS, getSpecById, getGearCompatibleSpecs } from './game/types';
+import { CLASS_COLORS, CLASS_SPECS, getSpecById, getGearCompatibleSpecs, getPlayerRole } from './game/types';
 import type { WoWClass, BuffEffect, Equipment, Buff } from './game/types';
 import type { EquipmentSlot } from './game/items';
 import { RARITY_COLORS } from './game/items';
@@ -159,9 +159,9 @@ function App() {
   const [multiplayerPlayers, setMultiplayerPlayers] = useState<SessionPlayer[]>([]);
   const [localPlayer, setLocalPlayer] = useState<SessionPlayer | null>(null);
   const [isMultiplayerMode, setIsMultiplayerMode] = useState(false);
-  // Track all players' healing stats for the meter (host aggregates, clients receive)
-  const [multiplayerHealingStats, setMultiplayerHealingStats] = useState<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
-  const multiplayerHealingStatsRef = useRef<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number }>>({});
+  // Track all players' healing/damage stats for the meter (host aggregates, clients receive)
+  const [multiplayerHealingStats, setMultiplayerHealingStats] = useState<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number; damageDone: number }>>({});
+  const multiplayerHealingStatsRef = useRef<Record<string, { name: string; class: string; healingDone: number; dispelsDone: number; damageDone: number }>>({});
   const healingStatsResetForEncounterRef = useRef(false); // Track if we've reset stats for current encounter
   // Track multiplayer player mana for raid frame display
   const [multiplayerPlayerMana, setMultiplayerPlayerMana] = useState<Record<string, { current: number; max: number }>>({});
@@ -260,6 +260,17 @@ function App() {
   useEffect(() => {
     localStorage.setItem('mouseoverHealingEnabled', mouseoverHealingEnabled.toString());
   }, [mouseoverHealingEnabled]);
+
+  // Class color health bars setting (show health bars in class colors instead of green/yellow/red)
+  const [classColorHealthBars, setClassColorHealthBars] = useState<boolean>(() => {
+    const saved = localStorage.getItem('classColorHealthBars');
+    return saved === 'true';
+  });
+
+  // Persist class color health bars setting to localStorage
+  useEffect(() => {
+    localStorage.setItem('classColorHealthBars', classColorHealthBars.toString());
+  }, [classColorHealthBars]);
 
   // Check for saved characters in localStorage or cloud
   const checkForSavedCharacters = async (user: User | null) => {
@@ -812,7 +823,7 @@ function App() {
 
     // 2. Set player class (may override faction default if playing Priest or Druid)
     if (config.playerClass && !config.isRaidLeaderMode) {
-      engine.setPlayerClass(config.playerClass as 'paladin' | 'shaman' | 'priest' | 'druid');
+      engine.setPlayerClass(config.playerClass as 'paladin' | 'shaman' | 'priest' | 'druid' | 'mage');
     }
 
     // 3. Set player name LAST so it doesn't get overwritten by faction/class changes
@@ -947,12 +958,13 @@ function App() {
               healingStatsResetForEncounterRef.current = false;
             }
 
-            // Update host's own healing stats in the ref
+            // Update host's own healing/damage stats in the ref
             multiplayerHealingStatsRef.current[localPlayer?.id || 'host'] = {
               name: gameState.playerName,
               class: gameState.playerClass,
               healingDone: gameState.healingDone,
               dispelsDone: gameState.dispelsDone,
+              damageDone: gameState.playerDamageDone || 0,
             };
 
             // Initialize all other multiplayer players with 0 stats if they don't exist yet
@@ -964,6 +976,7 @@ function App() {
                   class: player.player_class,
                   healingDone: 0,
                   dispelsDone: 0,
+                  damageDone: 0,
                 };
               }
             });
@@ -1151,6 +1164,7 @@ function App() {
                   class: data.playerClass || 'paladin',
                   healingDone: 0,
                   dispelsDone: 0,
+                  damageDone: 0,
                 };
                 existing.healingDone += actualHeal;
                 multiplayerHealingStatsRef.current[data.playerId] = existing;
@@ -1250,6 +1264,7 @@ function App() {
                   class: data.playerClass || 'paladin',
                   healingDone: 0,
                   dispelsDone: 0,
+                  damageDone: 0,
                 };
                 existing.dispelsDone += 1;
                 multiplayerHealingStatsRef.current[data.playerId] = existing;
@@ -2558,6 +2573,78 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.35.0 - Frost Mage DPS Class (Early Beta)</h3>
+                  <span className="patch-date">December 11, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>New Playable Class - Frost Mage (EARLY BETA)</h4>
+                  <p style={{ color: '#ffaa00', fontStyle: 'italic', marginBottom: '8px' }}>This is an early beta release - expect bugs and incomplete features!</p>
+                  <ul>
+                    <li><strong>First DPS Class</strong>: A completely new playstyle - deal damage instead of healing!</li>
+                    <li><strong>Full Frost Mage Spell Kit</strong>: Authentic Classic WoW spell values from classicdb.ch</li>
+                    <li><strong>Frostbolt</strong>: Main nuke with downranked version for mana efficiency</li>
+                    <li><strong>Frost Nova</strong>: Instant AoE root for add control</li>
+                    <li><strong>Cone of Cold</strong>: Instant frontal AoE damage</li>
+                    <li><strong>Blizzard</strong>: Channeled AoE damage for big pulls</li>
+                    <li><strong>Ice Barrier</strong>: Self-shield for survivability</li>
+                    <li><strong>Ice Block</strong>: Emergency immunity cooldown</li>
+                    <li><strong>Cold Snap</strong>: Reset all frost spell cooldowns</li>
+                    <li><strong>Evocation</strong>: Channel to restore mana (8 min CD)</li>
+                    <li><strong>Remove Curse</strong>: Help your raid on curse-heavy fights like Shazzrah!</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>DPS Gameplay (Beta)</h4>
+                  <ul>
+                    <li><strong>Boss Targeting</strong>: Click the boss frame to target the boss or specific adds</li>
+                    <li><strong>DPS Meters</strong>: Compete for top damage against other raid DPSers</li>
+                    <li><strong>Mana Management</strong>: Use downranked Frostbolt and Evocation to last through long fights</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>HealComm Support</h4>
+                  <ul>
+                    <li><strong>Incoming Heal Bars</strong>: Green bars on raid frames show incoming heals before they land</li>
+                    <li><strong>Healer Coordination</strong>: See which targets already have heals incoming from other healers</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>AI Healer Improvements</h4>
+                  <ul>
+                    <li><strong>Target Coordination</strong>: AI healers now coordinate to avoid overhealing the same target</li>
+                    <li><strong>Mana Conservation</strong>: Improved mana management so healers don't go OOM early in fights</li>
+                    <li><strong>Decursing</strong>: AI healers and mages now properly decurse on curse-heavy encounters</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Boss Tuning</h4>
+                  <ul>
+                    <li><strong>Shazzrah</strong>: Tuning pass for better balance</li>
+                    <li><strong>Golemagg</strong>: Tuning pass for better balance</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Interface</h4>
+                  <ul>
+                    <li><strong>Class Color Health Bars</strong>: New setting in Settings → Interface to display health bars in class colors</li>
+                    <li><strong>BETA Indicator</strong>: Frost Mage shows BETA badge on class selection</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bug Fixes</h4>
+                  <ul>
+                    <li><strong>Mage Spell Icons</strong>: Fixed incorrect icons for Cone of Cold, Ice Barrier, Blizzard, and Ice Block</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.34.0 - AI Healer Intelligence</h3>
                   <span className="patch-date">December 7, 2025</span>
                 </div>
@@ -3329,8 +3416,10 @@ function App() {
                     ? "/icons/spell_holy_powerwordshield.jpg"
                     : state.playerClass === 'druid'
                       ? "/icons/spell_nature_healingtouch.jpg"
-                      : "/icons/spell_holy_holybolt.jpg"}
-                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : state.playerClass === 'priest' ? "Holy Priest" : state.playerClass === 'druid' ? "Restoration Druid" : "Holy Paladin"}
+                      : state.playerClass === 'mage'
+                        ? "/icons/spell_frost_frostbolt02.jpg"
+                        : "/icons/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Restoration Shaman" : state.playerClass === 'priest' ? "Holy Priest" : state.playerClass === 'druid' ? "Restoration Druid" : state.playerClass === 'mage' ? "Frost Mage" : "Holy Paladin"}
                 className="player-class-icon"
               />
             </div>
@@ -3375,13 +3464,13 @@ function App() {
                   </span>
                 )}
                 <span className="player-class" style={{ color: CLASS_COLORS[state.playerClass] }}>
-                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : state.playerClass === 'druid' ? 'Restoration Druid' : 'Holy Paladin'}
+                  {state.playerClass === 'shaman' ? 'Restoration Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : state.playerClass === 'druid' ? 'Restoration Druid' : state.playerClass === 'mage' ? 'Frost Mage' : 'Holy Paladin'}
                 </span>
                 {state.playerClass === 'paladin' && state.divineFavorActive && <span className="divine-favor-active">Divine Favor!</span>}
                 {(state.playerClass === 'shaman' || state.playerClass === 'druid') && state.naturesSwiftnessActive && <span className="divine-favor-active">Nature&apos;s Swiftness!</span>}
               </div>
               <div className={`mana-bar-container ${
-                state.innervateActive || state.activeTotems?.some(t => t.id === 'mana_tide_totem') ? 'mana-boost-active' : ''
+                state.innervateActive || state.isChannelingEvocation || state.activeTotems?.some(t => t.id === 'mana_tide_totem') ? 'mana-boost-active' : ''
               }`}>
                 <div
                   className={`mana-bar ${
@@ -3546,7 +3635,14 @@ function App() {
 
           {/* Boss Frame */}
           {state.boss && (
-            <div className={`boss-frame ${state.boss.isFrenzied || state.boss.hasDeadenMagic || state.boss.isInspired ? 'frenzied' : ''}`}>
+            <div
+              className={`boss-frame ${state.boss.isFrenzied || state.boss.hasDeadenMagic || state.boss.isInspired ? 'frenzied' : ''} ${getPlayerRole(state.playerClass) === 'dps' ? 'targetable' : ''} ${state.selectedEnemyTargetId === state.boss.id ? 'targeted' : ''}`}
+              onClick={() => {
+                if (getPlayerRole(state.playerClass) === 'dps' && state.boss) {
+                  engine.setSelectedEnemy(state.boss.id);
+                }
+              }}
+            >
               <div className="boss-info">
                 <div className="boss-name">
                   {state.boss.name}
@@ -3565,7 +3661,13 @@ function App() {
                     {state.boss.adds.map((add, index) => (
                       <div
                         key={add.id}
-                        className={`add-health-bar ${!add.isAlive ? 'dead' : ''}`}
+                        className={`add-health-bar ${!add.isAlive ? 'dead' : ''} ${getPlayerRole(state.playerClass) === 'dps' && add.isAlive ? 'targetable' : ''} ${state.selectedEnemyTargetId === add.id ? 'targeted' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (getPlayerRole(state.playerClass) === 'dps' && add.isAlive) {
+                            engine.setSelectedEnemy(add.id);
+                          }
+                        }}
                       >
                         <span className="add-name">Priest {index + 1}</span>
                         <div className="add-health-bg">
@@ -3581,7 +3683,15 @@ function App() {
                     ))}
 
                     {/* Sulfuron's health bar - grayed out until priests dead */}
-                    <div className={`sulfuron-main-health-bar ${state.boss.currentPhase === 1 ? 'inactive' : ''}`}>
+                    <div
+                      className={`sulfuron-main-health-bar ${state.boss.currentPhase === 1 ? 'inactive' : ''} ${getPlayerRole(state.playerClass) === 'dps' && state.boss.currentPhase !== 1 ? 'targetable' : ''} ${state.selectedEnemyTargetId === state.boss.id ? 'targeted' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (getPlayerRole(state.playerClass) === 'dps' && state.boss && state.boss.currentPhase !== 1) {
+                          engine.setSelectedEnemy(state.boss.id);
+                        }
+                      }}
+                    >
                       <span className="add-name">Sulfuron</span>
                       <div className="add-health-bg">
                         <div
@@ -3609,7 +3719,13 @@ function App() {
                       return (
                         <div
                           key={add.id}
-                          className={`add-health-bar ${!add.isAlive ? 'dead' : ''} ${isMagicReflectionActive && add.isAlive ? 'magic-reflection' : ''}`}
+                          className={`add-health-bar ${!add.isAlive ? 'dead' : ''} ${isMagicReflectionActive && add.isAlive ? 'magic-reflection' : ''} ${getPlayerRole(state.playerClass) === 'dps' && add.isAlive ? 'targetable' : ''} ${state.selectedEnemyTargetId === add.id ? 'targeted' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (getPlayerRole(state.playerClass) === 'dps' && add.isAlive) {
+                              engine.setSelectedEnemy(add.id);
+                            }
+                          }}
                         >
                           <span className="add-name">{displayName}</span>
                           <div className="add-health-bg">
@@ -3687,7 +3803,13 @@ function App() {
                       {state.boss.adds.map((son, index) => (
                         <div
                           key={son.id}
-                          className={`son-health-bar ${!son.isAlive ? 'dead' : ''}`}
+                          className={`son-health-bar ${!son.isAlive ? 'dead' : ''} ${getPlayerRole(state.playerClass) === 'dps' && son.isAlive ? 'targetable' : ''} ${state.selectedEnemyTargetId === son.id ? 'targeted' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (getPlayerRole(state.playerClass) === 'dps' && son.isAlive) {
+                              engine.setSelectedEnemy(son.id);
+                            }
+                          }}
                         >
                           <span className="son-name">Son {index + 1}</span>
                           <div className="son-health-bg">
@@ -3830,7 +3952,9 @@ function App() {
                                 className="health-bar"
                                 style={{
                                   width: `${healthPercent}%`,
-                                  backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
+                                  backgroundColor: classColorHealthBars
+                                    ? CLASS_COLORS[member.class]
+                                    : healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
                                 }}
                               />
                               {/* Power Word: Shield absorb indicator - white bar after health */}
@@ -3842,6 +3966,17 @@ function App() {
                                     width: `${Math.min((member.absorbShield / member.maxHealth) * 100, 100 - healthPercent)}%`,
                                   }}
                                   title={`Shield: ${Math.floor(member.absorbShield)}`}
+                                />
+                              )}
+                              {/* HealComm: Incoming heal indicator - green bar showing predicted health */}
+                              {member.incomingHeal && member.incomingHeal > 0 && (
+                                <div
+                                  className="incoming-heal-bar"
+                                  style={{
+                                    left: `${healthPercent}%`,
+                                    width: `${Math.min((member.incomingHeal / member.maxHealth) * 100, 100 - healthPercent)}%`,
+                                  }}
+                                  title={`Incoming: +${Math.floor(member.incomingHeal)}`}
                                 />
                               )}
                               <div className="health-text">
@@ -3990,7 +4125,9 @@ function App() {
                             className="health-bar"
                             style={{
                               width: `${healthPercent}%`,
-                              backgroundColor: healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
+                              backgroundColor: classColorHealthBars
+                                ? CLASS_COLORS[member.class]
+                                : healthPercent > 50 ? '#00cc00' : healthPercent > 25 ? '#cccc00' : '#cc0000',
                             }}
                           />
                         </div>
@@ -4209,23 +4346,27 @@ function App() {
               <RaidMeter
                 playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
                 playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
+                playerDamage={state.playerDamageDone || 0}
                 playerSpellBreakdown={state.spellHealing}
+                playerDamageBreakdown={state.spellDamage || {}}
                 playerName={state.playerName}
                 playerClass={state.playerClass}
                 aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                 showAiHealers={state.otherHealersEnabled}
                 isMultiplayer={isMultiplayerMode}
                 hidePlayer={state.isRaidLeaderMode}
-                multiplayerHealers={Object.entries(multiplayerHealingStats)
+                multiplayerPlayers={Object.entries(multiplayerHealingStats)
                   .filter(([id]) => id !== (localPlayer?.id || 'host')) // Exclude self - already shown as "You"
                   .map(([id, stats]) => ({
                     id,
                     name: stats.name,
                     healingDone: stats.healingDone,
                     dispelsDone: stats.dispelsDone,
-                    class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                    damageDone: stats.damageDone || 0,
+                    class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid' | 'mage',
                     isPlayer: false,
                   }))}
+                raidDpsStats={state.raidDpsStats}
               />
             </>
           )}
@@ -4247,23 +4388,27 @@ function App() {
               <RaidMeter
                 playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
                 playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
+                playerDamage={state.playerDamageDone || 0}
                 playerSpellBreakdown={state.spellHealing}
+                playerDamageBreakdown={state.spellDamage || {}}
                 playerName={state.playerName}
                 playerClass={state.playerClass}
                 aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                 showAiHealers={state.otherHealersEnabled}
                 isMultiplayer={isMultiplayerMode}
                 hidePlayer={state.isRaidLeaderMode}
-                multiplayerHealers={Object.entries(multiplayerHealingStats)
+                multiplayerPlayers={Object.entries(multiplayerHealingStats)
                   .filter(([id]) => id !== (localPlayer?.id || 'host'))
                   .map(([id, stats]) => ({
                     id,
                     name: stats.name,
                     healingDone: stats.healingDone,
                     dispelsDone: stats.dispelsDone,
-                    class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                    damageDone: stats.damageDone || 0,
+                    class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid' | 'mage',
                     isPlayer: false,
                   }))}
+                raidDpsStats={state.raidDpsStats}
               />
             </div>
           )}
@@ -4780,8 +4925,10 @@ function App() {
                     ? "/icons/spell_holy_powerwordshield.jpg"
                     : state.playerClass === 'druid'
                       ? "/icons/spell_nature_healingtouch.jpg"
-                      : "/icons/spell_holy_holybolt.jpg"}
-                alt={state.playerClass === 'shaman' ? "Shaman" : state.playerClass === 'priest' ? "Priest" : state.playerClass === 'druid' ? "Druid" : "Paladin"}
+                      : state.playerClass === 'mage'
+                        ? "/icons/spell_frost_frostbolt02.jpg"
+                        : "/icons/spell_holy_holybolt.jpg"}
+                alt={state.playerClass === 'shaman' ? "Shaman" : state.playerClass === 'priest' ? "Priest" : state.playerClass === 'druid' ? "Druid" : state.playerClass === 'mage' ? "Mage" : "Paladin"}
                 className="mobile-class-icon"
               />
               <div className="mobile-player-details">
@@ -4789,7 +4936,7 @@ function App() {
                   {state.playerName}
                 </span>
                 <span className="mobile-player-class">
-                  {state.playerClass === 'shaman' ? 'Resto Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : state.playerClass === 'druid' ? 'Resto Druid' : 'Holy Paladin'}
+                  {state.playerClass === 'shaman' ? 'Resto Shaman' : state.playerClass === 'priest' ? 'Holy Priest' : state.playerClass === 'druid' ? 'Resto Druid' : state.playerClass === 'mage' ? 'Frost Mage' : 'Holy Paladin'}
                 </span>
               </div>
               <div className="mobile-dkp">
@@ -4850,7 +4997,14 @@ function App() {
 
           {/* Boss Frame (when in encounter) */}
           {state.boss && (
-            <div className={`mobile-boss-frame ${state.boss.isFrenzied || state.boss.hasDeadenMagic ? 'frenzied' : ''}`}>
+            <div
+              className={`mobile-boss-frame ${state.boss.isFrenzied || state.boss.hasDeadenMagic ? 'frenzied' : ''} ${getPlayerRole(state.playerClass) === 'dps' ? 'targetable' : ''} ${state.selectedEnemyTargetId === state.boss.id ? 'targeted' : ''}`}
+              onClick={() => {
+                if (getPlayerRole(state.playerClass) === 'dps' && state.boss) {
+                  engine.setSelectedEnemy(state.boss.id);
+                }
+              }}
+            >
               <div className="mobile-boss-name">
                 {state.boss.name}
                 {state.boss.isFrenzied && <span className="frenzy-indicator"> FRENZY!</span>}
@@ -5270,23 +5424,27 @@ function App() {
                     <RaidMeter
                       playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
                       playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
+                      playerDamage={state.playerDamageDone || 0}
                       playerSpellBreakdown={state.spellHealing}
+                      playerDamageBreakdown={state.spellDamage || {}}
                       playerName={state.playerName}
                       playerClass={state.playerClass}
                       aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                       showAiHealers={state.otherHealersEnabled}
                       isMultiplayer={isMultiplayerMode}
                       hidePlayer={state.isRaidLeaderMode}
-                      multiplayerHealers={Object.entries(multiplayerHealingStats)
+                      multiplayerPlayers={Object.entries(multiplayerHealingStats)
                         .filter(([id]) => id !== (localPlayer?.id || 'host'))
                         .map(([id, stats]) => ({
                           id,
                           name: stats.name,
                           healingDone: stats.healingDone,
                           dispelsDone: stats.dispelsDone,
-                          class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                          damageDone: stats.damageDone || 0,
+                          class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid' | 'mage',
                           isPlayer: false,
                         }))}
+                      raidDpsStats={state.raidDpsStats}
                     />
                   </div>
                 )}
@@ -5309,23 +5467,27 @@ function App() {
                       <RaidMeter
                         playerHealing={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].healingDone : state.healingDone}
                         playerDispels={hostSpectating && state.aiHealerStats['player'] ? state.aiHealerStats['player'].dispelsDone : state.dispelsDone}
+                        playerDamage={state.playerDamageDone || 0}
                         playerSpellBreakdown={state.spellHealing}
+                        playerDamageBreakdown={state.spellDamage || {}}
                         playerName={state.playerName}
                         playerClass={state.playerClass}
                         aiHealerStats={hostSpectating ? Object.fromEntries(Object.entries(state.aiHealerStats).filter(([id]) => id !== 'player')) : state.aiHealerStats}
                         showAiHealers={state.otherHealersEnabled}
                         isMultiplayer={isMultiplayerMode}
                         hidePlayer={state.isRaidLeaderMode}
-                        multiplayerHealers={Object.entries(multiplayerHealingStats)
+                        multiplayerPlayers={Object.entries(multiplayerHealingStats)
                           .filter(([id]) => id !== (localPlayer?.id || 'host'))
                           .map(([id, stats]) => ({
                             id,
                             name: stats.name,
                             healingDone: stats.healingDone,
                             dispelsDone: stats.dispelsDone,
-                            class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid',
+                            damageDone: stats.damageDone || 0,
+                            class: stats.class as 'paladin' | 'shaman' | 'priest' | 'druid' | 'mage',
                             isPlayer: false,
                           }))}
+                        raidDpsStats={state.raidDpsStats}
                       />
                     </div>
                   </div>
@@ -7915,6 +8077,32 @@ function App() {
                     </div>
                     <div className="settings-hint">
                       Desktop mode shows all panels side by side. Phone mode uses a tabbed interface.
+                    </div>
+                  </div>
+
+                  <div className="settings-section">
+                    <div className="settings-section-header">Raid Frames</div>
+                    <div className="settings-option">
+                      <span>Health Bar Colors:</span>
+                      <div className="settings-toggle-group">
+                        <button
+                          className={!classColorHealthBars ? 'active' : ''}
+                          onClick={() => setClassColorHealthBars(false)}
+                        >
+                          Health %
+                        </button>
+                        <button
+                          className={classColorHealthBars ? 'active' : ''}
+                          onClick={() => setClassColorHealthBars(true)}
+                        >
+                          Class Color
+                        </button>
+                      </div>
+                    </div>
+                    <div className="settings-hint">
+                      {classColorHealthBars
+                        ? 'Health bars show class colors (Warrior = brown, Paladin = pink, etc.)'
+                        : 'Health bars change color based on health % (green → yellow → red)'}
                     </div>
                   </div>
                 </div>

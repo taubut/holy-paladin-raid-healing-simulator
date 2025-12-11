@@ -7,7 +7,7 @@ import HordeLogo from '../assets/HordeLogo.png';
 import './LandingPage.css';
 
 type Faction = 'alliance' | 'horde';
-type HealerClass = 'paladin' | 'priest' | 'druid' | 'shaman';
+type PlayableClass = 'paladin' | 'priest' | 'druid' | 'shaman' | 'mage';
 
 export interface CharacterConfig {
   id?: string;  // Character ID (generated for new, from save for continuing)
@@ -40,29 +40,31 @@ interface LandingPageProps {
 }
 
 // Class colors for styling
-const CLASS_COLORS: Record<HealerClass, string> = {
+const CLASS_COLORS: Record<PlayableClass, string> = {
   paladin: '#F58CBA',
   priest: '#FFFFFF',
   druid: '#FF7D0A',
   shaman: '#0070DE',
+  mage: '#69CCF0',
 };
 
 // Available classes per faction
-const FACTION_CLASSES: Record<Faction, HealerClass[]> = {
-  alliance: ['paladin', 'priest', 'druid'],
-  horde: ['shaman', 'priest', 'druid'],
+const FACTION_CLASSES: Record<Faction, PlayableClass[]> = {
+  alliance: ['paladin', 'priest', 'druid', 'mage'],
+  horde: ['shaman', 'priest', 'druid', 'mage'],
 };
 
 // Classes that are currently playable
-const PLAYABLE_CLASSES: HealerClass[] = ['paladin', 'shaman', 'priest', 'druid'];
+const PLAYABLE_CLASSES: PlayableClass[] = ['paladin', 'shaman', 'priest', 'druid', 'mage'];
 
 // Class icons from Wowhead CDN
 const ICON_BASE = '/icons';
-const CLASS_ICONS: Record<HealerClass, string> = {
+const CLASS_ICONS: Record<PlayableClass, string> = {
   paladin: `${ICON_BASE}/classicon_paladin.jpg`,
   priest: `${ICON_BASE}/classicon_priest.jpg`,
   druid: `${ICON_BASE}/classicon_druid.jpg`,
   shaman: `${ICON_BASE}/classicon_shaman.jpg`,
+  mage: `${ICON_BASE}/classicon_mage.jpg`,
 };
 
 // Raid Leader Mode icon
@@ -89,8 +91,8 @@ export function LandingPage({
     const saved = localStorage.getItem('preferredFaction');
     return (saved === 'alliance' || saved === 'horde') ? saved : null;
   });
-  const [selectedClass, setSelectedClass] = useState<HealerClass | null>(() => {
-    if (mostRecentCharacter?.playerClass) return mostRecentCharacter.playerClass as HealerClass;
+  const [selectedClass, setSelectedClass] = useState<PlayableClass | null>(() => {
+    if (mostRecentCharacter?.playerClass) return mostRecentCharacter.playerClass as PlayableClass;
     // Auto-select class based on saved faction preference
     const savedFaction = localStorage.getItem('preferredFaction');
     if (savedFaction === 'alliance') return 'paladin';
@@ -110,7 +112,7 @@ export function LandingPage({
     if (savedCharacters.length > 0) {
       const recent = savedCharacters[0];
       setSelectedFaction(recent.faction);
-      setSelectedClass(recent.playerClass as HealerClass);
+      setSelectedClass(recent.playerClass as PlayableClass);
       // Don't auto-fill name - let user type a new one for new characters
     }
   }, [savedCharacters]);
@@ -118,7 +120,7 @@ export function LandingPage({
   const handleFactionSelect = (faction: Faction) => {
     setSelectedFaction(faction);
     // Reset class if switching factions and current class isn't available
-    if (selectedClass && !FACTION_CLASSES[faction].includes(selectedClass as HealerClass)) {
+    if (selectedClass && !FACTION_CLASSES[faction].includes(selectedClass as PlayableClass)) {
       setSelectedClass(null);
     }
     // Auto-select the main class for that faction
@@ -129,9 +131,9 @@ export function LandingPage({
     }
   };
 
-  const handleClassSelect = (healerClass: HealerClass) => {
-    if (PLAYABLE_CLASSES.includes(healerClass)) {
-      setSelectedClass(healerClass);
+  const handleClassSelect = (playableClass: PlayableClass) => {
+    if (PLAYABLE_CLASSES.includes(playableClass)) {
+      setSelectedClass(playableClass);
       setIsRaidLeaderMode(false);  // Deselect raid leader mode when selecting a class
     }
   };
@@ -348,6 +350,7 @@ export function LandingPage({
                       alt={wowClass}
                       className="class-icon"
                     />
+                    {wowClass === 'mage' && <span className="beta-badge">BETA</span>}
                     <span className="class-name">
                       {wowClass.charAt(0).toUpperCase() + wowClass.slice(1)}
                     </span>
@@ -448,7 +451,7 @@ export function LandingPage({
           {/* Footer */}
           <div className="landing-footer">
             <p>A raiding simulator for World of Warcraft Classic</p>
-            <p className="version">v0.34.0</p>
+            <p className="version">v0.35.0</p>
             <a
               href="https://github.com/taubut/holy-paladin-raid-healing-simulator"
               target="_blank"
@@ -475,12 +478,12 @@ export function LandingPage({
                 >
                   <div className="character-panel-icon">
                     <img
-                      src={char.isRaidLeaderMode ? RAID_LEADER_ICON : CLASS_ICONS[char.playerClass as HealerClass]}
+                      src={char.isRaidLeaderMode ? RAID_LEADER_ICON : CLASS_ICONS[char.playerClass as PlayableClass]}
                       alt={char.isRaidLeaderMode ? 'Raid Leader' : char.playerClass}
                     />
                   </div>
                   <div className="character-panel-info">
-                    <span className="character-panel-name" style={{ color: char.isRaidLeaderMode ? '#ffd700' : CLASS_COLORS[char.playerClass as HealerClass] }}>
+                    <span className="character-panel-name" style={{ color: char.isRaidLeaderMode ? '#ffd700' : CLASS_COLORS[char.playerClass as PlayableClass] }}>
                       {char.playerName}
                     </span>
                     <span className="character-panel-details">

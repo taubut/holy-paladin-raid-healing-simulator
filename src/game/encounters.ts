@@ -218,9 +218,9 @@ export const DEBUFFS: Record<string, Omit<Debuff, 'duration'>> = {
     id: 'magma_splash',
     name: 'Magma Splash',
     icon: '/icons/spell_fire_immolation.jpg',
-    maxDuration: 30, // Stacks last a while
+    maxDuration: 15, // Shorter duration so stacks fall off during tank swap
     type: 'physical', // NOT dispellable
-    damagePerTick: 150, // Per stack - stacking DoT
+    damagePerTick: 100, // Per stack - stacking DoT (reduced from 150)
     tickInterval: 2,
   },
   golemagg_pyroblast: {
@@ -815,8 +815,8 @@ export const ENCOUNTERS: Boss[] = [
     enrageTimer: 180,
     damageEvents: [
       { type: 'tank_damage', damage: 500, interval: 1.5 }, // Fast melee (physical)
-      { type: 'shazzrah_curse', damage: 0, interval: 10 }, // Applies curse to entire raid - doubles magic damage taken for 5 min
-      { type: 'shazzrah_blink', damage: 800, interval: 10, damageType: 'arcane' }, // Blink every 10s + 800 arcane explosion to ENTIRE raid (1600 if cursed!)
+      { type: 'shazzrah_curse', damage: 0, interval: 15 }, // Applies curse to ~8 random players - doubles magic damage taken
+      { type: 'shazzrah_blink', damage: 1000, interval: 20, damageType: 'arcane' }, // Blink every 20s + 1000 arcane explosion to ~8 players near blink target
       { type: 'deaden_magic', damage: 0, interval: 45 }, // Boss gains 50% magic damage reduction buff
     ],
   },

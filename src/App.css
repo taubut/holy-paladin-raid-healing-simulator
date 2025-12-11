@@ -305,6 +305,22 @@ body {
   padding: 8px 12px 8px 4px;
 }
 
+/* DPS targeting styles for boss frame */
+.boss-frame.targetable {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.boss-frame.targetable:hover {
+  border-color: #ffcc00;
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
+}
+
+.boss-frame.targeted {
+  border-color: #ffcc00;
+  box-shadow: 0 0 12px rgba(255, 204, 0, 0.6), inset 0 0 20px rgba(255, 204, 0, 0.1);
+}
+
 .boss-portrait-container {
   position: relative;
   width: 70px;
@@ -416,6 +432,26 @@ body {
 
 .add-health-bar.dead .add-health-fill {
   background: linear-gradient(180deg, #444 0%, #333 100%) !important;
+}
+
+.add-health-bar.targetable {
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.add-health-bar.targetable:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
+}
+
+.add-health-bar.targeted {
+  background: rgba(255, 204, 0, 0.15);
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.5), inset 0 0 5px rgba(255, 204, 0, 0.2);
+  border-radius: 3px;
+}
+
+.add-health-bar.targeted .add-health-bg {
+  border-color: #ffcc00;
 }
 
 .add-name {
@@ -622,6 +658,22 @@ body {
 
 .son-health-bar.dead {
   opacity: 0.4;
+}
+
+.son-health-bar.targetable {
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.son-health-bar.targetable:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 8px rgba(255, 204, 0, 0.4);
+}
+
+.son-health-bar.targeted {
+  background: rgba(255, 204, 0, 0.2);
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+  border: 1px solid #ffcc00;
 }
 
 .son-name {
@@ -1454,6 +1506,23 @@ body {
   border-left: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
   transition: width 0.1s ease, left 0.1s ease;
+}
+
+/* HealComm: Incoming heal bar - bright green showing predicted health after incoming heals */
+.incoming-heal-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(180deg, #44ff88 0%, #22cc66 50%, #119944 100%);
+  border-left: 1px solid rgba(68, 255, 136, 0.8);
+  opacity: 0.75;
+  animation: healcomm-pulse 0.8s ease-in-out infinite;
+  transition: width 0.1s ease, left 0.1s ease;
+}
+
+@keyframes healcomm-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.85; }
 }
 
 .health-text {
@@ -11445,6 +11514,21 @@ body {
   border: 2px solid #8a3030;
   padding: 8px;
   flex-shrink: 0;
+}
+
+/* DPS targeting styles for mobile boss frame */
+.mobile-boss-frame.targetable {
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mobile-boss-frame.targetable:hover {
+  border-color: #ffcc00;
+}
+
+.mobile-boss-frame.targeted {
+  border-color: #ffcc00;
+  box-shadow: 0 0 10px rgba(255, 204, 0, 0.5), inset 0 0 15px rgba(255, 204, 0, 0.1);
 }
 
 .mobile-boss-name {

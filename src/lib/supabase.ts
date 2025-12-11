@@ -176,7 +176,7 @@ export interface SessionPlayer {
   id: string;
   session_id: string;
   player_name: string;
-  player_class: 'paladin' | 'shaman' | 'priest' | 'druid';
+  player_class: 'paladin' | 'shaman' | 'priest' | 'druid' | 'mage';
   is_host: boolean;
   is_ready: boolean;
   equipment: Record<string, unknown>;

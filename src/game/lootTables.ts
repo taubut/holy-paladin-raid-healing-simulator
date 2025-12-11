@@ -3,7 +3,7 @@
 
 import { ALL_ITEMS, LEGENDARY_MATERIALS } from './items';
 import type { GearItem, LegendaryMaterialId, LegendaryMaterial, ItemCategory } from './items';
-import type { Faction, PlayerHealerClass, WoWSpec } from './types';
+import type { Faction, PlayerClass, WoWSpec } from './types';
 
 // =============================================================================
 // SPEC-AWARE ITEM AFFINITIES
@@ -860,7 +860,7 @@ export function isPaladinOnly(item: GearItem): boolean {
 }
 
 // Check if an item is usable by the given player class (for bad luck protection)
-export function isPlayerClassUsable(item: GearItem, playerClass: PlayerHealerClass): boolean {
+export function isPlayerClassUsable(item: GearItem, playerClass: PlayerClass): boolean {
   return item.classes.includes(playerClass) || item.classes.includes('all');
 }
 
@@ -885,13 +885,13 @@ export function filterItemsByFaction(itemIds: string[], faction: Faction): strin
 // Roll loot from a boss's table with bad luck protection
 // badLuckCounter: how many kills since last player class loot (0 = just got one)
 // faction: determines which faction-exclusive items can drop
-// playerClass: the player's healer class (paladin/shaman) for bad luck protection
+// playerClass: the player's class for bad luck protection (healers get healer loot protection)
 // Returns: { items, hadPlayerClassLoot, legendaryMaterial } so caller can update state
 export function rollBossLoot(
   bossId: string,
   badLuckCounter: number = 0,
   faction: Faction = 'alliance',
-  playerClass: PlayerHealerClass = 'paladin'
+  playerClass: PlayerClass = 'paladin'
 ): {
   items: GearItem[],
   hadPlayerClassLoot: boolean,

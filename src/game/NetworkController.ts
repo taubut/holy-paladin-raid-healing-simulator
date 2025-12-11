@@ -95,6 +95,7 @@ export interface PlayerSyncState {
   castProgress: number;
   healingDone: number;
   overhealing: number;
+  damageDone: number;  // DPS class damage tracking
 }
 
 export interface PlayerAction {

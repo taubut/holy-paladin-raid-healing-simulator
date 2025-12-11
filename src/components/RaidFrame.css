@@ -139,6 +139,21 @@
   background: linear-gradient(180deg, #00cc00 0%, #009900 100%);
 }
 
+/* HealComm: Incoming heal bar - bright green showing predicted health */
+.incoming-heal-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(180deg, #44ff88 0%, #22cc66 100%);
+  opacity: 0.7;
+  animation: healcomm-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes healcomm-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.8; }
+}
+
 .health-text {
   position: absolute;
   top: 0;

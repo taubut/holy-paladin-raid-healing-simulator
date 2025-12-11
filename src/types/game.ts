@@ -28,6 +28,7 @@ export interface RaidMember {
   dps: number;
   group: number; // 1-8 for 40-man raid
   lastCritHealTime?: number; // Timestamp of last crit heal received (for animation)
+  incomingHeal?: number; // HealComm: Total incoming heal amount from all healers casting on this target
 }
 
 export type WoWClass =

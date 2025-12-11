@@ -19,6 +19,21 @@ export type Faction = 'alliance' | 'horde';
 // Player healer class (expandable for future classes)
 export type PlayerHealerClass = 'paladin' | 'shaman' | 'priest' | 'druid';
 
+// Player DPS class
+export type PlayerDPSClass = 'mage';
+
+// Combined player class type (healer or DPS)
+export type PlayerClass = PlayerHealerClass | PlayerDPSClass;
+
+// Player role determines targeting behavior (healers target raid, DPS targets boss)
+export type PlayerRole = 'healer' | 'dps';
+
+// Helper to determine role from class
+export const getPlayerRole = (playerClass: PlayerClass): PlayerRole => {
+  const dpsClasses: PlayerDPSClass[] = ['mage'];
+  return dpsClasses.includes(playerClass as PlayerDPSClass) ? 'dps' : 'healer';
+};
+
 // Position zone for Chain Heal bouncing (melee/ranged/tank)
 export type PositionZone = 'melee' | 'ranged' | 'tank';
 
@@ -442,6 +457,7 @@ export interface RaidMember {
   absorbShield?: number; // Current absorb shield amount (e.g., Power Word: Shield)
   absorbShieldMax?: number; // Max absorb shield amount (for display purposes)
   weakenedSoulDuration?: number; // Weakened Soul debuff duration (prevents PW:S reapplication)
+  incomingHeal?: number; // HealComm-style incoming heal amount (green bar on raid frames)
 }
 
 // Bench player - sits out of active raid but persists with their own gear
@@ -465,12 +481,22 @@ export interface Spell {
   cooldown: number;
   currentCooldown: number;
   healAmount: { min: number; max: number };
+  // DPS spells have damage instead of healing
+  damageAmount?: { min: number; max: number };
+  // Spell school for damage (frost, fire, arcane, etc.) - used for resistance calculations
+  spellSchool?: DamageType;
   range?: number;
   spellPowerCoefficient: number;
   isOnGlobalCooldown: boolean;
   // Chain Heal specific properties
   maxBounces?: number;      // Number of additional targets (3 for Chain Heal)
   bounceReduction?: number; // Healing reduction per bounce (0.5 = 50% in Vanilla)
+  // Special spell flags
+  isDamageSpell?: boolean;  // True if this spell deals damage (for targeting logic)
+  isChanneled?: boolean;    // True if spell is channeled (Blizzard, Evocation)
+  channelDuration?: number; // Duration for channeled spells
+  channelTicks?: number;    // Number of ticks for channeled spells
+  isAoE?: boolean;          // True if spell hits all enemies (Blizzard, Cone of Cold, Frost Nova)
 }
 
 // Damage type for damage reduction calculations
@@ -645,12 +671,15 @@ export interface GameState {
   isCasting: boolean;
   castingSpell: Spell | null;
   castProgress: number;
+  castTargetId: string | null;      // HealComm: Target ID locked when cast starts
+  castHealAmount: number;            // HealComm: Expected heal amount (for incoming heal display)
   globalCooldown: number;
   healingDone: number;
   overhealing: number;
   // Healing meter stats
   dispelsDone: number;                         // Total successful dispels by player
   spellHealing: Record<string, number>;        // Per-spell healing breakdown (spellId -> healing)
+  spellDamage: Record<string, number>;         // Per-spell damage breakdown (spellId -> damage)
   aiHealerStats: Record<string, AIHealerStats>; // Per AI healer stats (healerId -> stats)
   lastEncounterResult: 'victory' | 'wipe' | null; // Result of the last encounter (for showing summary)
   combatLog: CombatLogEntry[];
@@ -724,7 +753,18 @@ export interface GameState {
   mouseoverHealingEnabled: boolean;  // When true, use mouseoverTargetId instead of selectedTargetId
   // Faction and class system
   faction: Faction;
-  playerClass: PlayerHealerClass;
+  playerClass: PlayerClass;
+  // DPS-specific state
+  selectedEnemyTargetId: string | null;  // Which boss/add the DPS player is targeting
+  playerDamageDone: number;              // Total damage done by the player
+  raidDpsStats: Record<string, { name: string; class: WoWClass; damageDone: number; spec: WoWSpec }>; // Simulated DPS damage tracking
+  // Mage-specific state (Evocation channeling)
+  isChannelingEvocation: boolean;
+  evocationRemainingTime: number;
+  evocationTicksRemaining: number;
+  // Threat system - tracks threat for each raid member against each enemy
+  // Key is enemy ID (boss or add), value is map of member ID -> threat amount
+  threatTable: Record<string, Record<string, number>>;
   // Shaman-specific state
   activeTotems: ActiveTotem[];         // Max 4 (one per element)
   totemCooldowns: TotemCooldown[];     // Tracking cooldowns for totems like Mana Tide
