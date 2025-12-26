@@ -21,6 +21,13 @@ import { RaidSetupModal } from './components/RaidSetupModal';
 import { RaidLeaderSetup } from './components/RaidLeaderSetup';
 import { LandingPage } from './components/LandingPage';
 import type { CharacterConfig, SavedCharacter } from './components/LandingPage';
+import { LFGBoard, LFGBoardInline } from './components/franchise/LFGBoard';
+import { PersonalityBadgeList, PersonalityBadgeRow } from './components/franchise/PersonalityBadge';
+import { MoraleBar } from './components/franchise/MoraleBar';
+import { DramaEventModal } from './components/franchise/DramaEventModal';
+import { LeaveWarningModal } from './components/franchise/LeaveWarningModal';
+import { RaidPrepScreen } from './components/franchise/RaidPrepScreen';
+import { TRAIT_REROLL_COST, type PersonalityTraitId } from './game/franchiseTypes';
 import type { GameSession, SessionPlayer } from './lib/supabase';
 import { supabase, signInWithGoogle, signInWithApple, signOut, getCurrentUser, onAuthStateChange, saveToCloud, loadFromCloud, deleteCloudSave, listCloudSaves } from './lib/supabase';
 import type { User } from '@supabase/supabase-js';
@@ -118,13 +125,14 @@ function App() {
   const [hoveredTotemBuffs, setHoveredTotemBuffs] = useState<{ buffs: Buff[], position: { x: number, y: number } } | null>(null);
   const [selectedMemberForClassSpec, setSelectedMemberForClassSpec] = useState<string | null>(null);
   // Bench player state
-  const [raidManagerTab, setRaidManagerTab] = useState<'active' | 'bench' | 'gear'>('active');
+  const [raidManagerTab, setRaidManagerTab] = useState<'active' | 'bench' | 'gear' | 'lfg'>('active');
   const [gearViewSelectedMember, setGearViewSelectedMember] = useState<string | null>(null);
   const [gearViewSelectedSlot, setGearViewSelectedSlot] = useState<EquipmentSlot | null>(null);
   const [selectedBenchPlayerForSwap, setSelectedBenchPlayerForSwap] = useState<string | null>(null);
   const [selectedRaidMemberForSwap, setSelectedRaidMemberForSwap] = useState<string | null>(null);
   const [showAddToBenchModal, setShowAddToBenchModal] = useState(false);
   const [addToBenchSelectedClass, setAddToBenchSelectedClass] = useState<WoWClass | null>(null);
+  const [showLFGBoard, setShowLFGBoard] = useState(false);
   const [kickConfirmMember, setKickConfirmMember] = useState<{ id: string; name: string } | null>(null);
   const [removeBenchConfirm, setRemoveBenchConfirm] = useState<{ id: string; name: string } | null>(null);
   // Mobile UI mode - auto-detect on load
@@ -136,7 +144,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.34.0';
+  const CURRENT_PATCH_VERSION = '0.36.0';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -168,6 +176,8 @@ function App() {
   const multiplayerPlayerManaRef = useRef<Record<string, { current: number; max: number }>>({});
   // Track if host is spectating (watching without playing)
   const [hostSpectating, setHostSpectating] = useState(false);
+  // Pending encounter for attendance check (stores encounter ID while attendance modal is open)
+  const [pendingAttendanceEncounter, setPendingAttendanceEncounter] = useState<string | null>(null);
 
   // Living Bomb Safe Zone state
   const [evacuatedMembers, setEvacuatedMembers] = useState<Set<string>>(new Set());
@@ -567,6 +577,17 @@ function App() {
       return;
     }
 
+    const currentState = engine.getState();
+
+    // In Raid Leader mode, roll attendance before the first encounter
+    // (not for training dummy, and only if attendance hasn't been rolled yet)
+    if (currentState.isRaidLeaderMode && encounterId !== 'training' && !engine.hasAttendanceBeenRolled()) {
+      // Store the pending encounter and roll attendance
+      setPendingAttendanceEncounter(encounterId);
+      engine.rollAttendance();
+      return;
+    }
+
     // Check if this encounter requires tank assignment
     const encounter = ENCOUNTERS.find(e => e.id === encounterId);
 
@@ -943,11 +964,17 @@ function App() {
       // HOST: Broadcast game state to all clients
       let broadcastInterval: number | null = null;
 
+      // Track last broadcast state for delta comparison
+      let lastBroadcastState: string = '';
+      let lastFullBroadcastTime = 0;
+
       channel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          // Broadcast state 20 times per second
+          // Broadcast state 10 times per second during combat, 2 times per second when idle
+          // This reduces egress by 50-80% compared to the old 20/sec constant rate
           broadcastInterval = window.setInterval(() => {
             const gameState = engine.getState();
+            const now = Date.now();
 
             // If encounter just started and we haven't reset yet, reset all multiplayer stats
             if (gameState.isRunning && !healingStatsResetForEncounterRef.current) {
@@ -995,92 +1022,98 @@ function App() {
               multiplayerPlayerManaRef.current['player'] = hostMana; // Also store with raid member ID
             }
 
-            channel.send({
-              type: 'broadcast',
-              event: 'game_state',
-              payload: {
-                // Send full raid state with names, debuffs, buffs, HoTs for sync
-                raid: gameState.raid.map((m, index) => ({
-                  index,
-                  id: m.id,
-                  name: m.name,
-                  class: m.class,
-                  role: m.role,
-                  group: m.group, // Sync group assignments!
-                  hp: m.currentHealth,
-                  maxHp: m.maxHealth,
-                  alive: m.isAlive,
-                  debuffs: m.debuffs, // Sync debuffs!
-                  buffs: m.buffs,     // Sync buffs too
-                  activeHoTs: m.activeHoTs, // Sync HoTs (Rejuv, Regrowth, Renew icons)
-                  absorbShield: m.absorbShield, // Sync Power Word: Shield
-                  absorbShieldMax: m.absorbShieldMax,
-                  weakenedSoulDuration: m.weakenedSoulDuration, // Sync Weakened Soul debuff
+            // Build the payload
+            const payload = {
+              // During combat, send compact raid state (just health-critical data)
+              // Full state syncs every 2 seconds or when important things change
+              raid: gameState.raid.map((m, index) => ({
+                index,
+                id: m.id,
+                name: m.name,
+                class: m.class,
+                role: m.role,
+                group: m.group,
+                hp: m.currentHealth,
+                maxHp: m.maxHealth,
+                alive: m.isAlive,
+                debuffs: m.debuffs,
+                buffs: m.buffs,
+                activeHoTs: m.activeHoTs,
+                absorbShield: m.absorbShield,
+                absorbShieldMax: m.absorbShieldMax,
+                weakenedSoulDuration: m.weakenedSoulDuration,
+              })),
+              boss: gameState.boss ? {
+                id: gameState.boss.id,
+                name: gameState.boss.name,
+                hp: gameState.boss.currentHealth,
+                maxHp: gameState.boss.maxHealth,
+                phase: gameState.boss.currentPhase,
+                enrageTimer: gameState.boss.enrageTimer,
+                adds: gameState.boss.adds?.map(add => ({
+                  id: add.id,
+                  name: add.name,
+                  hp: add.currentHealth,
+                  maxHp: add.maxHealth,
+                  alive: add.isAlive,
                 })),
-                // Send full boss data so client can start any boss
-                boss: gameState.boss ? {
-                  id: gameState.boss.id,
-                  name: gameState.boss.name,
-                  hp: gameState.boss.currentHealth,
-                  maxHp: gameState.boss.maxHealth,
-                  phase: gameState.boss.currentPhase,
-                  enrageTimer: gameState.boss.enrageTimer,
-                  // Sync boss adds (Sulfuron priests, Majordomo adds, Ragnaros Sons, etc.)
-                  adds: gameState.boss.adds?.map(add => ({
-                    id: add.id,
-                    name: add.name,
-                    hp: add.currentHealth,
-                    maxHp: add.maxHealth,
-                    alive: add.isAlive,
-                  })),
-                } : null,
-                isRunning: gameState.isRunning,
-                elapsedTime: gameState.elapsedTime,
-                bossEnraged: gameState.bossEnraged,
-                // Include all players' healing stats for the meter
-                healingStats: multiplayerHealingStatsRef.current,
-                // Sync loot drops to all clients
-                showLootModal: gameState.showLootModal,
-                pendingLoot: gameState.pendingLoot,
-                // Sync multiplayer loot bidding
-                lootBids: gameState.lootBids,
-                lootBidTimer: gameState.lootBidTimer,
-                lootResults: gameState.lootResults,
-                // Sync loot assignments so clients see who got each item
-                lootAssignments: gameState.lootAssignments,
-                // Sync boss kill progress
-                defeatedBossesByRaid: gameState.defeatedBossesByRaid,
-                // Sync encounter result for summary display
-                lastEncounterResult: gameState.lastEncounterResult,
-                // Sync Living Bomb safe zone members
-                membersInSafeZone: Array.from(gameState.membersInSafeZone),
-                // Sync tank swap warning for bosses like Golemagg/Ragnaros
-                tankSwapWarning: gameState.tankSwapWarning,
-                // Sync Ragnaros RP state so clients can watch the intro (use refs to avoid stale closure)
-                showRagnarosRP: showRagnarosRPRef.current,
-                ragnarosRPDialogueIndex: ragnarosRPDialogueIndexRef.current,
-                ragnarosRPTimeRemaining: ragnarosRPTimeRemainingRef.current,
-                // Sync tank modal states so clients see when host finishes assigning tanks (use refs)
-                showRagnarosTankModal: showRagnarosTankModalRef.current,
-                showGolemaggTankModal: showGolemaggTankModalRef.current,
-                showMajordomoTankModal: showMajordomoTankModalRef.current,
-                // Sync RP skip requests so all players see who requested skip
-                rpSkipRequests: rpSkipRequestsRef.current,
-                // Sync raid buffs, consumables, and world buffs
-                playerBuffs: gameState.playerBuffs,
-                activeConsumables: gameState.activeConsumables,
-                activeWorldBuffs: gameState.activeWorldBuffs,
-                // Sync AI healer healing so clients see "Other Healers" stat
-                otherHealersHealing: gameState.otherHealersHealing,
-                // Sync all multiplayer player mana for raid frame display
-                multiplayerPlayerMana: multiplayerPlayerManaRef.current,
-                // Sync Innervate cooldown so all players see when it's available
-                innervateCooldown: engine.getInnervateCooldown(),
-                // Sync active totems (Mana Tide, etc.)
-                activeTotems: gameState.activeTotems,
-              },
+              } : null,
+              isRunning: gameState.isRunning,
+              elapsedTime: gameState.elapsedTime,
+              bossEnraged: gameState.bossEnraged,
+              healingStats: multiplayerHealingStatsRef.current,
+              showLootModal: gameState.showLootModal,
+              pendingLoot: gameState.pendingLoot,
+              lootBids: gameState.lootBids,
+              lootBidTimer: gameState.lootBidTimer,
+              lootResults: gameState.lootResults,
+              lootAssignments: gameState.lootAssignments,
+              defeatedBossesByRaid: gameState.defeatedBossesByRaid,
+              lastEncounterResult: gameState.lastEncounterResult,
+              membersInSafeZone: Array.from(gameState.membersInSafeZone),
+              tankSwapWarning: gameState.tankSwapWarning,
+              showRagnarosRP: showRagnarosRPRef.current,
+              ragnarosRPDialogueIndex: ragnarosRPDialogueIndexRef.current,
+              ragnarosRPTimeRemaining: ragnarosRPTimeRemainingRef.current,
+              showRagnarosTankModal: showRagnarosTankModalRef.current,
+              showGolemaggTankModal: showGolemaggTankModalRef.current,
+              showMajordomoTankModal: showMajordomoTankModalRef.current,
+              rpSkipRequests: rpSkipRequestsRef.current,
+              playerBuffs: gameState.playerBuffs,
+              activeConsumables: gameState.activeConsumables,
+              activeWorldBuffs: gameState.activeWorldBuffs,
+              otherHealersHealing: gameState.otherHealersHealing,
+              multiplayerPlayerMana: multiplayerPlayerManaRef.current,
+              innervateCooldown: engine.getInnervateCooldown(),
+              activeTotems: gameState.activeTotems,
+            };
+
+            // Create a hash of the current state to detect changes
+            // Only include frequently changing values in the hash for efficiency
+            const stateHash = JSON.stringify({
+              raid: payload.raid.map(m => ({ hp: m.hp, alive: m.alive, debuffs: m.debuffs?.length || 0 })),
+              bossHp: payload.boss?.hp,
+              isRunning: payload.isRunning,
+              showLootModal: payload.showLootModal,
+              lootBidTimer: payload.lootBidTimer,
             });
-          }, 50);
+
+            // Skip broadcast if nothing changed and we're not in combat
+            // During combat, always broadcast. When idle, only broadcast on changes or every 2 sec
+            const shouldBroadcast = gameState.isRunning ||
+              stateHash !== lastBroadcastState ||
+              (now - lastFullBroadcastTime) > 2000;
+
+            if (shouldBroadcast) {
+              channel.send({
+                type: 'broadcast',
+                event: 'game_state',
+                payload,
+              });
+              lastBroadcastState = stateHash;
+              lastFullBroadcastTime = now;
+            }
+          }, 100); // 10 times per second (was 50ms = 20/sec)
         }
       });
 
@@ -2573,6 +2606,86 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.36.0 - Raid Leader Mode: Franchise Mode</h3>
+                  <span className="patch-date">December 26, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Franchise Mode Overview</h4>
+                  <p style={{ color: '#ffd700', fontStyle: 'italic', marginBottom: '8px' }}>Build your guild over multiple raid weeks - manage roster, morale, and drama!</p>
+                  <ul>
+                    <li><strong>Persistent Raid Roster</strong>: Your 40-man roster carries over between boss fights and raid weeks</li>
+                    <li><strong>Renown Currency</strong>: Earn renown from boss kills to recruit players from LFG</li>
+                    <li><strong>Weekly Progression</strong>: Progress through MC one boss at a time, tracking your week counter</li>
+                    <li><strong>Bench Management</strong>: Keep backup players on your bench for when raiders can't make it</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Raid Preparation Screen</h4>
+                  <ul>
+                    <li><strong>Pre-Raid Planning</strong>: Full-screen interface before each boss encounter</li>
+                    <li><strong>Attendance Check</strong>: Some raiders randomly no-show with excuses - just like real raiding!</li>
+                    <li><strong>No-Show Excuses</strong>: "Laundry emergency", "Cat on fire", "Forgot it was raid night", and more</li>
+                    <li><strong>Stress Indicators</strong>: Missing key roles shows warning badges (Critical/High/Medium)</li>
+                    <li><strong>Vacancy Slots</strong>: Clear visual for empty Tank/Healer/DPS spots that need filling</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Filling Vacancies</h4>
+                  <ul>
+                    <li><strong>Bench Players First</strong>: Your bench is shown prominently - use your backups!</li>
+                    <li><strong>LFG Recruits</strong>: Browse Looking For Group players as a secondary option</li>
+                    <li><strong>Click-to-Fill</strong>: Select a replacement, then click the vacancy slot to assign them</li>
+                    <li><strong>Renown Cost Display</strong>: See your current renown and LFG recruit costs</li>
+                    <li><strong>Affordability Indicators</strong>: LFG players you can't afford are visually grayed out</li>
+                    <li><strong>Clear Assignments</strong>: Click filled slots to clear them and try a different player</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Morale System</h4>
+                  <ul>
+                    <li><strong>Raider Morale</strong>: Each raider tracks their mood from 0 to 100</li>
+                    <li><strong>Boss Kill Boost</strong>: Killing bosses raises everyone's morale</li>
+                    <li><strong>Wipe Penalty</strong>: Wipes lower morale - too many wipes and people get grumpy</li>
+                    <li><strong>Bench Penalty</strong>: Moving someone to the bench lowers their morale</li>
+                    <li><strong>Raid Prep Exception</strong>: Swapping during raid prep doesn't trigger morale changes</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Leave Warning System</h4>
+                  <ul>
+                    <li><strong>Disgruntled Raiders</strong>: Low morale triggers a leave warning popup</li>
+                    <li><strong>Time to React</strong>: You get a chance to see who's unhappy before they leave</li>
+                    <li><strong>Consequences</strong>: Ignore warnings too long and raiders will /gquit!</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Drama Events</h4>
+                  <ul>
+                    <li><strong>Random Drama</strong>: Life happens - expect occasional drama events between raid weeks</li>
+                    <li><strong>Loot Drama</strong>: Raiders getting upset over loot distribution</li>
+                    <li><strong>Burnout</strong>: Sometimes raiders just need a break</li>
+                    <li><strong>Real Life</strong>: Work, school, relationships - the usual excuses</li>
+                    <li><strong>Guild Drama</strong>: Officer disputes and personality conflicts</li>
+                  </ul>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Quality of Life</h4>
+                  <ul>
+                    <li><strong>Role Status Bar</strong>: Footer shows Tank/Healer/DPS counts with checkmarks or warnings</li>
+                    <li><strong>Start Raid Button</strong>: Only enabled when you have minimum required roles filled</li>
+                    <li><strong>Cancel Raid Option</strong>: Cancel if you can't fill your roster this week</li>
+                    <li><strong>Gear Score Display</strong>: See replacement player gear scores before assigning</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.35.0 - Frost Mage DPS Class (Early Beta)</h3>
                   <span className="patch-date">December 11, 2025</span>
                 </div>
@@ -5710,31 +5823,40 @@ function App() {
                         // Raid Leader Mode OR Multiplayer Host: Master Looter dropdown
                         (() => {
                           const eligibleMembers = engine.getEligibleMembersForItem(item);
+                          const wantCount = eligibleMembers.filter(m => m.wantsItem).length;
                           return (
                             <div className="master-looter-controls">
-                              <select
-                                className="master-looter-select"
-                                defaultValue=""
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    engine.awardLootToMember(item.id, e.target.value);
-                                  }
-                                }}
-                              >
-                                <option value="" disabled>Assign to...</option>
-                                {eligibleMembers.map(m => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.name} ({m.class}){m.isUpgrade ? ' ★' : ''}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                className="disenchant-btn"
-                                onClick={() => engine.disenchantLoot(item.id)}
-                                title="Disenchant into Nexus Crystal"
-                              >
-                                DE
-                              </button>
+                              {/* Show how many want it */}
+                              {wantCount > 0 && (
+                                <div className="loot-interest-indicator">
+                                  <span className="interest-count">{wantCount} want{wantCount > 1 ? '' : 's'}</span>
+                                </div>
+                              )}
+                              <div className="master-looter-actions">
+                                <select
+                                  className="master-looter-select"
+                                  defaultValue=""
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      engine.awardLootToMember(item.id, e.target.value);
+                                    }
+                                  }}
+                                >
+                                  <option value="" disabled>Assign to...</option>
+                                  {eligibleMembers.map(m => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.wantsItem ? '★ ' : '  '}{m.name} ({m.class}){m.upgradeAmount > 0 ? ` +${m.upgradeAmount} iLvl` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  className="disenchant-btn"
+                                  onClick={() => engine.disenchantLoot(item.id)}
+                                  title="Disenchant into Nexus Crystal"
+                                >
+                                  DE
+                                </button>
+                              </div>
                             </div>
                           );
                         })()
@@ -5770,6 +5892,18 @@ function App() {
                 );
               })}
             </div>
+            {/* Raid Leader Mode: Reputation Summary */}
+            {state.isRaidLeaderMode && state.franchiseLastReputationGain > 0 && (
+              <div className="franchise-rep-summary">
+                <div className="rep-gained">
+                  <span className="rep-label">Guild Reputation</span>
+                  <span className="rep-value">+{state.franchiseLastReputationGain}</span>
+                </div>
+                <div className="rep-total">
+                  Total: {state.franchiseReputation} ({state.franchiseReputationTier})
+                </div>
+              </div>
+            )}
             <div className="loot-modal-footer">
               {isMultiplayerMode && !isHost ? (
                 <span className="loot-bidding-info">Waiting for host to assign loot...</span>
@@ -5934,6 +6068,84 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Drama Event Modal - Guild drama with dialog choices */}
+      {state.franchiseActiveDrama && state.isRaidLeaderMode && (() => {
+        // Find instigator's class for styling
+        const instigator = state.raid.find(m => m.id === state.franchiseActiveDrama?.instigatorId);
+        const instigatorClass = instigator?.class || 'warrior';
+        return (
+          <DramaEventModal
+            drama={state.franchiseActiveDrama}
+            onResolve={(optionId: string) => engine.resolveDrama(optionId)}
+            instigatorClass={instigatorClass}
+          />
+        );
+      })()}
+
+      {/* Raid Prep Screen - Roll attendance and fill vacancies before raid starts */}
+      {state.isRaidLeaderMode && state.franchiseShowAttendanceModal && state.franchiseAttendanceCheck && pendingAttendanceEncounter && (
+        <RaidPrepScreen
+          attendanceCheck={state.franchiseAttendanceCheck}
+          benchPlayers={state.benchPlayers}
+          lfgPool={state.franchiseLFGPool}
+          pendingEncounterId={pendingAttendanceEncounter}
+          raidWeek={state.franchiseCurrentWeek}
+          renown={state.franchiseRenown}
+          onStartRaid={() => {
+            engine.dismissAttendanceModal();
+            // Start the encounter that was pending
+            const encId = pendingAttendanceEncounter;
+            setPendingAttendanceEncounter(null);
+            // Re-call handleEncounterSelect now that attendance is rolled
+            handleEncounterSelect(encId);
+          }}
+          onCancelRaid={() => {
+            engine.dismissAttendanceModal();
+            engine.clearAttendanceCheck();
+            setPendingAttendanceEncounter(null);
+          }}
+          onFillVacancy={(noShowId, replacementId, type) => {
+            return engine.fillNoShowVacancy(noShowId, replacementId, type);
+          }}
+          onUnfillVacancy={(noShowId) => {
+            engine.unfillNoShowVacancy(noShowId);
+          }}
+          getPlayerInfo={(playerId) => {
+            // Check raid first, then bench (no-shows get moved to bench after filling)
+            const member = state.raid.find(m => m.id === playerId);
+            if (member) {
+              return { class: member.class, role: member.role };
+            }
+            const benchPlayer = state.benchPlayers.find(b => b.id === playerId);
+            if (benchPlayer) {
+              return { class: benchPlayer.class, role: benchPlayer.role };
+            }
+            return undefined;
+          }}
+        />
+      )}
+
+      {/* Leave Warning Modal - Player morale warnings and departures */}
+      {state.isRaidLeaderMode && (
+        state.franchisePendingLeaveWarnings.length > 0 ||
+        state.franchisePendingDepartures.length > 0
+      ) && (
+        <LeaveWarningModal
+          warnings={state.franchisePendingLeaveWarnings}
+          departures={state.franchisePendingDepartures}
+          onDismissWarning={(index) => engine.dismissLeaveWarning(index)}
+          onDismissAllWarnings={() => engine.dismissAllLeaveWarnings()}
+          onProcessDeparture={(playerId) => engine.processDeparture(playerId)}
+          onTryToConvince={(playerId) => engine.tryToConvinceToStay(playerId)}
+          renown={state.franchiseRenown}
+          getPlayerClass={(playerId) => {
+            const raidMember = state.raid.find(m => m.id === playerId);
+            const benchPlayer = state.benchPlayers.find(b => b.id === playerId);
+            return raidMember?.class || benchPlayer?.class;
+          }}
+        />
       )}
 
       {/* Inspection Panel */}
@@ -6856,10 +7068,25 @@ function App() {
                 </button>
                 <button
                   className={`rgm-tab ${raidManagerTab === 'gear' ? 'active' : ''}`}
-                  onClick={() => { setRaidManagerTab('gear'); setSelectedPaladinForAura(null); setSelectedShamanForTotems(null); setSelectedMemberForClassSpec(null); setGearViewSelectedMember(null); setGearViewSelectedSlot(null); }}
+                  onClick={() => {
+                    setRaidManagerTab('gear');
+                    setSelectedPaladinForAura(null);
+                    setSelectedShamanForTotems(null);
+                    setSelectedMemberForClassSpec(null);
+                    setGearViewSelectedMember(null);
+                    setGearViewSelectedSlot(null);
+                  }}
                 >
-                  Gear
+                  Guild
                 </button>
+                {state.isRaidLeaderMode && (
+                  <button
+                    className={`rgm-tab ${raidManagerTab === 'lfg' ? 'active' : ''}`}
+                    onClick={() => { setRaidManagerTab('lfg'); setSelectedPaladinForAura(null); setSelectedShamanForTotems(null); setSelectedMemberForClassSpec(null); }}
+                  >
+                    LFG ({state.franchiseLFGPool.length})
+                  </button>
+                )}
               </div>
               <button className="close-inspection" onClick={() => { setShowRaidGroupManager(false); setSelectedPaladinForAura(null); setDraggedMemberId(null); setSelectedMemberForClassSpec(null); setSelectedBenchPlayerForSwap(null); setShowAddToBenchModal(false); }}>X</button>
             </div>
@@ -7607,15 +7834,63 @@ function App() {
                       )}
                     </div>
                   )}
+
+                  {/* LFG Board Modal (Franchise Mode) */}
+                  {showLFGBoard && (
+                    <LFGBoard
+                      recruits={state.franchiseLFGPool}
+                      guildReputation={state.franchiseReputation ?? 0}
+                      guildReputationTier={state.franchiseReputationTier ?? 'unknown'}
+                      guildRenown={state.franchiseRenown ?? 0}
+                      onRecruit={(recruitId) => {
+                        if (state.benchPlayers.length >= engine.getMaxBenchSize()) {
+                          alert('Bench is full! Remove a player first.');
+                          return;
+                        }
+                        const success = engine.recruitFromLFG(recruitId);
+                        if (success) {
+                          setShowLFGBoard(false);
+                        }
+                      }}
+                      onClose={() => setShowLFGBoard(false)}
+                    />
+                  )}
                 </div>
               )}
 
               {/* Gear Tab Content - Two Panel Layout */}
               {raidManagerTab === 'gear' && (
-                <div className="rgm-gear-layout">
+                <>
+                  {/* Guild Status Header - Franchise Mode Only */}
+                  {state.isRaidLeaderMode && (
+                    <div className="rgm-guild-status-header">
+                      <div className="rgm-guild-stat reputation">
+                        <div className="rgm-guild-stat-icon">
+                          <img src="/icons/spell_holy_divinespirit.jpg" alt="Reputation" />
+                        </div>
+                        <div className="rgm-guild-stat-content">
+                          <span className="rgm-guild-stat-label">Reputation</span>
+                          <span className="rgm-guild-stat-value">{state.franchiseReputation}</span>
+                          <span className="rgm-guild-stat-tier">{state.franchiseReputationTier}</span>
+                        </div>
+                        <div className="rgm-guild-stat-desc">Prestige level - affects recruit quality</div>
+                      </div>
+                      <div className="rgm-guild-stat renown">
+                        <div className="rgm-guild-stat-icon">
+                          <img src="/icons/inv_misc_coin_01.jpg" alt="Renown" />
+                        </div>
+                        <div className="rgm-guild-stat-content">
+                          <span className="rgm-guild-stat-label">Renown</span>
+                          <span className="rgm-guild-stat-value">{state.franchiseRenown ?? 0}</span>
+                        </div>
+                        <div className="rgm-guild-stat-desc">Currency for recruiting & trait rerolls</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="rgm-gear-layout">
                   {/* Left Side: Raider List */}
                   <div className="rgm-gear-list">
-                    <h4 className="rgm-gear-list-title">Raiders</h4>
+                    <h4 className="rgm-gear-list-title">Active Raid ({state.raid.length})</h4>
                     <div className="rgm-gear-raiders">
                       {state.raid.map(member => {
                         const classColor = CLASS_COLORS[member.class];
@@ -7638,10 +7913,69 @@ function App() {
                               <span className="rgm-gear-raider-spec">
                                 {specDef?.name || member.class}
                               </span>
+                              {member.personality && member.personality.length > 0 && (
+                                <div className="rgm-gear-raider-traits">
+                                  <PersonalityBadgeRow traits={member.personality} size="small" maxVisible={2} />
+                                </div>
+                              )}
                             </div>
-                            <span className="rgm-gear-raider-gs">
-                              GS: {member.gearScore}
-                            </span>
+                            <div className="rgm-gear-raider-right">
+                              <span className="rgm-gear-raider-gs">
+                                GS: {member.gearScore}
+                              </span>
+                              {member.morale && (
+                                <div className="rgm-gear-raider-morale">
+                                  <MoraleBar morale={member.morale} size="compact" leaveWarnings={member.leaveWarnings} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Bench Players Separator */}
+                      {state.benchPlayers.length > 0 && (
+                        <div className="rgm-gear-separator">
+                          <span>Bench ({state.benchPlayers.length})</span>
+                        </div>
+                      )}
+
+                      {/* Bench Players */}
+                      {state.benchPlayers.map(benchPlayer => {
+                        const classColor = CLASS_COLORS[benchPlayer.class];
+                        const specDef = getSpecById(benchPlayer.spec);
+                        const isSelected = gearViewSelectedMember === benchPlayer.id;
+
+                        return (
+                          <div
+                            key={benchPlayer.id}
+                            className={`rgm-gear-raider bench ${isSelected ? 'selected' : ''}`}
+                            onClick={() => { setGearViewSelectedMember(benchPlayer.id); setGearViewSelectedSlot(null); }}
+                          >
+                            <div className="rgm-gear-raider-bar" style={{ backgroundColor: classColor }} />
+                            <div className="rgm-gear-raider-info">
+                              <span className="rgm-gear-raider-name" style={{ color: classColor }}>
+                                {benchPlayer.name}
+                              </span>
+                              <span className="rgm-gear-raider-spec">
+                                {specDef?.name || benchPlayer.class}
+                              </span>
+                              {benchPlayer.personality && benchPlayer.personality.length > 0 && (
+                                <div className="rgm-gear-raider-traits">
+                                  <PersonalityBadgeRow traits={benchPlayer.personality} size="small" maxVisible={2} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="rgm-gear-raider-right">
+                              <span className="rgm-gear-raider-gs">
+                                GS: {benchPlayer.gearScore}
+                              </span>
+                              {benchPlayer.morale && (
+                                <div className="rgm-gear-raider-morale">
+                                  <MoraleBar morale={benchPlayer.morale} size="compact" leaveWarnings={benchPlayer.leaveWarnings} />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
@@ -7651,7 +7985,11 @@ function App() {
                   {/* Right Side: Equipment Details */}
                   <div className="rgm-gear-details">
                     {gearViewSelectedMember ? (() => {
-                      const member = state.raid.find(m => m.id === gearViewSelectedMember);
+                      // Look in both raid and bench for the selected member
+                      const raidMember = state.raid.find(m => m.id === gearViewSelectedMember);
+                      const benchMember = state.benchPlayers.find(b => b.id === gearViewSelectedMember);
+                      const member = raidMember || benchMember;
+                      const isBenchPlayer = !!benchMember && !raidMember;
                       if (!member) return <div className="rgm-gear-empty">Member not found</div>;
 
                       const allSlots: EquipmentSlot[] = ['head', 'shoulders', 'chest', 'wrist', 'hands', 'waist', 'legs', 'feet', 'weapon', 'offhand', 'ranged', 'trinket1', 'trinket2', 'ring1', 'ring2', 'neck', 'back'];
@@ -7671,8 +8009,39 @@ function App() {
                           <div className="rgm-gear-member-header">
                             <h3 style={{ color: CLASS_COLORS[member.class] }}>{member.name}</h3>
                             <span className="rgm-gear-member-spec">{getSpecById(member.spec)?.name || member.class}</span>
+                            {isBenchPlayer && <span className="rgm-gear-bench-tag">BENCH</span>}
                             <span className="rgm-gear-member-gs">Gear Score: {member.gearScore}</span>
                           </div>
+
+                          {/* Personality & Morale Section */}
+                          {((member.personality?.length ?? 0) > 0 || member.morale) && (
+                            <div className="rgm-gear-personality-section">
+                              {member.personality && member.personality.length > 0 && (
+                                <div className="rgm-gear-personality-row">
+                                  <span className="rgm-gear-personality-label">Personality:</span>
+                                  <PersonalityBadgeList
+                                    traits={member.personality}
+                                    size="medium"
+                                    maxVisible={5}
+                                    onReroll={(traitId: PersonalityTraitId) => {
+                                      engineRef.current?.rerollRaiderTrait(member.id, traitId);
+                                      forceUpdate(n => n + 1);
+                                    }}
+                                    rerollCost={TRAIT_REROLL_COST}
+                                    canAffordReroll={state.franchiseReputation >= TRAIT_REROLL_COST}
+                                  />
+                                </div>
+                              )}
+                              {member.morale && (
+                                <div className="rgm-gear-morale-row">
+                                  <span className="rgm-gear-morale-label">Morale:</span>
+                                  <div className="rgm-gear-morale-bar-wrapper">
+                                    <MoraleBar morale={member.morale} size="normal" showValue={true} leaveWarnings={member.leaveWarnings} />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           <div className="rgm-gear-content">
                             {/* Equipment List */}
@@ -7774,6 +8143,29 @@ function App() {
                       </div>
                     )}
                   </div>
+                </div>
+                </>
+              )}
+
+              {/* LFG Tab */}
+              {raidManagerTab === 'lfg' && state.isRaidLeaderMode && (
+                <div className="rgm-lfg-tab">
+                  <LFGBoardInline
+                    recruits={state.franchiseLFGPool}
+                    guildReputation={state.franchiseReputation ?? 0}
+                    guildReputationTier={state.franchiseReputationTier ?? 'unknown'}
+                    guildRenown={state.franchiseRenown ?? 0}
+                    onRecruit={(recruitId) => {
+                      engine.recruitFromLFG(recruitId);
+                      forceUpdate(n => n + 1);
+                    }}
+                    onRefreshPool={() => {
+                      const result = engine.refreshLFGPool();
+                      forceUpdate(n => n + 1);
+                      return result;
+                    }}
+                    refreshCost={engine.getLFGRefreshCost()}
+                  />
                 </div>
               )}
             </div>
@@ -8626,6 +9018,87 @@ function App() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Guild Reputation (Franchise Mode) */}
+                  {state.isRaidLeaderMode && (
+                    <div className="admin-section">
+                      <div className="admin-section-header">Guild Reputation</div>
+                      <div className="admin-renown-display">
+                        <span>Current Reputation: </span>
+                        <span className="renown-value">{state.franchiseReputation}</span>
+                        <span className="renown-tier">({state.franchiseReputationTier})</span>
+                      </div>
+                      <div className="admin-renown-controls">
+                        <button onClick={() => engine.adminSetReputation(Math.max(0, state.franchiseReputation - 10))}>
+                          -10
+                        </button>
+                        <button onClick={() => engine.adminSetReputation(Math.max(0, state.franchiseReputation - 1))}>
+                          -1
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={state.franchiseReputation}
+                          onChange={(e) => engine.adminSetReputation(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                          className="admin-renown-input"
+                        />
+                        <button onClick={() => engine.adminSetReputation(Math.min(100, state.franchiseReputation + 1))}>
+                          +1
+                        </button>
+                        <button onClick={() => engine.adminSetReputation(Math.min(100, state.franchiseReputation + 10))}>
+                          +10
+                        </button>
+                      </div>
+                      <div className="admin-renown-presets">
+                        <button onClick={() => engine.adminSetReputation(0)}>Unknown (0)</button>
+                        <button onClick={() => engine.adminSetReputation(25)}>Rising (25)</button>
+                        <button onClick={() => engine.adminSetReputation(50)}>Established (50)</button>
+                        <button onClick={() => engine.adminSetReputation(75)}>Famous (75)</button>
+                        <button onClick={() => engine.adminSetReputation(100)}>Legendary (100)</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Guild Renown - Spendable Currency (Franchise Mode) */}
+                  {state.isRaidLeaderMode && (
+                    <div className="admin-section">
+                      <div className="admin-section-header">Guild Renown (Currency)</div>
+                      <div className="admin-renown-display">
+                        <span>Current Renown: </span>
+                        <span className="renown-value renown-currency">{state.franchiseRenown ?? 0}</span>
+                        <span className="renown-hint">(Earned from boss kills, spent on recruiting)</span>
+                      </div>
+                      <div className="admin-renown-controls">
+                        <button onClick={() => engine.adminSetRenown(Math.max(0, (state.franchiseRenown ?? 0) - 50))}>
+                          -50
+                        </button>
+                        <button onClick={() => engine.adminSetRenown(Math.max(0, (state.franchiseRenown ?? 0) - 10))}>
+                          -10
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={state.franchiseRenown ?? 0}
+                          onChange={(e) => engine.adminSetRenown(Math.max(0, parseInt(e.target.value) || 0))}
+                          className="admin-renown-input"
+                        />
+                        <button onClick={() => engine.adminSetRenown((state.franchiseRenown ?? 0) + 10)}>
+                          +10
+                        </button>
+                        <button onClick={() => engine.adminSetRenown((state.franchiseRenown ?? 0) + 50)}>
+                          +50
+                        </button>
+                      </div>
+                      <div className="admin-renown-presets">
+                        <button onClick={() => engine.adminSetRenown(0)}>Broke (0)</button>
+                        <button onClick={() => engine.adminSetRenown(50)}>Starter (50)</button>
+                        <button onClick={() => engine.adminSetRenown(100)}>Comfortable (100)</button>
+                        <button onClick={() => engine.adminSetRenown(250)}>Wealthy (250)</button>
+                        <button onClick={() => engine.adminSetRenown(500)}>Rich (500)</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

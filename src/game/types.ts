@@ -1,6 +1,7 @@
 // Classic WoW Holy Paladin Raid Healing Simulator Types
 
 import type { GearItem, LegendaryMaterialId, QuestMaterialId, EnchantingMaterialId, EquipmentSlot } from './items';
+import type { PersonalityTraitId, MoraleState, LFGRecruit, DramaEvent, LeaveWarning, PlayerDeparture, AttendanceCheck } from './franchiseTypes';
 
 export type WoWClass =
   | 'warrior'
@@ -458,6 +459,11 @@ export interface RaidMember {
   absorbShieldMax?: number; // Max absorb shield amount (for display purposes)
   weakenedSoulDuration?: number; // Weakened Soul debuff duration (prevents PW:S reapplication)
   incomingHeal?: number; // HealComm-style incoming heal amount (green bar on raid frames)
+  // Franchise mode fields
+  personality?: PersonalityTraitId[];  // 2-3 personality traits (franchise mode)
+  morale?: MoraleState;                // Morale state (franchise mode)
+  leaveWarnings?: number;              // 0-3, warnings before leaving (franchise mode)
+  leaveRisk?: number;                  // 0-1, calculated risk of leaving (franchise mode)
 }
 
 // Bench player - sits out of active raid but persists with their own gear
@@ -469,6 +475,10 @@ export interface BenchPlayer {
   role: 'tank' | 'healer' | 'dps';
   equipment: Equipment;    // Their own gear, persisted
   gearScore: number;
+  personality?: PersonalityTraitId[];  // 2-3 personality traits (franchise mode)
+  morale?: MoraleState;                // Morale state (franchise mode)
+  leaveWarnings?: number;              // 0-3, warnings before leaving (franchise mode)
+  leaveRisk?: number;                  // 0-1, calculated risk of leaving (franchise mode)
 }
 
 export interface Spell {
@@ -806,6 +816,26 @@ export interface GameState {
     currentItem: GearItem;
     slot: EquipmentSlot;
   } | null;
+  // Franchise Mode - Guild management (always enabled for Raid Leader mode)
+  franchiseGuildName: string;
+  franchiseReputation: number;          // 0-100 guild reputation (prestige, determines recruit quality in pool)
+  franchiseReputationTier: 'unknown' | 'rising' | 'established' | 'famous' | 'legendary';
+  franchiseRenown: number;              // Spendable currency for recruiting, rerolling traits, etc.
+  franchiseCurrentWeek: number;         // Week counter for events
+  franchiseLFGLastRefresh: number;      // Timestamp of last LFG pool refresh
+  franchiseLFGPool: LFGRecruit[];       // Available recruits in LFG
+  franchiseLastReputationGain: number;  // Rep gained from last boss kill (for summary display)
+  franchiseLastRenownGain: number;      // Renown gained from last boss kill (for summary display)
+  franchiseRaidedThisWeek: boolean;     // Track if player raided this week (for decay)
+  // Drama System
+  franchiseActiveDrama: DramaEvent | null;  // Current unresolved drama event
+  franchiseDramaHistory: DramaEvent[];      // Resolved drama events
+  // Leave Warning System
+  franchisePendingLeaveWarnings: LeaveWarning[];  // Warnings to show to player
+  franchisePendingDepartures: PlayerDeparture[];  // Players about to leave
+  // Attendance System
+  franchiseAttendanceCheck: AttendanceCheck | null;  // Current attendance roll
+  franchiseShowAttendanceModal: boolean;  // Whether to show attendance modal
 }
 
 // Class colors matching Classic WoW

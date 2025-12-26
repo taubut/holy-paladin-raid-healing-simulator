@@ -15,6 +15,7 @@ export const SPEC_ITEM_AFFINITIES: Record<string, ItemCategory[]> = {
   // Warriors - ALL specs can use melee (including Fury/Prot tanks who dual wield!)
   'arms': ['melee', 'universal'],
   'fury': ['melee', 'universal'],
+  'fury_prot': ['melee', 'universal'],  // Fury/Prot hybrid tanks
   'protection_warrior': ['melee', 'universal'],
 
   // Rogues - all melee

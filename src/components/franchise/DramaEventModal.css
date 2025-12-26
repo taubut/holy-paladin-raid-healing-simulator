@@ -1,0 +1,376 @@
+/* Drama Event Modal - Guild drama with dialog choices */
+
+.drama-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: drama-fade-in 0.3s ease-out;
+}
+
+@keyframes drama-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drama-modal {
+  background: linear-gradient(180deg, #2a1a1a 0%, #1a0a0a 100%);
+  border: 3px solid #ff4444;
+  border-radius: 12px;
+  width: 95%;
+  max-width: 600px;
+  box-shadow: 0 0 50px rgba(255, 68, 68, 0.4), inset 0 0 30px rgba(255, 68, 68, 0.1);
+  animation: drama-shake 0.5s ease-out;
+}
+
+@keyframes drama-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* Header */
+.drama-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(180deg, #4a1a1a 0%, #3a0a0a 100%);
+  border-bottom: 2px solid #ff4444;
+  border-radius: 9px 9px 0 0;
+}
+
+.drama-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drama-warning-icon {
+  font-size: 28px;
+  animation: pulse-warning 1s infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.1); }
+}
+
+.drama-header h2 {
+  margin: 0;
+  color: #ff6666;
+  font-size: 22px;
+  text-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.drama-severity {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.drama-severity.minor {
+  background: rgba(255, 200, 0, 0.2);
+  color: #ffcc00;
+  border: 1px solid rgba(255, 200, 0, 0.4);
+}
+
+.drama-severity.moderate {
+  background: rgba(255, 140, 0, 0.2);
+  color: #ff8c00;
+  border: 1px solid rgba(255, 140, 0, 0.4);
+}
+
+.drama-severity.major {
+  background: rgba(255, 68, 68, 0.2);
+  color: #ff4444;
+  border: 1px solid rgba(255, 68, 68, 0.4);
+}
+
+.drama-severity.crisis {
+  background: rgba(180, 0, 0, 0.3);
+  color: #ff0000;
+  border: 1px solid rgba(180, 0, 0, 0.6);
+  animation: pulse-warning 1s infinite;
+}
+
+/* Content */
+.drama-content {
+  padding: 24px;
+}
+
+/* Instigator section */
+.drama-instigator {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.drama-portrait {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.drama-portrait img {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 3px solid;
+}
+
+.drama-portrait-glow {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 10px;
+  background: radial-gradient(ellipse, rgba(255, 68, 68, 0.4) 0%, transparent 70%);
+  animation: portrait-glow 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes portrait-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.drama-speech {
+  flex: 1;
+}
+
+.drama-speaker-name {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.drama-quote {
+  background: rgba(0, 0, 0, 0.4);
+  border-left: 4px solid #ff4444;
+  padding: 12px 16px;
+  font-style: italic;
+  color: #ddd;
+  font-size: 15px;
+  line-height: 1.5;
+  border-radius: 0 6px 6px 0;
+}
+
+.drama-quote::before {
+  content: '"';
+  font-size: 24px;
+  color: #ff4444;
+  margin-right: 4px;
+}
+
+.drama-quote::after {
+  content: '"';
+  font-size: 24px;
+  color: #ff4444;
+  margin-left: 4px;
+}
+
+/* Item involved */
+.drama-item-involved {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(138, 43, 226, 0.15);
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  border-radius: 6px;
+  margin-bottom: 24px;
+}
+
+.drama-item-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  border: 2px solid #a335ee;
+}
+
+.drama-item-info {
+  flex: 1;
+}
+
+.drama-item-name {
+  color: #a335ee;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.drama-item-context {
+  color: #888;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+/* Options */
+.drama-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drama-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(40, 40, 50, 0.8);
+  border: 2px solid #444;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.drama-option:hover {
+  background: rgba(60, 60, 70, 0.8);
+  border-color: #666;
+  transform: translateX(4px);
+}
+
+.drama-option.give_item:hover {
+  border-color: #4a4;
+  background: rgba(40, 60, 40, 0.8);
+}
+
+.drama-option.keep_decision:hover {
+  border-color: #ffd700;
+  background: rgba(60, 50, 30, 0.8);
+}
+
+.drama-option.calm_down:hover {
+  border-color: #69f;
+  background: rgba(30, 40, 60, 0.8);
+}
+
+.drama-option.kick:hover {
+  border-color: #f44;
+  background: rgba(60, 30, 30, 0.8);
+}
+
+.drama-option-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid #555;
+}
+
+.drama-option-content {
+  flex: 1;
+}
+
+.drama-option-label {
+  font-weight: bold;
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.drama-option-desc {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.4;
+}
+
+.drama-option-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.drama-outcome {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.drama-outcome.positive {
+  background: rgba(0, 180, 0, 0.2);
+  color: #4f4;
+}
+
+.drama-outcome.negative {
+  background: rgba(180, 0, 0, 0.2);
+  color: #f44;
+}
+
+.drama-outcome.neutral {
+  background: rgba(100, 100, 100, 0.2);
+  color: #aaa;
+}
+
+.drama-option-rep {
+  font-size: 10px;
+  color: #ffd700;
+  margin-top: 4px;
+}
+
+.drama-option-rep.negative {
+  color: #f88;
+}
+
+/* Footer */
+.drama-footer {
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid #333;
+  border-radius: 0 0 9px 9px;
+  text-align: center;
+}
+
+.drama-footer-hint {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .drama-modal {
+    width: 98%;
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+
+  .drama-instigator {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .drama-quote {
+    border-left: none;
+    border-top: 4px solid #ff4444;
+    border-radius: 0 0 6px 6px;
+  }
+
+  .drama-option {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .drama-option-outcomes {
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}

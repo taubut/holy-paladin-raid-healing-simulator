@@ -1,0 +1,487 @@
+/* Personality Badge Component */
+.personality-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.personality-badge:hover {
+  transform: scale(1.1);
+  z-index: 100;
+}
+
+.personality-badge.active {
+  transform: scale(1.15);
+  z-index: 101;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+/* Reroll animation */
+.personality-badge.rerolled {
+  animation: rerollSpin 0.5s ease-out;
+}
+
+@keyframes rerollSpin {
+  0% {
+    transform: scale(1) rotateY(0deg);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.2) rotateY(180deg);
+    filter: brightness(1.5);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.6);
+  }
+  100% {
+    transform: scale(1) rotateY(360deg);
+    filter: brightness(1);
+  }
+}
+
+/* Reroll animation for expanded details box */
+.personality-expanded-details.rerolling {
+  animation: rerollFlip 0.5s ease-out;
+}
+
+@keyframes rerollFlip {
+  0% {
+    transform: perspective(400px) rotateX(0deg);
+    filter: brightness(1);
+  }
+  50% {
+    transform: perspective(400px) rotateX(90deg);
+    filter: brightness(1.5);
+    box-shadow: 0 0 16px rgba(255, 215, 0, 0.6);
+  }
+  100% {
+    transform: perspective(400px) rotateX(0deg);
+    filter: brightness(1);
+  }
+}
+
+/* Size variants */
+.personality-badge-small {
+  width: 22px;
+  height: 22px;
+}
+
+.personality-badge-small .personality-badge-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.personality-badge-medium {
+  width: 28px;
+  height: 28px;
+}
+
+.personality-badge-medium .personality-badge-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.personality-badge-large {
+  width: 36px;
+  height: 36px;
+}
+
+.personality-badge-large .personality-badge-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.personality-badge-icon {
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+/* Tooltip - appears BELOW the badge to avoid UI clipping */
+.personality-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  width: 220px;
+  background: linear-gradient(180deg, #1a1a2a, #0f0f1a);
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Fixed position tooltip rendered via portal - escapes overflow containers */
+.personality-tooltip.personality-tooltip-fixed {
+  position: fixed;
+  transform: none;
+  margin-top: 0;
+  top: auto;
+  left: auto;
+  z-index: 10000;
+  pointer-events: auto;
+}
+
+/* Remove the arrow for fixed tooltips */
+.personality-tooltip.personality-tooltip-fixed::after {
+  display: none;
+}
+
+.personality-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-bottom-color: #444;
+}
+
+.personality-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.personality-tooltip-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: 1px solid #555;
+}
+
+.personality-tooltip-name {
+  font-weight: bold;
+  font-size: 14px;
+  flex: 1;
+}
+
+.personality-tooltip-category {
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.personality-tooltip-category.positive {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.personality-tooltip-category.negative {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.personality-tooltip-category.neutral {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.personality-tooltip-description {
+  color: #ccc;
+  font-size: 12px;
+  margin: 0 0 10px 0;
+  line-height: 1.4;
+}
+
+.personality-tooltip-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #333;
+}
+
+.personality-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.stat-label {
+  color: #888;
+}
+
+.stat-value {
+  font-weight: bold;
+}
+
+.stat-value.good {
+  color: #4ade80;
+}
+
+.stat-value.bad {
+  color: #f87171;
+}
+
+.personality-rare-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
+  font-size: 8px;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* Badge List Container */
+.personality-badge-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Badge List */
+.personality-badge-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.personality-badge-more {
+  font-size: 11px;
+  color: #888;
+  padding: 2px 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+/* Expanded Details Section - Horizontal Layout */
+.personality-expanded-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(180deg, #1a1a2a, #0f0f1a);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 12px;
+  animation: expandDown 0.15s ease-out;
+}
+
+@keyframes expandDown {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.personality-expanded-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  flex-shrink: 0;
+}
+
+.personality-expanded-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.personality-expanded-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.personality-expanded-name {
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.personality-expanded-category {
+  font-size: 9px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.personality-expanded-category.positive {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.personality-expanded-category.negative {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.personality-expanded-category.neutral {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.personality-expanded-rare {
+  font-size: 8px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+
+.personality-expanded-description {
+  color: #999;
+  font-size: 11px;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Compact vertical layout - used in LFG inspection */
+.personality-expanded-compact {
+  background: linear-gradient(180deg, #1a1a2a, #0f0f1a);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 10px;
+  animation: expandDown 0.15s ease-out;
+}
+
+.pec-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.pec-name {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.pec-category {
+  font-size: 9px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.pec-category.positive {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.pec-category.negative {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.pec-category.neutral {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.pec-rare {
+  font-size: 8px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.pec-description {
+  color: #aaa;
+  font-size: 11px;
+  margin: 0 0 6px 0;
+  line-height: 1.3;
+}
+
+.pec-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: #888;
+}
+
+.pec-stats span.good {
+  color: #4ade80;
+}
+
+.pec-stats span.bad {
+  color: #f87171;
+}
+
+.personality-expanded-stats {
+  display: flex;
+  gap: 12px;
+  padding: 0 12px;
+  border-left: 1px solid #333;
+  flex-shrink: 0;
+}
+
+.personality-expanded-stats .personality-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.personality-expanded-stats .stat-label {
+  color: #666;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.personality-expanded-stats .stat-value {
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.personality-expanded-stats .stat-value.good {
+  color: #4ade80;
+}
+
+.personality-expanded-stats .stat-value.bad {
+  color: #f87171;
+}
+
+/* Reroll button */
+.personality-reroll-btn {
+  padding: 6px 12px;
+  background: linear-gradient(180deg, #4a3a1a, #2a2010);
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+  color: #ffd700;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.personality-reroll-btn:hover:not(.disabled) {
+  background: linear-gradient(180deg, #5a4a2a, #3a3020);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+}
+
+.personality-reroll-btn.disabled {
+  background: linear-gradient(180deg, #2a2a2a, #1a1a1a);
+  border-color: #555;
+  color: #666;
+  cursor: not-allowed;
+}
+
+/* Allow pointer events on tooltip when reroll is available */
+.personality-tooltip:has(.personality-reroll-btn) {
+  pointer-events: auto;
+}

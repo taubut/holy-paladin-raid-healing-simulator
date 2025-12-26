@@ -434,6 +434,20 @@
   border-color: #6c6;
 }
 
+/* LFG Browse Button (Franchise Mode) */
+.rls-lfg-btn {
+  margin-top: 8px;
+  background: linear-gradient(180deg, #3a3a2a 0%, #2a2a1a 100%);
+  border-color: #ffd700;
+  color: #ffd700;
+}
+
+.rls-lfg-btn:hover {
+  background: linear-gradient(180deg, #4a4a3a 0%, #3a3a2a 100%);
+  border-color: #ffea00;
+  color: #ffea00;
+}
+
 .rls-selection-hint {
   margin-top: 12px;
   padding: 10px;
@@ -733,4 +747,91 @@
   .rls-groups-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ===== FRANCHISE MODE STYLES ===== */
+
+/* Staging player in franchise mode - taller to accommodate traits/morale */
+.rls-staging-player.franchise-mode {
+  min-height: 56px;
+  align-items: flex-start;
+  padding: 10px 8px 10px 12px;
+}
+
+.rls-staging-player.franchise-mode .rls-staging-info {
+  gap: 4px;
+}
+
+/* Franchise info row (traits + morale) */
+.rls-staging-franchise-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Raid member franchise info */
+.rls-member-franchise-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* Make member cards taller in franchise mode */
+.rls-member.franchise-mode {
+  padding: 8px;
+}
+
+.rls-member.franchise-mode .rls-member-info {
+  gap: 2px;
+}
+
+/* Guild status header for franchise mode */
+.rls-franchise-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(30, 30, 50, 0.9) 0%, rgba(20, 20, 35, 0.9) 100%);
+  border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.rls-franchise-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.rls-franchise-stat.reputation {
+  background: rgba(255, 215, 0, 0.15);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  color: #ffd700;
+}
+
+.rls-franchise-stat.renown {
+  background: rgba(138, 43, 226, 0.2);
+  border: 1px solid rgba(138, 43, 226, 0.4);
+  color: #da70d6;
+}
+
+.rls-franchise-label {
+  font-weight: normal;
+  opacity: 0.9;
+}
+
+.rls-franchise-value {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.rls-franchise-tier {
+  color: #aaa;
+  font-weight: normal;
+  text-transform: capitalize;
+  font-size: 12px;
 }

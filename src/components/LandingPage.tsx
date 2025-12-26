@@ -389,6 +389,7 @@ export function LandingPage({
                   ?
                 </button>
               </div>
+
             </div>
           </div>
         )}
@@ -451,7 +452,7 @@ export function LandingPage({
           {/* Footer */}
           <div className="landing-footer">
             <p>A raiding simulator for World of Warcraft Classic</p>
-            <p className="version">v0.35.0</p>
+            <p className="version">v0.36.0</p>
             <a
               href="https://github.com/taubut/holy-paladin-raid-healing-simulator"
               target="_blank"
@@ -615,6 +616,11 @@ export function LandingPage({
               <div className="raid-leader-feature">
                 <h3>Manage Buffs</h3>
                 <p>Control raid buffs, consumables, and world buffs just like in healer mode.</p>
+              </div>
+
+              <div className="raid-leader-feature franchise-feature">
+                <h3>Franchise Mode</h3>
+                <p>Recruit from LFG, manage guild reputation, handle drama when loot disputes happen, and keep your raiders happy. Build a roster, deal with no-shows, and grow your guild's reputation on the server.</p>
               </div>
             </div>
             <button className="raid-leader-info-close-btn" onClick={() => setShowRaidLeaderInfo(false)}>

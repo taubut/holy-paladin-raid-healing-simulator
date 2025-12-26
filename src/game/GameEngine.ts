@@ -15,6 +15,8 @@ import { rollBossLoot, getBossDKPReward, calculateDKPCost, canSpecBenefitFrom } 
 import { RAIDS, getRaidById, DEFAULT_RAID_ID } from './raids';
 import { getPreRaidBisForSpec } from './preRaidBisSets';
 import { getSpecDps } from '../data/raid';
+import { getRandomTraits, rerollSingleTrait, TRAIT_REROLL_COST, PERSONALITY_TRAITS, NO_SHOW_EXCUSES, type MoraleState, type MoraleEventType, type PersonalityTraitId, type DramaEvent, type DramaOption, type DramaSeverity, type LeaveWarning, type PlayerDeparture, type AttendanceCheck, type AttendanceRecord } from './franchiseTypes';
+import { generateLFGPool, generateEmergencyRecruit } from './recruitGenerator';
 import posthog from 'posthog-js';
 
 const GCD_DURATION = 1.5;
@@ -842,6 +844,27 @@ export class GameEngine {
       pendingWeaponAssignment: null,
       // Downgrade/sidegrade confirmation modal
       pendingDowngradeConfirmation: null,
+      // Franchise Mode defaults (always enabled for Raid Leader mode)
+      franchiseGuildName: 'My Guild',
+      franchiseReputation: 10,  // Start as unknown guild, need to build reputation
+      franchiseReputationTier: 'unknown',
+      franchiseCurrentWeek: 1,
+      franchiseLFGLastRefresh: 0,
+      franchiseLFGPool: [],
+      franchiseLastReputationGain: 0,
+      franchiseRaidedThisWeek: false,
+      // Renown (spendable currency for recruiting)
+      franchiseRenown: 50,  // Starting renown - earned from boss kills, spent on recruiting
+      franchiseLastRenownGain: 0,
+      // Drama System
+      franchiseActiveDrama: null,
+      franchiseDramaHistory: [],
+      // Leave Warning System
+      franchisePendingLeaveWarnings: [],
+      franchisePendingDepartures: [],
+      // Attendance System
+      franchiseAttendanceCheck: null,
+      franchiseShowAttendanceModal: false,
     };
   }
 
@@ -889,6 +912,21 @@ export class GameEngine {
   private generateRaid(size: 20 | 40 = 20, playerName: string = 'Healadin', faction: Faction = 'alliance'): RaidMember[] {
     const raid: RaidMember[] = [];
     const usedNames = new Set<string>();
+
+    // Helper to generate personality and morale for AI raid members (Raid Leader mode)
+    const generatePersonalityAndMorale = (): { personality: PersonalityTraitId[]; morale: MoraleState } => {
+      const traitCount = Math.random() < 0.3 ? 3 : 2;
+      const personality = getRandomTraits(traitCount as 2 | 3);
+      const morale: MoraleState = {
+        current: 60,
+        baseline: 50,
+        trend: 'stable',
+        lastChangeReason: 'Guild member',
+        lastChangeAmount: 0,
+        lastChangeTimestamp: Date.now(),
+      };
+      return { personality, morale };
+    };
 
     // Faction-specific healer class: Paladin for Alliance, Shaman for Horde
     const healerClass: WoWClass = faction === 'alliance' ? 'paladin' : 'shaman';
@@ -957,6 +995,7 @@ export class GameEngine {
     for (let i = 0; i < composition.tanks; i++) {
       const maxHealth = getRandomHealth('warrior', true);
       const tankGear = getPreRaidGearAndScore('protection_warrior');
+      const { personality, morale } = generatePersonalityAndMorale();
       raid.push({
         id: `member_${id++}`,
         name: getRandomName('warrior'),
@@ -974,6 +1013,8 @@ export class GameEngine {
         equipment: tankGear.equipment,
         gearScore: tankGear.gearScore,
         positionZone: 'tank',  // Tanks are in their own zone
+        personality,
+        morale,
       });
     }
 
@@ -983,6 +1024,7 @@ export class GameEngine {
     for (let i = 0; i < composition.factionHealers; i++) {
       const maxHealth = getRandomHealth(healerClass, false);
       const factionHealerGear = getPreRaidGearAndScore(healerSpec);
+      const { personality, morale } = generatePersonalityAndMorale();
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(healerClass),
@@ -1000,6 +1042,8 @@ export class GameEngine {
         equipment: factionHealerGear.equipment,
         gearScore: factionHealerGear.gearScore,
         positionZone: 'ranged',  // Healers are in ranged zone
+        personality,
+        morale,
       });
     }
 
@@ -1012,6 +1056,7 @@ export class GameEngine {
       // Assign appropriate healer spec
       const spec: WoWSpec = wowClass === 'priest' ? 'holy_priest' : 'restoration';
       const otherHealerGear = getPreRaidGearAndScore(spec);
+      const { personality, morale } = generatePersonalityAndMorale();
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(wowClass),
@@ -1029,6 +1074,8 @@ export class GameEngine {
         equipment: otherHealerGear.equipment,
         gearScore: otherHealerGear.gearScore,
         positionZone: 'ranged',  // Healers are in ranged zone
+        personality,
+        morale,
       });
     }
 
@@ -1095,6 +1142,7 @@ export class GameEngine {
       const maxHealth = getRandomHealth(wowClass, false);
       const spec = dpsSpecs[wowClass];
       const dpsGear = getPreRaidGearAndScore(spec);
+      const { personality, morale } = generatePersonalityAndMorale();
       raid.push({
         id: `member_${id++}`,
         name: getRandomName(wowClass),
@@ -1112,6 +1160,8 @@ export class GameEngine {
         equipment: dpsGear.equipment,
         gearScore: dpsGear.gearScore,
         positionZone: this.getPositionZone(wowClass, spec, 'dps'),
+        personality,
+        morale,
       });
     }
 
@@ -2061,6 +2111,9 @@ export class GameEngine {
     // Mark raid as in progress
     this.state.raidInProgress = true;
 
+    // Reset franchise reputation gain tracking for new encounter
+    this.state.franchiseLastReputationGain = 0;
+
     // Store current buffs to re-apply after health reset
     const savedBuffs = this.state.raid.map(m => ({
       id: m.id,
@@ -2190,6 +2243,8 @@ export class GameEngine {
     this.state.powerInfusionDuration = 0;
     // Clear Innervate state
     this.state.innervateTargetId = null;
+    // Clear tank swap warning (Core Ragers loose, etc.)
+    this.state.tankSwapWarning = null;
     // Reset threat table
     this.resetAllThreat();
 
@@ -2330,6 +2385,21 @@ export class GameEngine {
     const equipment = getPreRaidBisForSpec(spec);
     const gearScore = this.calculateGearScore(equipment);
 
+    // Assign personality traits (2-3 random traits) - always in Raid Leader mode
+    const traitCount = Math.random() < 0.3 ? 3 : 2;
+    const personality = getRandomTraits(traitCount as 2 | 3);
+
+    // Initialize morale (starts at 60, baseline varies by traits)
+    const baseMorale = 60;
+    const morale: MoraleState = {
+      current: baseMorale,
+      baseline: 50, // Natural settling point
+      trend: 'stable',
+      lastChangeReason: 'Joined guild',
+      lastChangeAmount: 0,
+      lastChangeTimestamp: Date.now(),
+    };
+
     const benchPlayer: BenchPlayer = {
       id: `bench_${wowClass}_${Date.now()}`,
       name,
@@ -2338,12 +2408,1467 @@ export class GameEngine {
       role,
       equipment,
       gearScore,
+      personality,
+      morale,
     };
 
     this.state.benchPlayers.push(benchPlayer);
     this.addCombatLogEntry({ message: `${name} (${wowClass}) added to bench.`, type: 'system' });
     this.notify();
     return benchPlayer;
+  }
+
+  // =========================================================================
+  // FRANCHISE MODE: MORALE SYSTEM
+  // =========================================================================
+
+  // Update morale for a raid member or bench player
+  updateMorale(playerId: string, eventType: MoraleEventType, reason: string): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    // Base morale changes for each event type
+    const baseChanges: Record<MoraleEventType, { min: number; max: number }> = {
+      loot_received: { min: 15, max: 25 },
+      loot_lost: { min: -15, max: -8 },
+      boss_kill: { min: 5, max: 10 },
+      wipe: { min: -8, max: -3 },
+      benched: { min: -18, max: -10 },
+      friend_left: { min: -25, max: -15 },
+      friend_joined: { min: 5, max: 10 },
+      promoted_to_raid: { min: 10, max: 15 },
+      drama_resolved_positive: { min: 5, max: 15 },
+      drama_resolved_negative: { min: -20, max: -10 },
+      guild_achievement: { min: 5, max: 10 },
+      weekly_decay: { min: -3, max: 3 },  // Gradual return to baseline
+      innervate_received: { min: 2, max: 2 },  // Small flavor bonus
+      no_show_warning: { min: -5, max: -5 },
+    };
+
+    const range = baseChanges[eventType];
+    if (!range) return;
+
+    // Calculate base change amount (random within range)
+    let change = Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+
+    // Find the player (could be in raid or bench)
+    let morale: MoraleState | undefined;
+    let personality: string[] | undefined;
+
+    const raidMember = this.state.raid.find(m => m.id === playerId);
+    const benchPlayer = this.state.benchPlayers.find(b => b.id === playerId);
+
+    if (raidMember) {
+      morale = raidMember.morale;
+      personality = raidMember.personality;
+    } else if (benchPlayer) {
+      morale = benchPlayer.morale;
+      personality = benchPlayer.personality;
+    }
+
+    if (!morale) return;
+
+    // Apply personality trait modifiers
+    if (personality && personality.length > 0) {
+      const isPositiveEvent = change > 0;
+
+      for (const traitId of personality) {
+        const trait = PERSONALITY_TRAITS[traitId as keyof typeof PERSONALITY_TRAITS];
+        if (!trait) continue;
+
+        if (isPositiveEvent) {
+          // Positive events modified by moraleGainRate
+          change = Math.round(change * trait.moraleGainRate);
+        } else {
+          // Negative events modified by moraleDecayRate
+          change = Math.round(change * trait.moraleDecayRate);
+        }
+      }
+    }
+
+    // Apply the change
+    const oldMorale = morale.current;
+    morale.current = Math.max(0, Math.min(100, morale.current + change));
+    morale.lastChangeAmount = change;
+    morale.lastChangeReason = reason;
+    morale.lastChangeTimestamp = Date.now();
+
+    // Update trend
+    if (morale.current > oldMorale) {
+      morale.trend = 'rising';
+    } else if (morale.current < oldMorale) {
+      morale.trend = 'falling';
+    } else {
+      morale.trend = 'stable';
+    }
+
+    // Log significant morale changes
+    if (Math.abs(change) >= 10) {
+      const playerName = raidMember?.name || benchPlayer?.name || 'Unknown';
+      const changeStr = change > 0 ? `+${change}` : `${change}`;
+      this.addCombatLogEntry({
+        message: `${playerName}'s morale ${changeStr} (${reason})`,
+        type: change > 0 ? 'buff' : 'debuff',
+      });
+    }
+  }
+
+  // Update morale for all raid members who participated in the encounter
+  updateRaidMorale(eventType: MoraleEventType, reason: string): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    for (const member of this.state.raid) {
+      // Skip the player (they don't have morale)
+      if (member.id === PLAYER_ID) continue;
+      // Only affect those who were in the encounter
+      if (!member.wasInEncounter) continue;
+
+      this.updateMorale(member.id, eventType, reason);
+    }
+
+    // Check for leave warnings after morale changes
+    this.checkForLeaveWarnings();
+  }
+
+  // =========================================================================
+  // FRANCHISE MODE: LEAVE WARNING SYSTEM
+  // =========================================================================
+
+  // Calculate leave risk for a player based on morale and personality traits
+  calculateLeaveRisk(playerId: string): number {
+    if (!this.state.isRaidLeaderMode) return 0;
+
+    // Find the player
+    const raidMember = this.state.raid.find(m => m.id === playerId);
+    const benchPlayer = this.state.benchPlayers.find(b => b.id === playerId);
+    const player = raidMember || benchPlayer;
+
+    if (!player || !player.morale) return 0;
+
+    const morale = player.morale.current;
+    const personality = player.personality || [];
+
+    // Base leave risk from morale (higher morale = lower risk)
+    // Morale 0-15: 30% risk, 16-30: 15%, 31-50: 5%, 51-70: 2%, 71+: 0.5%
+    let baseRisk = 0;
+    if (morale <= 15) baseRisk = 0.30;
+    else if (morale <= 30) baseRisk = 0.15;
+    else if (morale <= 50) baseRisk = 0.05;
+    else if (morale <= 70) baseRisk = 0.02;
+    else baseRisk = 0.005;
+
+    // Apply personality trait modifiers
+    let riskModifier = 1.0;
+    for (const traitId of personality) {
+      const trait = PERSONALITY_TRAITS[traitId as keyof typeof PERSONALITY_TRAITS];
+      if (trait) {
+        riskModifier *= trait.leaveModifier;
+      }
+    }
+
+    // Calculate final risk
+    const finalRisk = Math.min(0.5, baseRisk * riskModifier); // Cap at 50%
+
+    // Update the player's stored leave risk
+    if (raidMember) {
+      raidMember.leaveRisk = finalRisk;
+    } else if (benchPlayer) {
+      benchPlayer.leaveRisk = finalRisk;
+    }
+
+    return finalRisk;
+  }
+
+  // Check all players for leave warnings after an event (called after raids, morale changes)
+  checkForLeaveWarnings(): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    const warnings: LeaveWarning[] = [];
+
+    // Check raid members
+    for (const member of this.state.raid) {
+      if (member.id === PLAYER_ID) continue;
+      if (!member.morale) continue;
+
+      const risk = this.calculateLeaveRisk(member.id);
+
+      // Always update leave risk for UI display
+      member.leaveRisk = risk;
+
+      // Trigger warning if morale is critically low (< 30) and risk is significant (> 10%)
+      if (member.morale.current < 30 && risk > 0.10) {
+        const currentWarnings = member.leaveWarnings || 0;
+
+        // Only add new warning if they haven't reached 3 yet
+        if (currentWarnings < 3) {
+          const newWarningCount = currentWarnings + 1;
+          member.leaveWarnings = newWarningCount;
+
+          warnings.push({
+            playerId: member.id,
+            playerName: member.name,
+            warningNumber: newWarningCount,
+            reason: this.getLeaveWarningReason(member.morale.current, member.personality),
+            timestamp: Date.now(),
+            morale: member.morale.current,
+            leaveRisk: risk,
+          });
+
+          // If this is the 3rd warning, they might leave
+          if (newWarningCount >= 3) {
+            this.rollForDeparture(member.id, member.name, member.class, risk, member.equipment, member.gearScore);
+          }
+        }
+      } else if (member.morale.current >= 40) {
+        // Reset warnings if morale recovers significantly
+        member.leaveWarnings = 0;
+      }
+    }
+
+    // Check bench players too
+    for (const player of this.state.benchPlayers) {
+      if (!player.morale) continue;
+
+      const risk = this.calculateLeaveRisk(player.id);
+
+      // Always update leave risk for UI display
+      player.leaveRisk = risk;
+
+      if (player.morale.current < 30 && risk > 0.10) {
+        const currentWarnings = player.leaveWarnings || 0;
+
+        // Only add new warning if they haven't reached 3 yet
+        if (currentWarnings < 3) {
+          const newWarningCount = currentWarnings + 1;
+          player.leaveWarnings = newWarningCount;
+
+          warnings.push({
+            playerId: player.id,
+            playerName: player.name,
+            warningNumber: newWarningCount,
+            reason: this.getLeaveWarningReason(player.morale.current, player.personality),
+            timestamp: Date.now(),
+            morale: player.morale.current,
+            leaveRisk: risk,
+          });
+
+          if (newWarningCount >= 3) {
+            this.rollForDeparture(player.id, player.name, player.class, risk, player.equipment, player.gearScore);
+          }
+        } else if (currentWarnings >= 3) {
+          // Already at 3 warnings and still unhappy - trigger departure
+          this.rollForDeparture(player.id, player.name, player.class, risk, player.equipment, player.gearScore);
+        }
+      } else if (player.morale.current >= 40) {
+        // Reset warnings if morale recovers significantly
+        player.leaveWarnings = 0;
+      }
+    }
+
+    // Add warnings to pending list
+    if (warnings.length > 0) {
+      this.state.franchisePendingLeaveWarnings.push(...warnings);
+    }
+
+    // Always notify to update UI with leaveRisk values
+    this.notify();
+  }
+
+  // Get a reason string for why a player is considering leaving
+  private getLeaveWarningReason(morale: number, personality?: PersonalityTraitId[]): string {
+    const reasons: string[] = [];
+
+    if (morale < 15) {
+      reasons.push(
+        "I'm completely unhappy here...",
+        "I don't think this guild is for me anymore.",
+        "Maybe I should look for a new guild...",
+        "I can't take this anymore.",
+      );
+    } else if (morale < 25) {
+      reasons.push(
+        "Things haven't been going well lately.",
+        "I'm starting to think about other options.",
+        "This isn't what I signed up for.",
+        "I need to think about my future here.",
+      );
+    }
+
+    // Add personality-specific reasons
+    if (personality) {
+      if (personality.includes('ambitious')) {
+        reasons.push("I need a guild that's actually progressing.");
+      }
+      if (personality.includes('mercenary')) {
+        reasons.push("I heard another guild is offering better loot.");
+      }
+      if (personality.includes('greedy')) {
+        reasons.push("I never get the loot I deserve here.");
+      }
+      if (personality.includes('impatient')) {
+        reasons.push("Too many wipes. I can't waste time like this.");
+      }
+    }
+
+    return reasons[Math.floor(Math.random() * reasons.length)];
+  }
+
+  // Trigger departure at 3 warnings
+  private rollForDeparture(
+    playerId: string,
+    playerName: string,
+    playerClass: WoWClass,
+    _leaveRisk: number,
+    equipment: Equipment,
+    gearScore: number
+  ): void {
+    // Check if there's already a pending departure for this player
+    const alreadyPending = this.state.franchisePendingDepartures.some(d => d.playerId === playerId);
+    if (alreadyPending) return;
+
+    // They're leaving!
+    const departure: PlayerDeparture = {
+      playerId,
+      playerName,
+      playerClass,
+      reason: this.getDepartureReason(),
+      equipmentLost: equipment,
+      gearScoreLost: gearScore,
+      timestamp: Date.now(),
+      friendsAffected: [], // TODO: Track relationships
+    };
+
+    this.state.franchisePendingDepartures.push(departure);
+  }
+
+  // Get a departure reason message
+  private getDepartureReason(): string {
+    const reasons = [
+      "has decided to leave the guild.",
+      "has found a new guild.",
+      "has left to join a more progressed guild.",
+      "has /gquit.",
+      "has left due to guild drama.",
+      "decided this wasn't the right fit.",
+      "is looking for greener pastures.",
+      "has moved on.",
+    ];
+    return reasons[Math.floor(Math.random() * reasons.length)];
+  }
+
+  // Process a departure (actually remove the player)
+  processDeparture(departureId: string): void {
+    const departureIndex = this.state.franchisePendingDepartures.findIndex(
+      d => d.playerId === departureId
+    );
+
+    if (departureIndex === -1) return;
+
+    const departure = this.state.franchisePendingDepartures[departureIndex];
+
+    // Remove from raid
+    const raidIndex = this.state.raid.findIndex(m => m.id === departure.playerId);
+    if (raidIndex !== -1) {
+      this.state.raid.splice(raidIndex, 1);
+    }
+
+    // Remove from bench
+    const benchIndex = this.state.benchPlayers.findIndex(b => b.id === departure.playerId);
+    if (benchIndex !== -1) {
+      this.state.benchPlayers.splice(benchIndex, 1);
+    }
+
+    // Reputation hit for losing a player
+    this.state.franchiseReputation = Math.max(0, this.state.franchiseReputation - 5);
+    this.updateReputationTier();
+
+    // Log it
+    this.addCombatLogEntry({
+      message: `${departure.playerName} ${departure.reason} (GS: ${departure.gearScoreLost})`,
+      type: 'system',
+    });
+
+    // Remove from pending
+    this.state.franchisePendingDepartures.splice(departureIndex, 1);
+
+    this.notify();
+  }
+
+  // Dismiss a leave warning (player acknowledges it)
+  dismissLeaveWarning(warningIndex: number): void {
+    if (warningIndex >= 0 && warningIndex < this.state.franchisePendingLeaveWarnings.length) {
+      this.state.franchisePendingLeaveWarnings.splice(warningIndex, 1);
+      this.notify();
+    }
+  }
+
+  // Dismiss all leave warnings
+  dismissAllLeaveWarnings(): void {
+    this.state.franchisePendingLeaveWarnings = [];
+    this.notify();
+  }
+
+  // Dismiss a departure notification (after processing or if player stays)
+  dismissDeparture(departureIndex: number): void {
+    if (departureIndex >= 0 && departureIndex < this.state.franchisePendingDepartures.length) {
+      this.state.franchisePendingDepartures.splice(departureIndex, 1);
+      this.notify();
+    }
+  }
+
+  // Try to convince a player to stay (costs renown, may work based on personality)
+  tryToConvinceToStay(departureId: string): boolean {
+    const departureIndex = this.state.franchisePendingDepartures.findIndex(
+      d => d.playerId === departureId
+    );
+
+    if (departureIndex === -1) return false;
+
+    const departure = this.state.franchisePendingDepartures[departureIndex];
+
+    // Costs 25 renown to try to convince someone to stay
+    const cost = 25;
+    if (this.state.franchiseRenown < cost) {
+      this.addCombatLogEntry({
+        message: `Not enough renown to convince ${departure.playerName} to stay! (Need ${cost})`,
+        type: 'system',
+      });
+      return false;
+    }
+
+    this.state.franchiseRenown -= cost;
+
+    // Find the player to check their personality
+    const raidMember = this.state.raid.find(m => m.id === departureId);
+    const benchPlayer = this.state.benchPlayers.find(b => b.id === departureId);
+    const player = raidMember || benchPlayer;
+    const personality = player?.personality || [];
+
+    // Base 50% chance to succeed, modified by traits
+    let successChance = 0.50;
+
+    // Loyal players are easier to convince
+    if (personality.includes('loyal')) successChance += 0.25;
+    // Team players are easier
+    if (personality.includes('team_player')) successChance += 0.15;
+    // Mercenaries are harder
+    if (personality.includes('mercenary')) successChance -= 0.20;
+    // Ambitious players are harder
+    if (personality.includes('ambitious')) successChance -= 0.15;
+
+    successChance = Math.max(0.1, Math.min(0.9, successChance));
+
+    if (Math.random() < successChance) {
+      // Success! They stay
+      this.state.franchisePendingDepartures.splice(departureIndex, 1);
+
+      // Reset their warnings and boost morale slightly
+      if (raidMember) {
+        raidMember.leaveWarnings = 0;
+        if (raidMember.morale) {
+          raidMember.morale.current = Math.min(100, raidMember.morale.current + 15);
+          raidMember.morale.trend = 'rising';
+          raidMember.morale.lastChangeReason = 'Convinced to stay';
+        }
+      } else if (benchPlayer) {
+        benchPlayer.leaveWarnings = 0;
+        if (benchPlayer.morale) {
+          benchPlayer.morale.current = Math.min(100, benchPlayer.morale.current + 15);
+          benchPlayer.morale.trend = 'rising';
+          benchPlayer.morale.lastChangeReason = 'Convinced to stay';
+        }
+      }
+
+      this.addCombatLogEntry({
+        message: `${departure.playerName} has decided to stay! (+15 morale)`,
+        type: 'buff',
+      });
+
+      this.notify();
+      return true;
+    } else {
+      // Failed - they're leaving anyway
+      this.addCombatLogEntry({
+        message: `${departure.playerName} couldn't be convinced to stay...`,
+        type: 'debuff',
+      });
+      this.processDeparture(departureId);
+      return false;
+    }
+  }
+
+  // =========================================================================
+  // FRANCHISE MODE: DRAMA SYSTEM
+  // =========================================================================
+
+  // Drama quotes for loot disputes
+  private readonly LOOT_DISPUTE_QUOTES = [
+    "I can't believe you gave MY {item} to {winner}. I've been waiting for that drop for weeks!",
+    "Seriously?! {winner} gets {item}? They just joined! I should have gotten it!",
+    "That's it. I've had enough. {item} was supposed to be mine!",
+    "You're playing favorites! {winner} always gets the loot and I get nothing!",
+    "I did more damage than {winner} this whole fight. Why do they get {item}?",
+    "Do you even check who needs gear? {item} was a bigger upgrade for me!",
+    "This loot council is a joke. {winner} gets {item} and I'm sitting here with nothing.",
+    "I've been loyal to this guild for weeks and THIS is how you treat me?",
+  ];
+
+  // Check if drama should trigger after loot is assigned
+  // Returns the player who is upset (if any)
+  checkForLootDrama(
+    item: GearItem,
+    _winnerId: string,
+    _winnerName: string,
+    losers: { id: string; name: string; wantsItem: boolean; personality?: PersonalityTraitId[]; morale?: MoraleState }[]
+  ): { instigatorId: string; instigatorName: string } | null {
+    if (!this.state.isRaidLeaderMode) return null;
+    // Don't trigger drama if there's already active drama
+    if (this.state.franchiseActiveDrama) return null;
+
+    // Only players who wanted the item can be upset
+    const upsetCandidates = losers.filter(l => l.wantsItem && l.id !== PLAYER_ID);
+    if (upsetCandidates.length === 0) return null;
+
+    // Check each candidate for drama
+    for (const candidate of upsetCandidates) {
+      const dramaChance = this.calculateDramaChance(candidate, item);
+
+      // Roll for drama
+      if (Math.random() < dramaChance) {
+        return { instigatorId: candidate.id, instigatorName: candidate.name };
+      }
+    }
+
+    return null;
+  }
+
+  // Calculate drama chance based on personality, morale, and item rarity
+  private calculateDramaChance(
+    player: { personality?: PersonalityTraitId[]; morale?: MoraleState },
+    item: GearItem
+  ): number {
+    // Base drama chance: 15%
+    let chance = 0.15;
+
+    // Personality trait modifiers
+    if (player.personality) {
+      for (const traitId of player.personality) {
+        const trait = PERSONALITY_TRAITS[traitId as keyof typeof PERSONALITY_TRAITS];
+        if (trait) {
+          // dramaModifier: 0 = no drama, 1.4 = +40% drama chance
+          // Zero drama modifier means this player NEVER causes drama
+          if (trait.dramaModifier === 0) {
+            return 0;
+          }
+          chance *= trait.dramaModifier;
+        }
+      }
+    }
+
+    // Morale modifier: low morale = more drama
+    if (player.morale) {
+      if (player.morale.current < 30) {
+        chance *= 1.3;  // 30% more drama when miserable
+      } else if (player.morale.current < 50) {
+        chance *= 1.1;  // 10% more drama when unhappy
+      } else if (player.morale.current > 70) {
+        chance *= 0.8;  // 20% less drama when happy
+      }
+    }
+
+    // Item rarity modifier
+    if (item.rarity === 'legendary' || item.itemLevel >= 80) {
+      chance *= 2.0;  // Double drama for legendary items
+    } else if (item.itemLevel >= 70) {
+      chance *= 1.3;  // 30% more drama for epic raid items
+    }
+
+    // Cap at 60% max drama chance
+    return Math.min(0.6, chance);
+  }
+
+  // Create a drama event for a loot dispute
+  triggerLootDrama(
+    instigatorId: string,
+    instigatorName: string,
+    winnerId: string,
+    winnerName: string,
+    item: GearItem
+  ): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    // Get instigator for personality check
+    const instigator = this.state.raid.find(m => m.id === instigatorId) ||
+                       this.state.benchPlayers.find(b => b.id === instigatorId);
+
+    // Determine severity based on traits and item
+    let severity: DramaSeverity = 'minor';
+    if (item.rarity === 'legendary' || item.itemLevel >= 80) {
+      severity = 'major';
+    } else if (item.itemLevel >= 70) {
+      severity = 'moderate';
+    }
+    // Drama queens escalate severity
+    if (instigator?.personality?.includes('drama_queen')) {
+      if (severity === 'minor') severity = 'moderate';
+      else if (severity === 'moderate') severity = 'major';
+    }
+
+    // Pick a random quote and fill in placeholders
+    const quoteTemplate = this.LOOT_DISPUTE_QUOTES[Math.floor(Math.random() * this.LOOT_DISPUTE_QUOTES.length)];
+    const quote = quoteTemplate
+      .replace('{item}', item.name)
+      .replace('{winner}', winnerName);
+
+    // Create drama options
+    const options: DramaOption[] = [
+      {
+        id: 'give_item',
+        label: 'Give them the item',
+        icon: item.icon,  // Use the actual item icon
+        description: `Take ${item.name} from ${winnerName} and give it to ${instigatorName}`,
+        outcomes: [
+          { playerId: instigatorId, playerName: instigatorName, moraleChange: 40, leaveRiskChange: -0.5 },
+          { playerId: winnerId, playerName: winnerName, moraleChange: -30, leaveRiskChange: 0.2 },
+        ],
+        reputationChange: -5,
+      },
+      {
+        id: 'keep_decision',
+        label: 'Keep current assignment',
+        icon: '/icons/spell_holy_crusade.jpg',
+        description: `${winnerName} keeps the item. ${instigatorName} will have to deal with it.`,
+        outcomes: [
+          { playerId: instigatorId, playerName: instigatorName, moraleChange: -20, leaveRiskChange: 0.15 },
+          { playerId: winnerId, playerName: winnerName, moraleChange: 5, leaveRiskChange: 0 },
+        ],
+        reputationChange: 5,
+        escalationChance: 0.3,  // 30% chance they escalate
+      },
+      {
+        id: 'calm_down',
+        label: 'Try to calm them down',
+        icon: '/icons/spell_holy_prayerofhealing.jpg',
+        description: `Appeal to ${instigatorName}'s reason. 50/50 chance to resolve peacefully.`,
+        outcomes: [
+          { playerId: instigatorId, playerName: instigatorName, moraleChange: -10, leaveRiskChange: 0 },
+        ],
+        reputationChange: 0,
+      },
+      {
+        id: 'kick',
+        label: 'Kick from guild',
+        icon: '/icons/ability_warrior_savageblow.jpg',
+        description: `Remove ${instigatorName} from the guild. They take their gear with them.`,
+        outcomes: [
+          { playerId: instigatorId, playerName: instigatorName, moraleChange: -100, leaveRiskChange: 1 },
+        ],
+        reputationChange: -5,
+      },
+    ];
+
+    // Create the drama event
+    const dramaEvent: DramaEvent = {
+      id: `drama_${Date.now()}`,
+      type: 'loot_dispute',
+      severity,
+      instigatorId,
+      instigatorName,
+      targetId: winnerId,
+      targetName: winnerName,
+      itemId: item.id,
+      itemName: item.name,
+      itemIcon: item.icon,
+      quote,
+      timestamp: Date.now(),
+      options,
+      resolved: false,
+    };
+
+    this.state.franchiseActiveDrama = dramaEvent;
+
+    // Log the drama
+    this.addCombatLogEntry({
+      message: `DRAMA: ${instigatorName} is upset about ${item.name}!`,
+      type: 'debuff',
+    });
+
+    this.notify();
+  }
+
+  // Resolve a drama event with the chosen option
+  resolveDrama(optionId: string): void {
+    const drama = this.state.franchiseActiveDrama;
+    if (!drama) return;
+
+    const option = drama.options.find(o => o.id === optionId);
+    if (!option) return;
+
+    // Handle special case: "calm_down" has 50/50 success
+    if (optionId === 'calm_down') {
+      const success = Math.random() < 0.5;
+      if (success) {
+        // Successfully calmed them down
+        this.addCombatLogEntry({
+          message: `${drama.instigatorName} has calmed down. Crisis averted!`,
+          type: 'buff',
+        });
+        this.updateMorale(drama.instigatorId, 'drama_resolved_positive', 'Talked through loot issue');
+      } else {
+        // Failed - they're still upset
+        this.addCombatLogEntry({
+          message: `${drama.instigatorName} is still upset. They didn't want to hear it.`,
+          type: 'debuff',
+        });
+        this.updateMorale(drama.instigatorId, 'drama_resolved_negative', 'Still upset about loot');
+      }
+    } else if (optionId === 'kick') {
+      // Handle kick - remove from raid/bench
+      this.kickPlayerFromGuild(drama.instigatorId, drama.instigatorName);
+    } else if (optionId === 'give_item') {
+      // Swap item from winner to instigator
+      this.swapLootItem(drama.itemId!, drama.targetId!, drama.instigatorId);
+      // Apply morale changes
+      for (const outcome of option.outcomes) {
+        if (outcome.moraleChange !== 0) {
+          const eventType = outcome.moraleChange > 0 ? 'drama_resolved_positive' : 'drama_resolved_negative';
+          this.updateMorale(outcome.playerId, eventType,
+            outcome.moraleChange > 0 ? 'Received item after drama' : 'Lost item after drama');
+        }
+      }
+    } else {
+      // Standard option - apply outcomes
+      for (const outcome of option.outcomes) {
+        if (outcome.moraleChange !== 0) {
+          const eventType = outcome.moraleChange > 0 ? 'drama_resolved_positive' : 'drama_resolved_negative';
+          this.updateMorale(outcome.playerId, eventType, 'Loot drama resolved');
+        }
+      }
+    }
+
+    // Apply reputation change
+    if (option.reputationChange !== 0) {
+      this.state.franchiseReputation = Math.max(0, Math.min(100,
+        this.state.franchiseReputation + option.reputationChange));
+      this.updateReputationTier();
+    }
+
+    // Mark as resolved and move to history
+    drama.resolved = true;
+    drama.resolutionOptionId = optionId;
+    this.state.franchiseDramaHistory.push(drama);
+    this.state.franchiseActiveDrama = null;
+
+    this.addCombatLogEntry({
+      message: `Drama resolved: ${option.label}`,
+      type: 'system',
+    });
+
+    // Check for leave warnings after drama (morale changes)
+    this.checkForLeaveWarnings();
+
+    this.notify();
+  }
+
+  // Kick a player from the guild (used by drama resolution)
+  private kickPlayerFromGuild(playerId: string, playerName: string): void {
+    // Remove from raid
+    const raidIndex = this.state.raid.findIndex(m => m.id === playerId);
+    if (raidIndex !== -1) {
+      this.state.raid.splice(raidIndex, 1);
+      this.addCombatLogEntry({
+        message: `${playerName} has been kicked from the guild and took their gear.`,
+        type: 'system',
+      });
+    }
+
+    // Remove from bench
+    const benchIndex = this.state.benchPlayers.findIndex(b => b.id === playerId);
+    if (benchIndex !== -1) {
+      this.state.benchPlayers.splice(benchIndex, 1);
+      this.addCombatLogEntry({
+        message: `${playerName} has been kicked from the guild.`,
+        type: 'system',
+      });
+    }
+
+    // Hit morale of friends (TODO: implement relationships)
+    // For now, small hit to everyone
+    for (const member of this.state.raid) {
+      if (member.id !== PLAYER_ID && member.morale) {
+        member.morale.current = Math.max(0, member.morale.current - 3);
+      }
+    }
+
+    // Lose reputation when players leave/are kicked (guild instability looks bad)
+    const repLoss = 2 + Math.floor(Math.random() * 2); // Lose 2-3 rep
+    this.state.franchiseReputation = Math.max(0, this.state.franchiseReputation - repLoss);
+    this.updateReputationTier();
+    this.addCombatLogEntry({
+      message: `Guild reputation -${repLoss} (${playerName} left the guild)`,
+      type: 'system',
+    });
+  }
+
+  // Swap an item from one player to another (used by drama resolution)
+  private swapLootItem(itemId: string, fromPlayerId: string, toPlayerId: string): void {
+    const fromPlayer = this.state.raid.find(m => m.id === fromPlayerId);
+    const toPlayer = this.state.raid.find(m => m.id === toPlayerId);
+    if (!fromPlayer || !toPlayer) return;
+
+    // Find the item in fromPlayer's equipment
+    for (const [slot, item] of Object.entries(fromPlayer.equipment)) {
+      if (item && item.id === itemId) {
+        // Move item to toPlayer
+        toPlayer.equipment[slot as EquipmentSlot] = item;
+        // Clear from fromPlayer (give them empty slot or previous item if stored)
+        fromPlayer.equipment[slot as EquipmentSlot] = null;
+
+        // Recalculate gear scores
+        fromPlayer.gearScore = this.calculateGearScore(fromPlayer.equipment);
+        toPlayer.gearScore = this.calculateGearScore(toPlayer.equipment);
+
+        this.addCombatLogEntry({
+          message: `${item.name} transferred from ${fromPlayer.name} to ${toPlayer.name}`,
+          type: 'system',
+        });
+        break;
+      }
+    }
+  }
+
+  // Generate/refresh the LFG recruit pool (internal - no renown cost)
+  generateLFGPoolInternal(count: number = 50): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    // Get names already in use
+    const usedNames = new Set<string>([
+      ...this.state.raid.map(m => m.name),
+      ...this.state.benchPlayers.map(b => b.name),
+    ]);
+
+    // Generate new pool based on current reputation and faction
+    this.state.franchiseLFGPool = generateLFGPool(
+      count,
+      this.state.franchiseReputation,
+      this.state.faction,
+      usedNames
+    );
+    this.state.franchiseLFGLastRefresh = Date.now();
+
+    this.notify();
+  }
+
+  // Update reputation tier based on current reputation value
+  updateReputationTier(): void {
+    const rep = this.state.franchiseReputation;
+    if (rep >= 81) {
+      this.state.franchiseReputationTier = 'legendary';
+    } else if (rep >= 61) {
+      this.state.franchiseReputationTier = 'famous';
+    } else if (rep >= 41) {
+      this.state.franchiseReputationTier = 'established';
+    } else if (rep >= 21) {
+      this.state.franchiseReputationTier = 'rising';
+    } else {
+      this.state.franchiseReputationTier = 'unknown';
+    }
+  }
+
+  // Advance to next week - handles reputation decay if player didn't raid
+  advanceWeek(): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    // If player didn't raid this week, reputation decays
+    if (!this.state.franchiseRaidedThisWeek && this.state.franchiseReputation > 0) {
+      const decay = 2 + Math.floor(Math.random() * 2); // Lose 2-3 rep per inactive week
+      this.state.franchiseReputation = Math.max(0, this.state.franchiseReputation - decay);
+      this.updateReputationTier();
+      this.addCombatLogEntry({
+        message: `Guild reputation -${decay} (inactive week - no boss kills)`,
+        type: 'system',
+      });
+    }
+
+    // Advance week counter and reset weekly tracking
+    this.state.franchiseCurrentWeek++;
+    this.state.franchiseRaidedThisWeek = false;
+
+    // Refresh LFG pool weekly (remove recruits that were "taken" by other guilds)
+    this.state.franchiseLFGPool = this.state.franchiseLFGPool.filter(recruit => {
+      recruit.weeksUntilGone--;
+      return recruit.weeksUntilGone > 0;
+    });
+
+    // Replenish the pool if it's gotten too low
+    const minPoolSize = 30;
+    if (this.state.franchiseLFGPool.length < minPoolSize) {
+      const usedNames = new Set<string>([
+        ...this.state.raid.map(m => m.name),
+        ...this.state.benchPlayers.map(b => b.name),
+        ...this.state.franchiseLFGPool.map(r => r.name),
+      ]);
+      const newRecruits = generateLFGPool(
+        50 - this.state.franchiseLFGPool.length,
+        this.state.franchiseReputation,
+        this.state.faction,
+        usedNames
+      );
+      this.state.franchiseLFGPool.push(...newRecruits);
+      this.addCombatLogEntry({
+        message: `New recruits have appeared in the LFG board!`,
+        type: 'system',
+      });
+    }
+
+    this.notify();
+  }
+
+  // Reroll a raider's personality trait at the cost of reputation
+  // Returns true if successful, false if not enough reputation
+  rerollRaiderTrait(raiderId: string, traitToReplace: PersonalityTraitId): boolean {
+    if (!this.state.isRaidLeaderMode) return false;
+
+    // Check if we have enough reputation
+    if (this.state.franchiseReputation < TRAIT_REROLL_COST) {
+      this.addCombatLogEntry({
+        message: `Not enough reputation to reroll trait (need ${TRAIT_REROLL_COST}, have ${this.state.franchiseReputation})`,
+        type: 'system',
+      });
+      return false;
+    }
+
+    // Find the raider (could be in raid or on bench)
+    const raidMember = this.state.raid.find(m => m.id === raiderId);
+    const benchPlayer = this.state.benchPlayers.find(b => b.id === raiderId);
+    const player = raidMember || benchPlayer;
+
+    if (!player || !player.personality) {
+      return false;
+    }
+
+    // Check if they actually have this trait
+    if (!player.personality.includes(traitToReplace)) {
+      return false;
+    }
+
+    // Get the old trait name for the log message
+    const oldTraitName = PERSONALITY_TRAITS[traitToReplace]?.name || traitToReplace;
+
+    // Reroll the trait
+    const newTrait = rerollSingleTrait(player.personality, traitToReplace);
+    const newTraitName = PERSONALITY_TRAITS[newTrait]?.name || newTrait;
+
+    // Update the personality array
+    const traitIndex = player.personality.indexOf(traitToReplace);
+    if (traitIndex !== -1) {
+      player.personality[traitIndex] = newTrait;
+    }
+
+    // Deduct reputation
+    this.state.franchiseReputation -= TRAIT_REROLL_COST;
+    this.updateReputationTier();
+
+    // Log the change
+    this.addCombatLogEntry({
+      message: `${player.name}'s "${oldTraitName}" trait rerolled to "${newTraitName}" (-${TRAIT_REROLL_COST} rep)`,
+      type: 'system',
+    });
+
+    this.notify();
+    return true;
+  }
+
+  // Get the cost to reroll a trait
+  getTraitRerollCost(): number {
+    return TRAIT_REROLL_COST;
+  }
+
+  // Get an emergency recruit for a specific role (temporary, one-raid-only)
+  getEmergencyRecruit(role: 'tank' | 'healer' | 'dps'): void {
+    if (!this.state.isRaidLeaderMode) return;
+
+    const usedNames = new Set<string>([
+      ...this.state.raid.map(m => m.name),
+      ...this.state.benchPlayers.map(b => b.name),
+      ...this.state.franchiseLFGPool.map(r => r.name),
+    ]);
+
+    const recruit = generateEmergencyRecruit(role, this.state.faction, usedNames);
+    this.state.franchiseLFGPool.unshift(recruit); // Add to front of pool
+    this.notify();
+  }
+
+  // Initialize franchise mode (called when starting a new franchise or loading)
+  initializeFranchiseMode(): void {
+    // Always enable franchise mode when this is called (for Raid Leader mode)
+    // isFranchiseMode removed - Raid Leader mode always has these features
+
+    // Generate initial LFG pool if empty
+    if (this.state.franchiseLFGPool.length === 0) {
+      this.generateLFGPoolInternal(50);
+    }
+
+    this.notify();
+  }
+
+  // =========================================================================
+  // FRANCHISE MODE: ATTENDANCE SYSTEM
+  // =========================================================================
+
+  // Roll attendance for all raid members before starting a raid
+  // Returns an AttendanceCheck with who showed up and who didn't
+  rollAttendance(): AttendanceCheck {
+    const records: AttendanceRecord[] = [];
+    let tanksMissing = 0;
+    let healersMissing = 0;
+    let dpsMissing = 0;
+    const emergencyFillsNeeded: string[] = [];
+
+    // Base no-show chance
+    const BASE_NO_SHOW_CHANCE = 0.08; // 8% base
+
+    for (const member of this.state.raid) {
+      // Player never no-shows
+      if (member.id === PLAYER_ID) {
+        records.push({
+          playerId: member.id,
+          playerName: member.name,
+          status: 'present',
+          roleStress: 'low',
+        });
+        continue;
+      }
+
+      // Calculate no-show chance based on traits and morale
+      let noShowChance = BASE_NO_SHOW_CHANCE;
+
+      // Apply personality trait modifiers
+      if (member.personality) {
+        for (const traitId of member.personality) {
+          const trait = PERSONALITY_TRAITS[traitId];
+          if (trait) {
+            noShowChance += trait.noShowModifier;
+          }
+        }
+      }
+
+      // Apply morale modifier
+      if (member.morale) {
+        if (member.morale.current < 30) {
+          noShowChance += 0.10; // +10% if morale is low
+        } else if (member.morale.current > 70) {
+          noShowChance -= 0.05; // -5% if morale is high
+        }
+      }
+
+      // Clamp to reasonable range (0% to 35%)
+      noShowChance = Math.max(0, Math.min(0.35, noShowChance));
+
+      // Roll for attendance
+      const isNoShow = Math.random() < noShowChance;
+
+      // Determine role stress level
+      let roleStress: 'critical' | 'high' | 'medium' | 'low' = 'low';
+      if (member.role === 'tank') {
+        roleStress = 'critical';
+      } else if (member.role === 'healer') {
+        roleStress = 'medium';
+      }
+
+      if (isNoShow) {
+        // Pick a random excuse
+        const excuse = NO_SHOW_EXCUSES[Math.floor(Math.random() * NO_SHOW_EXCUSES.length)];
+
+        records.push({
+          playerId: member.id,
+          playerName: member.name,
+          status: 'no_show',
+          excuse,
+          roleStress,
+        });
+
+        // Track missing roles
+        if (member.role === 'tank') {
+          tanksMissing++;
+          if (!emergencyFillsNeeded.includes('tank')) {
+            emergencyFillsNeeded.push('tank');
+          }
+        } else if (member.role === 'healer') {
+          healersMissing++;
+          if (!emergencyFillsNeeded.includes('healer')) {
+            emergencyFillsNeeded.push('healer');
+          }
+        } else {
+          dpsMissing++;
+        }
+
+        // Apply morale penalty for no-show
+        if (member.morale) {
+          member.morale.current = Math.max(0, member.morale.current - 5);
+          member.morale.lastChangeReason = 'No-showed raid';
+          member.morale.lastChangeAmount = -5;
+        }
+      } else {
+        records.push({
+          playerId: member.id,
+          playerName: member.name,
+          status: 'present',
+          roleStress,
+        });
+      }
+    }
+
+    // Count tanks and healers in raid
+    const totalTanks = this.state.raid.filter(m => m.role === 'tank').length;
+    const totalHealers = this.state.raid.filter(m => m.role === 'healer').length;
+
+    // Can we start? Need at least 1 tank and 2 healers
+    const presentTanks = totalTanks - tanksMissing;
+    const presentHealers = totalHealers - healersMissing;
+    const canStartRaid = presentTanks >= 1 && presentHealers >= 2;
+
+    const attendanceCheck: AttendanceCheck = {
+      raidWeek: this.state.franchiseCurrentWeek,
+      timestamp: Date.now(),
+      records,
+      tanksMissing,
+      healersMissing,
+      dpsMissing,
+      canStartRaid,
+      emergencyFillsNeeded,
+    };
+
+    // Store the attendance check
+    this.state.franchiseAttendanceCheck = attendanceCheck;
+    this.state.franchiseShowAttendanceModal = true;
+    this.notify();
+
+    return attendanceCheck;
+  }
+
+  // Dismiss the attendance modal (acknowledge it)
+  dismissAttendanceModal(): void {
+    this.state.franchiseShowAttendanceModal = false;
+    this.notify();
+  }
+
+  // Clear the attendance check (e.g., after raid ends)
+  clearAttendanceCheck(): void {
+    this.state.franchiseAttendanceCheck = null;
+    this.state.franchiseShowAttendanceModal = false;
+    this.notify();
+  }
+
+  // Check if attendance has been rolled for this raid session
+  hasAttendanceBeenRolled(): boolean {
+    return this.state.franchiseAttendanceCheck !== null;
+  }
+
+  // Get current attendance check
+  getAttendanceCheck(): AttendanceCheck | null {
+    return this.state.franchiseAttendanceCheck;
+  }
+
+  // Fill a no-show vacancy with a bench player or LFG recruit
+  fillNoShowVacancy(noShowMemberId: string, replacementId: string, type: 'bench' | 'lfg'): boolean {
+    if (!this.state.isRaidLeaderMode) return false;
+    if (this.state.isRunning) return false;
+
+    // Find the no-show member in the raid
+    const noShowIndex = this.state.raid.findIndex(m => m.id === noShowMemberId);
+    if (noShowIndex === -1) {
+      console.warn(`[Franchise] No-show member ${noShowMemberId} not found in raid`);
+      return false;
+    }
+
+    const noShowMember = this.state.raid[noShowIndex];
+    const noShowGroup = noShowMember.group;
+
+    // Check bench capacity - we need room for the no-show
+    const maxBench = this.getMaxBenchSize();
+    const currentBenchSize = this.state.benchPlayers.length;
+
+    // For bench type: we'll remove one from bench (replacement) and add one (no-show) = net 0
+    // For LFG type: we'll add recruit to bench, then move to raid, then add no-show = net +1
+    const benchSlotsNeeded = type === 'lfg' ? 1 : 0;
+    if (currentBenchSize + benchSlotsNeeded >= maxBench) {
+      console.warn(`[Franchise] Not enough bench space. Current: ${currentBenchSize}, Max: ${maxBench}, Need: ${benchSlotsNeeded + 1}`);
+      return false;
+    }
+
+    let replacement: BenchPlayer | null = null;
+
+    if (type === 'lfg') {
+      // For LFG: Get recruit info first, then do the swap in correct order
+      const recruit = this.state.franchiseLFGPool.find(r => r.id === replacementId);
+      if (!recruit) {
+        console.warn(`[Franchise] LFG recruit ${replacementId} not found`);
+        return false;
+      }
+
+      // Step 1: Move no-show to bench FIRST (before recruiting, so we don't run into capacity issues)
+      const benchSuccess = this.moveRaidMemberToBench(noShowMemberId, true);
+      if (!benchSuccess) {
+        console.warn(`[Franchise] Failed to move no-show ${noShowMemberId} to bench`);
+        return false;
+      }
+
+      // Step 2: Recruit from LFG to bench
+      const recruitSuccess = this.recruitFromLFG(replacementId);
+      if (!recruitSuccess) {
+        // Rollback: move no-show back to raid
+        this.moveBenchPlayerToRaid(noShowMemberId, noShowGroup, true);
+        console.warn(`[Franchise] Failed to recruit ${replacementId} from LFG`);
+        return false;
+      }
+
+      // Step 3: Move the recruit into the raid
+      replacement = this.state.benchPlayers.find(bp => bp.id === replacementId) || null;
+      if (!replacement) {
+        // Rollback
+        this.moveBenchPlayerToRaid(noShowMemberId, noShowGroup, true);
+        return false;
+      }
+
+      const raidSuccess = this.moveBenchPlayerToRaid(replacementId, noShowGroup, true);
+      if (!raidSuccess) {
+        // Rollback
+        this.moveBenchPlayerToRaid(noShowMemberId, noShowGroup, true);
+        return false;
+      }
+    } else {
+      // For bench: Find replacement in bench first
+      replacement = this.state.benchPlayers.find(bp => bp.id === replacementId) || null;
+      if (!replacement) {
+        console.warn(`[Franchise] Bench player ${replacementId} not found`);
+        return false;
+      }
+
+      // Move the no-show to bench (they're sitting out this raid)
+      // Skip morale changes - this is raid prep, not a punishment
+      const benchSuccess = this.moveRaidMemberToBench(noShowMemberId, true);
+      if (!benchSuccess) {
+        console.warn(`[Franchise] Failed to move no-show ${noShowMemberId} to bench`);
+        return false;
+      }
+
+      // Move the replacement into the raid in the same group
+      const raidSuccess = this.moveBenchPlayerToRaid(replacementId, noShowGroup, true);
+      if (!raidSuccess) {
+        // Rollback: move no-show back to raid
+        this.moveBenchPlayerToRaid(noShowMemberId, noShowGroup, true);
+        return false;
+      }
+    }
+
+    this.addCombatLogEntry({
+      message: `${replacement.name} is filling in for ${noShowMember.name} who no-showed.`,
+      type: 'system'
+    });
+
+    // Update attendance check to reflect the fill
+    if (this.state.franchiseAttendanceCheck) {
+      const record = this.state.franchiseAttendanceCheck.records.find(r => r.playerId === noShowMemberId);
+      if (record) {
+        // Mark as filled
+        (record as any).filledBy = replacementId;
+        (record as any).filledByName = replacement.name;
+      }
+      // Recalculate missing counts
+      const noShows = this.state.franchiseAttendanceCheck.records.filter(r => r.status === 'no_show' && !(r as any).filledBy);
+      this.state.franchiseAttendanceCheck.tanksMissing = noShows.filter(r => {
+        const member = this.state.benchPlayers.find(b => b.id === r.playerId);
+        return member?.role === 'tank';
+      }).length;
+      this.state.franchiseAttendanceCheck.healersMissing = noShows.filter(r => {
+        const member = this.state.benchPlayers.find(b => b.id === r.playerId);
+        return member?.role === 'healer';
+      }).length;
+      this.state.franchiseAttendanceCheck.dpsMissing = noShows.filter(r => {
+        const member = this.state.benchPlayers.find(b => b.id === r.playerId);
+        return member?.role === 'dps';
+      }).length;
+    }
+
+    this.notify();
+    return true;
+  }
+
+  // Unfill a previously filled no-show vacancy
+  unfillNoShowVacancy(noShowMemberId: string): boolean {
+    if (!this.state.isRaidLeaderMode) return false;
+    if (this.state.isRunning) return false;
+
+    // Find the fill record in attendance check
+    if (!this.state.franchiseAttendanceCheck) return false;
+    const record = this.state.franchiseAttendanceCheck.records.find(r => r.playerId === noShowMemberId);
+    if (!record || !(record as any).filledBy) return false;
+
+    const replacementId = (record as any).filledBy;
+
+    // Find the replacement in raid
+    const replacementIndex = this.state.raid.findIndex(m => m.id === replacementId);
+    if (replacementIndex === -1) return false;
+
+    const replacement = this.state.raid[replacementIndex];
+    const group = replacement.group;
+
+    // Find the no-show in bench
+    const noShowInBench = this.state.benchPlayers.find(bp => bp.id === noShowMemberId);
+    if (!noShowInBench) return false;
+
+    // Move replacement back to bench (skip morale - this is raid prep)
+    const benchSuccess = this.moveRaidMemberToBench(replacementId, true);
+    if (!benchSuccess) return false;
+
+    // Move no-show back to raid (they're still a no-show, but back in roster)
+    const raidSuccess = this.moveBenchPlayerToRaid(noShowMemberId, group, true);
+    if (!raidSuccess) {
+      // Rollback
+      this.moveBenchPlayerToRaid(replacementId, group, true);
+      return false;
+    }
+
+    // Clear the fill record
+    delete (record as any).filledBy;
+    delete (record as any).filledByName;
+
+    this.notify();
+    return true;
+  }
+
+  // Recruit a player from the LFG pool to the bench
+  recruitFromLFG(recruitId: string): boolean {
+    if (!this.state.isRaidLeaderMode) return false;
+    if (this.state.isRunning) return false; // No changes during combat
+
+    // Find the recruit in the LFG pool
+    const recruitIndex = this.state.franchiseLFGPool.findIndex(r => r.id === recruitId);
+    if (recruitIndex === -1) {
+      console.warn(`[Franchise] Recruit ${recruitId} not found in LFG pool`);
+      return false;
+    }
+
+    const recruit = this.state.franchiseLFGPool[recruitIndex];
+
+    // Check renown cost
+    const renownCost = recruit.renownCost ?? 10; // Default cost if not set
+    if (this.state.franchiseRenown < renownCost) {
+      console.warn(`[Franchise] Not enough renown. Need ${renownCost}, have ${this.state.franchiseRenown}`);
+      return false;
+    }
+
+    // Check reputation requirement
+    if (this.state.franchiseReputation < recruit.minReputationRequired) {
+      console.warn(`[Franchise] Reputation too low. Need ${recruit.minReputationRequired}, have ${this.state.franchiseReputation}`);
+      return false;
+    }
+
+    // Check bench capacity
+    const maxBenchSize = this.getMaxBenchSize();
+    if (this.state.benchPlayers.length >= maxBenchSize) {
+      console.warn(`[Franchise] Bench is full (${maxBenchSize} max)`);
+      return false;
+    }
+
+    // Deduct renown (NOT reputation)
+    this.state.franchiseRenown -= renownCost;
+
+    // Create bench player from recruit
+    const benchPlayer: BenchPlayer = {
+      id: recruit.id,
+      name: recruit.name,
+      class: recruit.class,
+      spec: recruit.spec,
+      role: recruit.role,
+      equipment: recruit.equipment,
+      gearScore: recruit.gearScore,
+      personality: recruit.personality, // Reveal all traits now
+      morale: recruit.morale,
+    };
+
+    // Add to bench
+    this.state.benchPlayers.push(benchPlayer);
+
+    // Remove from LFG pool
+    this.state.franchiseLFGPool.splice(recruitIndex, 1);
+
+    console.log(`[Franchise] Recruited ${recruit.name} (${recruit.class}) from LFG. GS: ${recruit.gearScore}, Cost: ${renownCost} renown`);
+
+    // Add to combat log
+    this.addCombatLogEntry({ message: `${recruit.name} has joined your guild from LFG! (-${renownCost} renown)`, type: 'system' });
+
+    // Replenish pool if it gets low (adds new recruits gradually)
+    const minPoolSize = 30;
+    if (this.state.franchiseLFGPool.length < minPoolSize) {
+      const usedNames = new Set<string>([
+        ...this.state.raid.map(m => m.name),
+        ...this.state.benchPlayers.map(b => b.name),
+        ...this.state.franchiseLFGPool.map(r => r.name),
+      ]);
+      // Add 5-10 new recruits when pool gets low
+      const newRecruitCount = 5 + Math.floor(Math.random() * 6);
+      const newRecruits = generateLFGPool(
+        newRecruitCount,
+        this.state.franchiseReputation,
+        this.state.faction,
+        usedNames
+      );
+      this.state.franchiseLFGPool.push(...newRecruits);
+    }
+
+    // Notify subscribers
+    this.notify();
+
+    return true;
+  }
+
+  // Refresh the entire LFG pool (costs renown)
+  refreshLFGPool(): { success: boolean; message: string } {
+    const REFRESH_COST = 50; // Largish cost to prevent constant refreshing
+
+    if (!this.state.isRaidLeaderMode) {
+      return { success: false, message: 'Not in Raid Leader mode' };
+    }
+
+    if (this.state.isRunning) {
+      return { success: false, message: 'Cannot refresh during combat' };
+    }
+
+    if (this.state.franchiseRenown < REFRESH_COST) {
+      return { success: false, message: `Need ${REFRESH_COST} renown (have ${this.state.franchiseRenown})` };
+    }
+
+    // Deduct renown
+    this.state.franchiseRenown -= REFRESH_COST;
+
+    // Get names already in use
+    const usedNames = new Set<string>([
+      ...this.state.raid.map(m => m.name),
+      ...this.state.benchPlayers.map(b => b.name),
+    ]);
+
+    // Generate completely new pool
+    const newPool = generateLFGPool(
+      50, // Full pool size
+      this.state.franchiseReputation,
+      this.state.faction,
+      usedNames
+    );
+
+    this.state.franchiseLFGPool = newPool;
+
+    console.log(`[Franchise] Refreshed LFG pool for ${REFRESH_COST} renown. New pool has ${newPool.length} recruits.`);
+    this.addCombatLogEntry({ message: `LFG pool refreshed! New applicants available. (-${REFRESH_COST} renown)`, type: 'system' });
+
+    this.notify();
+
+    return { success: true, message: `Pool refreshed! ${newPool.length} new recruits available.` };
+  }
+
+  // Get the cost to refresh the LFG pool
+  getLFGRefreshCost(): number {
+    return 50;
   }
 
   // Remove a bench player
@@ -2397,7 +3922,7 @@ export class GameEngine {
     // Get DPS based on spec
     const dps = this.getDpsForSpec(benchPlayer.spec);
 
-    // Convert active player to bench player (preserve their gear)
+    // Convert active player to bench player (preserve their gear and franchise data)
     const newBenchPlayer: BenchPlayer = {
       id: activePlayer.id,
       name: activePlayer.name,
@@ -2406,12 +3931,15 @@ export class GameEngine {
       role: activePlayer.role,
       equipment: activePlayer.equipment,
       gearScore: activePlayer.gearScore,
+      // Preserve franchise mode data
+      personality: activePlayer.personality,
+      morale: activePlayer.morale,
     };
 
     // Get position zone for the new raid member
     const positionZone = this.getPositionZone(benchPlayer.class, benchPlayer.spec, benchPlayer.role);
 
-    // Convert bench player to active raid member
+    // Convert bench player to active raid member (preserve franchise data)
     const newRaidMember: RaidMember = {
       id: benchPlayer.id,
       name: benchPlayer.name,
@@ -2430,6 +3958,9 @@ export class GameEngine {
       dps,
       positionZone,
       wasInEncounter: false,  // They weren't in any boss fights yet
+      // Preserve franchise mode data
+      personality: benchPlayer.personality,
+      morale: benchPlayer.morale,
     };
 
     // Perform the swap
@@ -2441,6 +3972,10 @@ export class GameEngine {
       type: 'system'
     });
 
+    // Franchise mode: Apply morale penalty to benched player
+    this.updateMorale(newBenchPlayer.id, 'benched', 'Benched for another player');
+    this.checkForLeaveWarnings();
+
     // Trigger cloud save since roster changed
     this.state.pendingCloudSave = true;
     this.notify();
@@ -2448,7 +3983,8 @@ export class GameEngine {
   }
 
   // Move a raid member directly to the bench (without swapping)
-  moveRaidMemberToBench(raidMemberId: string): boolean {
+  // skipMoraleChanges: used during raid prep to avoid penalizing players for roster shuffling
+  moveRaidMemberToBench(raidMemberId: string, skipMoraleChanges = false): boolean {
     if (this.state.isRunning) return false; // No changes during combat
     if (raidMemberId === PLAYER_ID) return false; // Can't bench the player
 
@@ -2461,7 +3997,7 @@ export class GameEngine {
 
     const member = this.state.raid[memberIndex];
 
-    // Convert to bench player
+    // Convert to bench player (preserve franchise data)
     const benchPlayer: BenchPlayer = {
       id: member.id,
       name: member.name,
@@ -2470,6 +4006,11 @@ export class GameEngine {
       role: member.role,
       equipment: member.equipment,
       gearScore: member.gearScore,
+      // Preserve franchise mode data
+      personality: member.personality,
+      morale: member.morale,
+      leaveWarnings: member.leaveWarnings,
+      leaveRisk: member.leaveRisk,
     };
 
     // Add to bench
@@ -2483,6 +4024,12 @@ export class GameEngine {
       type: 'system'
     });
 
+    // Franchise mode: Apply morale penalty to benched player (unless during raid prep)
+    if (!skipMoraleChanges) {
+      this.updateMorale(benchPlayer.id, 'benched', 'Moved to bench');
+      this.checkForLeaveWarnings();
+    }
+
     // Trigger cloud save since roster changed
     this.state.pendingCloudSave = true;
     this.notify();
@@ -2490,7 +4037,8 @@ export class GameEngine {
   }
 
   // Move a bench player directly into the raid (to an empty slot)
-  moveBenchPlayerToRaid(benchPlayerId: string, targetGroup: number): boolean {
+  // _skipMoraleChanges: reserved for future use if bench->raid causes morale changes
+  moveBenchPlayerToRaid(benchPlayerId: string, targetGroup: number, _skipMoraleChanges = false): boolean {
     if (this.state.isRunning) return false; // No changes during combat
 
     const benchIndex = this.state.benchPlayers.findIndex(b => b.id === benchPlayerId);
@@ -2509,7 +4057,7 @@ export class GameEngine {
     // Get position zone for the new raid member
     const positionZone = this.getPositionZone(benchPlayer.class, benchPlayer.spec, benchPlayer.role);
 
-    // Convert bench player to active raid member
+    // Convert bench player to active raid member (preserve franchise data)
     const newRaidMember: RaidMember = {
       id: benchPlayer.id,
       name: benchPlayer.name,
@@ -2528,6 +4076,11 @@ export class GameEngine {
       dps,
       positionZone,
       wasInEncounter: false,
+      // Preserve franchise mode data
+      personality: benchPlayer.personality,
+      morale: benchPlayer.morale,
+      leaveWarnings: benchPlayer.leaveWarnings,
+      leaveRisk: benchPlayer.leaveRisk,
     };
 
     // Add to raid
@@ -2643,6 +4196,11 @@ export class GameEngine {
     if (enabled) {
       // In raid leader mode, enable all AI healers
       this.state.otherHealersEnabled = true;
+      // Franchise mode is always on for Raid Leader - generate LFG pool
+      // isFranchiseMode removed - Raid Leader mode always has these features
+      if (this.state.franchiseLFGPool.length === 0) {
+        this.generateLFGPoolInternal(50);
+      }
     }
     this.notify();
   }
@@ -8252,6 +9810,13 @@ export class GameEngine {
           gear_score: this.getPlayerMember()?.gearScore || 0
         });
 
+        // Franchise mode: Reduce raid morale on wipe
+        const bossName = this.state.boss?.name || 'the boss';
+        this.updateRaidMorale('wipe', `Wiped on ${bossName}`);
+
+        // Check for leave warnings after morale drops
+        this.checkForLeaveWarnings();
+
         this.stopEncounter();
         return;
       }
@@ -8286,6 +9851,56 @@ export class GameEngine {
       gear_score: this.getPlayerMember()?.gearScore || 0,
       is_first_kill: !this.state.firstKills.includes(bossId)
     });
+
+    // Franchise mode: Boost raid morale on boss kill
+    const bossName = this.state.boss?.name || 'the boss';
+    this.updateRaidMorale('boss_kill', `Defeated ${bossName}`);
+
+    // Raid Leader mode: Gain guild reputation on boss kill
+    if (this.state.isRaidLeaderMode) {
+      // Reputation gain based on raid tier
+      // MC/Ony: 5-10 rep, BWL: 10-15 rep, Silithus: 15-20 rep
+      // Reputation gain per boss kill (scaled to require full clears for progression)
+      // MC = 10 bosses, should take ~3 full clears to go from unknown to rising
+      const raidId = this.state.selectedRaidId;
+      let baseRep = 1;  // MC base: 1 rep per kill
+      if (raidId === 'blackwing_lair') baseRep = 2;
+      else if (raidId === 'silithus') baseRep = 3;
+
+      // Small random variance (0-1)
+      const repGain = baseRep + Math.floor(Math.random() * 2);
+
+      // First kill bonus (meaningful but not overwhelming)
+      const isFirstKill = !this.state.firstKills.includes(bossId);
+      const firstKillBonus = isFirstKill ? 2 : 0;
+
+      const totalRepGain = repGain + firstKillBonus;
+      this.state.franchiseReputation = Math.min(100, this.state.franchiseReputation + totalRepGain);
+      this.state.franchiseLastReputationGain = totalRepGain;
+      this.state.franchiseRaidedThisWeek = true;  // Mark that player raided (prevents decay)
+
+      // Renown gain from boss kills (spendable currency for recruiting)
+      // Base renown: 5-10 per kill, scales with raid tier
+      let baseRenown = 5;  // MC base
+      if (raidId === 'blackwing_lair') baseRenown = 8;
+      else if (raidId === 'silithus') baseRenown = 12;
+
+      // Add variance (0-5) and first kill bonus
+      const renownGain = baseRenown + Math.floor(Math.random() * 6);
+      const firstKillRenownBonus = isFirstKill ? 10 : 0;
+      const totalRenownGain = renownGain + firstKillRenownBonus;
+
+      this.state.franchiseRenown += totalRenownGain;
+      this.state.franchiseLastRenownGain = totalRenownGain;
+
+      // Update reputation tier
+      this.updateReputationTier();
+
+      this.addCombatLogEntry({
+        message: `Guild reputation +${totalRepGain}${firstKillBonus > 0 ? ' (First Kill!)' : ''} | Renown +${totalRenownGain}`,
+        type: 'system',
+      });
+    }
 
     // Mark encounter result for summary display
     this.state.lastEncounterResult = 'victory';
@@ -8456,8 +10071,22 @@ export class GameEngine {
   // - Leather wearers (rogue, druid): leather, cloth
   // - Cloth wearers (mage, warlock, priest): cloth only
   canEquip(wowClass: WoWClass, item: GearItem): boolean {
-    // Direct class match or 'all' items always work
-    if (item.classes.includes('all') || item.classes.includes(wowClass as WearableClass)) {
+    // FIRST: Check armor type proficiency - this is the most important check
+    // If an item has an armor type, the class MUST be able to wear that armor type
+    if (item.armorType && item.armorType !== 'none') {
+      const proficiency = CLASS_ARMOR_PROFICIENCY[wowClass];
+      if (!proficiency || !proficiency.includes(item.armorType)) {
+        return false; // Class cannot wear this armor type - BLOCKED
+      }
+    }
+
+    // 'all' items can be equipped by anyone (who passed the armor check above)
+    if (item.classes.includes('all')) {
+      return true;
+    }
+
+    // Direct class match - class is explicitly in the item's class list
+    if (item.classes.includes(wowClass as WearableClass)) {
       return true;
     }
 
@@ -8467,17 +10096,13 @@ export class GameEngine {
       return false; // Class not in the item's class list, and it's a tier item
     }
 
-    // For non-tier items with an armor type, check if the class can wear that armor type
+    // For non-tier items with an armor type that we can wear, allow it
+    // (We already passed the armor type check above)
     if (item.armorType && item.armorType !== 'none') {
-      const proficiency = CLASS_ARMOR_PROFICIENCY[wowClass];
-      if (!proficiency || !proficiency.includes(item.armorType)) {
-        return false; // Class cannot wear this armor type
-      }
-      // Class CAN wear this armor type, so allow it
       return true;
     }
 
-    // No armor type specified, fall back to class list only
+    // No armor type specified and class not in list - cannot equip
     return false;
   }
 
@@ -8826,6 +10451,9 @@ export class GameEngine {
       const winner = eligibleMembers[Math.floor(Math.random() * eligibleMembers.length)];
       this.equipItemOnMember(winner, item);
       this.addCombatLogEntry({ message: `${winner.name} receives ${item.name}`, type: 'system' });
+
+      // Franchise mode: Boost morale of loot recipient
+      this.updateMorale(winner.id, 'loot_received', `Received ${item.name}`);
     } else {
       // No AI players need this
       // In Raid Leader Mode: automatically disenchant into Nexus Crystal
@@ -8967,9 +10595,63 @@ export class GameEngine {
     // Track the assignment so clients can see who got the loot
     this.state.lootAssignments[item.id] = member.name;
 
+    // Franchise Mode: Get eligible members BEFORE equipping (to track who wanted it)
+    let eligibleMembers: { id: string; wantsItem: boolean }[] = [];
+    let winnerWantedItem = false;
+    if (this.state.isRaidLeaderMode) {
+      eligibleMembers = this.getEligibleMembersForItem(item);
+      const winnerEligible = eligibleMembers.find(e => e.id === member.id);
+      winnerWantedItem = winnerEligible?.wantsItem ?? false;
+    }
+
     // Equip the item on the member
     this.equipItemOnMember(member, item);
     this.addCombatLogEntry({ message: `Raid Leader awarded ${item.name} to ${member.name}`, type: 'buff' });
+
+    // Franchise Mode: Update morale for loot distribution and check for drama
+    if (this.state.isRaidLeaderMode) {
+      // Winner gets morale boost (if it was an upgrade for them)
+      if (winnerWantedItem && member.id !== PLAYER_ID) {
+        this.updateMorale(member.id, 'loot_received', `Received ${item.name}`);
+      }
+
+      // Get full member data for losers (need personality/morale for drama check)
+      const losersWithData = eligibleMembers
+        .filter(e => e.id !== member.id && e.id !== PLAYER_ID)
+        .map(e => {
+          const raidMember = this.state.raid.find(m => m.id === e.id);
+          return {
+            id: e.id,
+            name: raidMember?.name || 'Unknown',
+            wantsItem: e.wantsItem,
+            personality: raidMember?.personality,
+            morale: raidMember?.morale,
+          };
+        });
+
+      // Others who wanted it (it was an upgrade) get morale penalty
+      for (const loser of losersWithData) {
+        if (loser.wantsItem) {
+          this.updateMorale(loser.id, 'loot_lost', `Didn't get ${item.name}`);
+        }
+      }
+
+      // Check for drama from losers
+      const dramaInstigator = this.checkForLootDrama(item, member.id, member.name, losersWithData);
+      if (dramaInstigator) {
+        this.triggerLootDrama(
+          dramaInstigator.instigatorId,
+          dramaInstigator.instigatorName,
+          member.id,
+          member.name,
+          item
+        );
+      }
+
+      // Check for leave warnings after loot distribution (morale changes)
+      this.checkForLeaveWarnings();
+    }
+
     this.notify();
 
     // Delay removing from pendingLoot so clients see "Assigned to: X" before item disappears
@@ -9086,7 +10768,16 @@ export class GameEngine {
   }
 
   // Get eligible raid members for an item (for Master Looter UI)
-  getEligibleMembersForItem(item: GearItem): { id: string; name: string; class: string; isUpgrade: boolean }[] {
+  // Returns detailed info including upgrade amount for morale tracking
+  getEligibleMembersForItem(item: GearItem): {
+    id: string;
+    name: string;
+    class: string;
+    isUpgrade: boolean;
+    upgradeAmount: number;  // iLvl difference (positive = upgrade)
+    currentItemLevel: number;
+    wantsItem: boolean;  // true if it's an upgrade they'd want
+  }[] {
     return this.state.raid
       .filter(m =>
         m.isAlive &&
@@ -9094,15 +10785,33 @@ export class GameEngine {
         this.canEquip(m.class, item) &&
         this.canBenefitFrom(m, item)
       )
-      .map(m => ({
-        id: m.id,
-        name: m.name,
-        class: m.class,
-        isUpgrade: !m.equipment[item.slot] || m.equipment[item.slot]!.itemLevel < item.itemLevel
-      }))
+      .map(m => {
+        const currentItem = m.equipment[item.slot];
+        const currentItemLevel = currentItem?.itemLevel ?? 0;
+        const upgradeAmount = item.itemLevel - currentItemLevel;
+        const isUpgrade = upgradeAmount > 0;
+
+        // Check if this is a 2H weapon that fury/fury_prot warriors shouldn't want (they dual-wield)
+        let wantsItem = isUpgrade;
+        if (wantsItem && m.class === 'warrior' && (m.spec === 'fury' || m.spec === 'fury_prot')) {
+          if (item.weaponType === 'two_hand') {
+            wantsItem = false;  // Fury warriors dual-wield, don't want 2H
+          }
+        }
+
+        return {
+          id: m.id,
+          name: m.name,
+          class: m.class,
+          isUpgrade,
+          upgradeAmount,
+          currentItemLevel,
+          wantsItem,
+        };
+      })
       .sort((a, b) => {
-        // Sort by upgrade status first (upgrades on top), then alphabetically
-        if (a.isUpgrade !== b.isUpgrade) return a.isUpgrade ? -1 : 1;
+        // Sort by upgrade amount first (biggest upgrades on top), then alphabetically
+        if (a.upgradeAmount !== b.upgradeAmount) return b.upgradeAmount - a.upgradeAmount;
         return a.name.localeCompare(b.name);
       });
   }
@@ -9471,7 +11180,7 @@ export class GameEngine {
 
   saveGame(slotName: string = 'default') {
     const saveData = {
-      version: 7, // Bumped for legendary materials support
+      version: 10, // Bumped for franchise mode support
       timestamp: Date.now(),
       player: {
         name: this.state.playerName,
@@ -9492,6 +11201,8 @@ export class GameEngine {
         group: m.group,
         equipment: m.equipment,
         gearScore: m.gearScore,
+        personality: m.personality,
+        morale: m.morale,
       })),
       raidSize: this.state.raid.length as 20 | 40,
       defeatedBosses: this.state.defeatedBosses, // Legacy - kept for backward compatibility
@@ -9507,6 +11218,16 @@ export class GameEngine {
       questMaterials: this.state.questMaterials, // v8: Quest materials (Dragon heads)
       claimedQuestRewards: this.state.claimedQuestRewards, // v8: Claimed quest rewards (one per head type)
       raidMemberQuestRewards: this.state.raidMemberQuestRewards, // v9: Track raid member quest claims
+      // Franchise mode data (v10+)
+      franchiseReputation: this.state.franchiseReputation,
+      franchiseReputationTier: this.state.franchiseReputationTier,
+      franchiseGuildName: this.state.franchiseGuildName,
+      franchiseCurrentWeek: this.state.franchiseCurrentWeek,
+      franchiseRaidedThisWeek: this.state.franchiseRaidedThisWeek,
+      franchiseLFGPool: this.state.franchiseLFGPool,
+      // Drama system
+      franchiseActiveDrama: this.state.franchiseActiveDrama,
+      franchiseDramaHistory: this.state.franchiseDramaHistory,
     };
 
     localStorage.setItem(`mc_healer_save_${slotName}`, JSON.stringify(saveData));
@@ -9576,23 +11297,40 @@ export class GameEngine {
           group: number;
           equipment: Equipment;
           gearScore: number;
-        }) => ({
-          id: saved.id,
-          name: saved.name,
-          class: saved.class,
-          spec: saved.spec || this.getDefaultSpecForClassRole(saved.class, saved.role), // v6: Restore spec or derive from class/role
-          role: saved.role,
-          currentHealth: saved.maxHealth,
-          maxHealth: saved.maxHealth,
-          buffs: [],
-          debuffs: [],
-          activeHoTs: [],
-          isAlive: true,
-          dps: saved.dps,
-          group: saved.group,
-          equipment: this.migrateEquipment(saved.equipment),
-          gearScore: saved.gearScore || 0,
-        }));
+          personality?: string[];
+          morale?: MoraleState;
+        }) => {
+          // Generate personality/morale for old saves that don't have them
+          const traitCount = Math.random() < 0.3 ? 3 : 2;
+          const defaultPersonality = getRandomTraits(traitCount as 2 | 3);
+          const defaultMorale: MoraleState = {
+            current: 60,
+            baseline: 50,
+            trend: 'stable',
+            lastChangeReason: 'Guild member',
+            lastChangeAmount: 0,
+            lastChangeTimestamp: Date.now(),
+          };
+          return {
+            id: saved.id,
+            name: saved.name,
+            class: saved.class,
+            spec: saved.spec || this.getDefaultSpecForClassRole(saved.class, saved.role), // v6: Restore spec or derive from class/role
+            role: saved.role,
+            currentHealth: saved.maxHealth,
+            maxHealth: saved.maxHealth,
+            buffs: [],
+            debuffs: [],
+            activeHoTs: [],
+            isAlive: true,
+            dps: saved.dps,
+            group: saved.group,
+            equipment: this.migrateEquipment(saved.equipment),
+            gearScore: saved.gearScore || 0,
+            personality: saved.personality || (saved.id === 'player' ? undefined : defaultPersonality),
+            morale: saved.morale || (saved.id === 'player' ? undefined : defaultMorale),
+          };
+        });
 
         // Restore defeated bosses and paladin blessings
         if (data.defeatedBosses) {
@@ -9647,6 +11385,35 @@ export class GameEngine {
         if (data.raidMemberQuestRewards) {
           this.state.raidMemberQuestRewards = data.raidMemberQuestRewards;
         }
+
+        // Restore franchise mode data (v10+)
+        if (data.franchiseReputation !== undefined) {
+          this.state.franchiseReputation = data.franchiseReputation;
+        }
+        if (data.franchiseReputationTier) {
+          this.state.franchiseReputationTier = data.franchiseReputationTier;
+        }
+        if (data.franchiseGuildName) {
+          this.state.franchiseGuildName = data.franchiseGuildName;
+        }
+        if (data.franchiseCurrentWeek !== undefined) {
+          this.state.franchiseCurrentWeek = data.franchiseCurrentWeek;
+        }
+        if (data.franchiseRaidedThisWeek !== undefined) {
+          this.state.franchiseRaidedThisWeek = data.franchiseRaidedThisWeek;
+        }
+        if (data.franchiseLFGPool && Array.isArray(data.franchiseLFGPool)) {
+          this.state.franchiseLFGPool = data.franchiseLFGPool;
+        }
+        // Drama system
+        if (data.franchiseActiveDrama !== undefined) {
+          this.state.franchiseActiveDrama = data.franchiseActiveDrama;
+        }
+        if (data.franchiseDramaHistory && Array.isArray(data.franchiseDramaHistory)) {
+          this.state.franchiseDramaHistory = data.franchiseDramaHistory;
+        }
+        // Update reputation tier in case it wasn't saved but rep was
+        this.updateReputationTier();
 
         // Restore multi-raid progression (v4+)
         if (data.defeatedBossesByRaid) {
@@ -9754,6 +11521,8 @@ export class GameEngine {
         group: m.group,
         equipment: m.equipment,
         gearScore: m.gearScore,
+        personality: m.personality,
+        morale: m.morale,
       })),
       raidSize: this.state.raid.length as 20 | 40,
       defeatedBosses: this.state.defeatedBosses,
@@ -9777,7 +11546,19 @@ export class GameEngine {
         role: b.role,
         equipment: b.equipment,
         gearScore: b.gearScore,
+        personality: b.personality,
+        morale: b.morale,
       })),
+      // Franchise mode data
+      franchiseReputation: this.state.franchiseReputation,
+      franchiseReputationTier: this.state.franchiseReputationTier,
+      franchiseGuildName: this.state.franchiseGuildName,
+      franchiseCurrentWeek: this.state.franchiseCurrentWeek,
+      franchiseRaidedThisWeek: this.state.franchiseRaidedThisWeek,
+      franchiseLFGPool: this.state.franchiseLFGPool,
+      // Drama system
+      franchiseActiveDrama: this.state.franchiseActiveDrama,
+      franchiseDramaHistory: this.state.franchiseDramaHistory,
     };
   }
 
@@ -9840,24 +11621,41 @@ export class GameEngine {
           group: number;
           equipment: Equipment;
           gearScore: number;
-        }) => ({
-          id: saved.id,
-          name: saved.name,
-          class: saved.class,
-          spec: saved.spec || this.getDefaultSpecForClassRole(saved.class, saved.role),
-          role: saved.role,
-          currentHealth: saved.maxHealth,
-          maxHealth: saved.maxHealth,
-          buffs: [],
-          debuffs: [],
-          activeHoTs: [],
-          isAlive: true,
-          dps: saved.dps,
-          group: saved.group,
-          equipment: this.migrateEquipment(saved.equipment),
-          gearScore: saved.gearScore || 0,
-          positionZone: 'melee' as PositionZone, // Default position
-        }));
+          personality?: string[];
+          morale?: MoraleState;
+        }) => {
+          // Generate personality/morale for old saves that don't have them
+          const traitCount = Math.random() < 0.3 ? 3 : 2;
+          const defaultPersonality = getRandomTraits(traitCount as 2 | 3);
+          const defaultMorale: MoraleState = {
+            current: 60,
+            baseline: 50,
+            trend: 'stable',
+            lastChangeReason: 'Guild member',
+            lastChangeAmount: 0,
+            lastChangeTimestamp: Date.now(),
+          };
+          return {
+            id: saved.id,
+            name: saved.name,
+            class: saved.class,
+            spec: saved.spec || this.getDefaultSpecForClassRole(saved.class, saved.role),
+            role: saved.role,
+            currentHealth: saved.maxHealth,
+            maxHealth: saved.maxHealth,
+            buffs: [],
+            debuffs: [],
+            activeHoTs: [],
+            isAlive: true,
+            dps: saved.dps,
+            group: saved.group,
+            equipment: this.migrateEquipment(saved.equipment),
+            gearScore: saved.gearScore || 0,
+            positionZone: 'melee' as PositionZone, // Default position
+            personality: saved.personality || (saved.id === 'player' ? undefined : defaultPersonality),
+            morale: saved.morale || (saved.id === 'player' ? undefined : defaultMorale),
+          };
+        });
       }
 
       // Restore progression and settings
@@ -9916,15 +11714,32 @@ export class GameEngine {
           role: 'tank' | 'healer' | 'dps';
           equipment: Equipment;
           gearScore: number;
-        }) => ({
-          id: saved.id,
-          name: saved.name,
-          class: saved.class,
-          spec: saved.spec,
-          role: saved.role,
-          equipment: this.migrateEquipment(saved.equipment),
-          gearScore: saved.gearScore || 0,
-        }));
+          personality?: PersonalityTraitId[];
+          morale?: MoraleState;
+        }) => {
+          // Generate personality/morale for old saves that don't have them
+          const traitCount = Math.random() < 0.3 ? 3 : 2;
+          const defaultPersonality = getRandomTraits(traitCount as 2 | 3);
+          const defaultMorale: MoraleState = {
+            current: 60,
+            baseline: 50,
+            trend: 'stable',
+            lastChangeReason: 'Guild member',
+            lastChangeAmount: 0,
+            lastChangeTimestamp: Date.now(),
+          };
+          return {
+            id: saved.id,
+            name: saved.name,
+            class: saved.class,
+            spec: saved.spec,
+            role: saved.role,
+            equipment: this.migrateEquipment(saved.equipment),
+            gearScore: saved.gearScore || 0,
+            personality: saved.personality || defaultPersonality,
+            morale: saved.morale || defaultMorale,
+          };
+        });
       } else {
         this.state.benchPlayers = [];
       }
@@ -9953,6 +11768,35 @@ export class GameEngine {
 
       // Reapply party auras from saved assignments
       this.recalculateAuras();
+
+      // Restore franchise mode data
+      if (saveData.franchiseReputation !== undefined) {
+        this.state.franchiseReputation = saveData.franchiseReputation;
+      }
+      if (saveData.franchiseReputationTier) {
+        this.state.franchiseReputationTier = saveData.franchiseReputationTier;
+      }
+      if (saveData.franchiseGuildName) {
+        this.state.franchiseGuildName = saveData.franchiseGuildName;
+      }
+      if (saveData.franchiseCurrentWeek !== undefined) {
+        this.state.franchiseCurrentWeek = saveData.franchiseCurrentWeek;
+      }
+      if (saveData.franchiseRaidedThisWeek !== undefined) {
+        this.state.franchiseRaidedThisWeek = saveData.franchiseRaidedThisWeek;
+      }
+      if (saveData.franchiseLFGPool && Array.isArray(saveData.franchiseLFGPool)) {
+        this.state.franchiseLFGPool = saveData.franchiseLFGPool;
+      }
+      // Drama system
+      if (saveData.franchiseActiveDrama !== undefined) {
+        this.state.franchiseActiveDrama = saveData.franchiseActiveDrama;
+      }
+      if (saveData.franchiseDramaHistory && Array.isArray(saveData.franchiseDramaHistory)) {
+        this.state.franchiseDramaHistory = saveData.franchiseDramaHistory;
+      }
+      // Update reputation tier in case it wasn't saved but rep was
+      this.updateReputationTier();
 
       this.addCombatLogEntry({ message: 'Cloud save loaded', type: 'system' });
       this.notify();
@@ -10837,6 +12681,43 @@ export class GameEngine {
     this.state.bossKillsWithoutPaladinLoot = clampedCount;
     this.addCombatLogEntry({
       message: `[Admin] Bad luck protection set to ${clampedCount}`,
+      type: 'system',
+    });
+    this.notify();
+  }
+
+  // Admin: Set guild reputation (franchise mode)
+  adminSetReputation(value: number): void {
+    const clampedValue = Math.max(0, Math.min(100, Math.floor(value)));
+    this.state.franchiseReputation = clampedValue;
+
+    // Update tier based on reputation
+    if (clampedValue >= 80) {
+      this.state.franchiseReputationTier = 'legendary';
+    } else if (clampedValue >= 60) {
+      this.state.franchiseReputationTier = 'famous';
+    } else if (clampedValue >= 40) {
+      this.state.franchiseReputationTier = 'established';
+    } else if (clampedValue >= 20) {
+      this.state.franchiseReputationTier = 'rising';
+    } else {
+      this.state.franchiseReputationTier = 'unknown';
+    }
+
+    this.addCombatLogEntry({
+      message: `[Admin] Guild reputation set to ${clampedValue} (${this.state.franchiseReputationTier})`,
+      type: 'system',
+    });
+    this.notify();
+  }
+
+  // Admin: Set guild renown (spendable currency)
+  adminSetRenown(value: number): void {
+    const clampedValue = Math.max(0, Math.floor(value));
+    this.state.franchiseRenown = clampedValue;
+
+    this.addCombatLogEntry({
+      message: `[Admin] Guild renown set to ${clampedValue}`,
       type: 'system',
     });
     this.notify();

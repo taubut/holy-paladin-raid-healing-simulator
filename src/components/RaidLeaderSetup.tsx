@@ -3,6 +3,9 @@ import type { GameState, WoWClass, WoWSpec, Faction } from '../game/types';
 import { CLASS_COLORS, CLASS_SPECS, getSpecById } from '../game/types';
 import { PARTY_AURAS, memberProvidesAura } from '../game/auras';
 import type { GameEngine } from '../game/GameEngine';
+import { LFGBoard } from './franchise/LFGBoard';
+import { PersonalityBadgeRow } from './franchise/PersonalityBadge';
+import { MoraleIndicator } from './franchise/MoraleBar';
 import './RaidLeaderSetup.css';
 
 interface RaidLeaderSetupProps {
@@ -28,6 +31,7 @@ export function RaidLeaderSetup({
   const [selectedBenchPlayer, setSelectedBenchPlayer] = useState<string | null>(null);
   const [draggedBenchPlayer, setDraggedBenchPlayer] = useState<string | null>(null);
   const [hoveredAura, setHoveredAura] = useState<{ aura: typeof PARTY_AURAS[string], providerName: string } | null>(null);
+  const [showLFGBoard, setShowLFGBoard] = useState(false);
 
   if (!isOpen) return null;
 
@@ -63,6 +67,28 @@ export function RaidLeaderSetup({
   // Handle removing a player from the raid back to staging
   const handleRemoveFromRaid = (memberId: string) => {
     engine.moveRaidMemberToBench(memberId);
+  };
+
+  // Handle recruiting from LFG (Franchise mode)
+  const handleRecruitFromLFG = (recruitId: string) => {
+    // Check bench capacity first (engine does too, but we want to show alert)
+    if (currentBenchSize >= maxBenchSize) {
+      alert('Bench is full! Remove a player first.');
+      return;
+    }
+
+    // Use engine method for proper state management
+    const success = engine.recruitFromLFG(recruitId);
+    if (success) {
+      // Close LFG board on successful recruit
+      setShowLFGBoard(false);
+    }
+  };
+
+  // Open LFG Board (initializes pool if needed)
+  const handleOpenLFG = () => {
+    engine.initializeFranchiseMode();
+    setShowLFGBoard(true);
   };
 
   // Render raid groups (4 for 20-man, 8 for 40-man)
@@ -131,7 +157,7 @@ export function RaidLeaderSetup({
               return (
                 <div
                   key={member.id}
-                  className="rls-member"
+                  className={`rls-member ${member.personality ? 'franchise-mode' : ''}`}
                   style={{ borderLeftColor: classColor }}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -144,6 +170,17 @@ export function RaidLeaderSetup({
                       {member.name}
                     </span>
                     <span className="rls-member-spec">{specDef?.name || member.class}</span>
+                    {/* Franchise Mode: Show personality traits and morale */}
+                    {member.personality && member.personality.length > 0 && (
+                      <div className="rls-member-franchise-info">
+                        <PersonalityBadgeRow
+                          traits={member.personality}
+                          size="small"
+                          maxVisible={2}
+                        />
+                        {member.morale && <MoraleIndicator morale={member.morale} leaveWarnings={member.leaveWarnings} />}
+                      </div>
+                    )}
                   </div>
                   <div className="rls-member-right">
                     <div className="rls-member-auras">
@@ -210,6 +247,19 @@ export function RaidLeaderSetup({
           </div>
         </div>
 
+        {/* Guild Status Bar */}
+        <div className="rls-franchise-header">
+          <div className="rls-franchise-stat reputation">
+            <span className="rls-franchise-label">Reputation:</span>
+            <span className="rls-franchise-value">{state.franchiseReputation}</span>
+            <span className="rls-franchise-tier">({state.franchiseReputationTier})</span>
+          </div>
+          <div className="rls-franchise-stat renown">
+            <span className="rls-franchise-label">Renown:</span>
+            <span className="rls-franchise-value">{state.franchiseRenown ?? 0}</span>
+          </div>
+        </div>
+
         <p className="rls-instructions">
           Add players using the button below, then drag them to groups. Right-click to remove from raid.
         </p>
@@ -246,7 +296,7 @@ export function RaidLeaderSetup({
                   return (
                     <div
                       key={player.id}
-                      className={`rls-staging-player ${isSelected ? 'selected' : ''}`}
+                      className={`rls-staging-player ${isSelected ? 'selected' : ''} franchise-mode`}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData('benchPlayerId', player.id);
@@ -261,6 +311,17 @@ export function RaidLeaderSetup({
                           {player.name}
                         </span>
                         <span className="rls-staging-spec">{specDef?.name || player.class}</span>
+                        {/* Franchise Mode: Show personality traits and morale */}
+                        {player.personality && player.personality.length > 0 && (
+                          <div className="rls-staging-franchise-info">
+                            <PersonalityBadgeRow
+                              traits={player.personality}
+                              size="small"
+                              maxVisible={3}
+                            />
+                            {player.morale && <MoraleIndicator morale={player.morale} leaveWarnings={player.leaveWarnings} />}
+                          </div>
+                        )}
                       </div>
                       <span className={`rls-staging-role ${player.role}`}>
                         {player.role === 'tank' ? 'Tank' : player.role === 'healer' ? 'Healer' : 'DPS'}
@@ -286,6 +347,13 @@ export function RaidLeaderSetup({
               onClick={() => setShowAddPlayerModal(true)}
             >
               + Add New Player
+            </button>
+
+            <button
+              className="rls-add-player-btn rls-lfg-btn"
+              onClick={handleOpenLFG}
+            >
+              Browse LFG
             </button>
 
             {selectedBenchPlayer && (
@@ -376,6 +444,18 @@ export function RaidLeaderSetup({
               <span className="rls-tooltip-provider">From: {hoveredAura.providerName}</span>
             </div>
           </div>
+        )}
+
+        {/* LFG Board Modal (Franchise Mode) */}
+        {showLFGBoard && (
+          <LFGBoard
+            recruits={state.franchiseLFGPool}
+            guildReputation={state.franchiseReputation ?? 0}
+            guildReputationTier={state.franchiseReputationTier ?? 'unknown'}
+            guildRenown={state.franchiseRenown ?? 0}
+            onRecruit={handleRecruitFromLFG}
+            onClose={() => setShowLFGBoard(false)}
+          />
         )}
 
         <div className="rls-footer">

@@ -1283,3 +1283,64 @@
   background: linear-gradient(180deg, #ffe44d, #d4a20a);
   box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
 }
+
+/* Franchise Mode Toggle */
+.franchise-mode-toggle {
+  margin-top: 16px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(74, 0, 114, 0.2), rgba(45, 0, 70, 0.3));
+  border: 2px solid #7c3aed;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.franchise-checkbox-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.franchise-checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: #a855f7;
+  cursor: pointer;
+}
+
+.franchise-checkbox-text {
+  color: #c4b5fd;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.franchise-badge {
+  background: linear-gradient(135deg, #a855f7, #7c3aed);
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(168, 85, 247, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.7);
+  }
+}
+
+.franchise-mode-hint {
+  color: #9ca3af;
+  font-size: 12px;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
+}

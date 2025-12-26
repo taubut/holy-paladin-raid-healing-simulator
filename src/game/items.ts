@@ -906,9 +906,10 @@ export const SALAMANDER_SCALE_PANTS: GearItem = {
   slot: 'legs',
   rarity: 'epic',
   itemLevel: 64,
-  classes: ['druid', 'priest', 'paladin'],
-  stats: { stamina: 14, intellect: 14, healingPower: 51, mp5: 9 },
+  classes: ['all'],  // armorType handles restrictions - leather can be worn by plate/mail/leather wearers
+  stats: { armor: 195, stamina: 14, intellect: 14, healingPower: 51, mp5: 9, fireResistance: 10 },
   icon: `${ICON_BASE}/inv_pants_12.jpg`,
+  armorType: 'leather',
   itemCategory: 'healer',
 };
 
@@ -1285,6 +1286,7 @@ export const THUNDERFURY: GearItem = {
   stats: { agility: 15, stamina: 12, strength: 8, hitChance: 2, critChance: 1 },
   icon: `${ICON_BASE}/inv_sword_39.jpg`,
   weaponType: 'one_hand',
+  itemCategory: 'melee',  // Only melee specs should get this
 };
 
 export const SULFURAS: GearItem = {
@@ -1293,10 +1295,11 @@ export const SULFURAS: GearItem = {
   slot: 'weapon',
   rarity: 'legendary',
   itemLevel: 80,
-  classes: ['warrior', 'paladin'],
+  classes: ['warrior', 'paladin', 'shaman'],  // Enhancement shamans can use 2H maces
   stats: { strength: 30, stamina: 20, critChance: 2 },
   icon: `${ICON_BASE}/inv_hammer_unique_sulfuras.jpg`,
   weaponType: 'two_hand',
+  itemCategory: 'melee',  // Only melee specs should get this
 };
 
 export const AURASTONE_HAMMER: GearItem = {

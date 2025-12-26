@@ -1,0 +1,364 @@
+/* Morale Bar Component */
+.morale-bar-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Size variants */
+.morale-bar-compact .morale-bar-track {
+  width: 40px;
+  height: 4px;
+}
+
+.morale-bar-normal .morale-bar-track {
+  width: 60px;
+  height: 6px;
+}
+
+.morale-bar-large .morale-bar-track {
+  width: 100px;
+  height: 8px;
+}
+
+.morale-bar-track {
+  background: #2a2a3a;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid #444;
+}
+
+.morale-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.morale-bar-baseline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(-50%);
+}
+
+.morale-bar-value {
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 20px;
+}
+
+/* Morale Tooltip */
+.morale-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  width: 200px;
+  background: linear-gradient(180deg, #1a1a2a, #0f0f1a);
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+/* Fixed position tooltip rendered via portal - escapes overflow containers */
+.morale-tooltip.morale-tooltip-fixed {
+  position: fixed;
+  transform: none;
+  margin-bottom: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 10000;
+}
+
+/* Remove the arrow for fixed tooltips */
+.morale-tooltip.morale-tooltip-fixed::after {
+  display: none;
+}
+
+.morale-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: #444;
+}
+
+.morale-tooltip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.morale-mood {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.morale-trend {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.morale-trend.rising {
+  color: #4ade80;
+}
+
+.morale-trend.falling {
+  color: #f87171;
+}
+
+.morale-trend.stable {
+  color: #94a3b8;
+}
+
+.morale-tooltip-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.morale-stat-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.morale-stat-label {
+  color: #888;
+}
+
+.morale-stat-value {
+  font-weight: bold;
+}
+
+.morale-last-change {
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+
+.morale-change-label {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.morale-change-reason {
+  font-size: 11px;
+  color: #aaa;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.morale-change-amount {
+  font-weight: bold;
+  margin-left: 8px;
+}
+
+.morale-change-amount.positive {
+  color: #4ade80;
+}
+
+.morale-change-amount.negative {
+  color: #f87171;
+}
+
+.morale-effects {
+  padding-top: 8px;
+}
+
+.morale-effects-label {
+  display: block;
+  font-size: 10px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.morale-effect {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.morale-effect.good {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.morale-effect.bad {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.morale-effect.warning {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+}
+
+.morale-effect.neutral {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+}
+
+.morale-effect.caution {
+  background: rgba(250, 204, 21, 0.2);
+  color: #facc15;
+}
+
+/* Compact Morale Indicator */
+.morale-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.morale-indicator-icon {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.morale-indicator-value {
+  font-weight: bold;
+}
+
+.morale-indicator-trend {
+  font-size: 10px;
+}
+
+.morale-indicator-trend.rising {
+  color: #4ade80;
+}
+
+.morale-indicator-trend.falling {
+  color: #f87171;
+}
+
+.morale-indicator-trend.stable {
+  color: #94a3b8;
+}
+
+/* Leave Warning Indicators */
+.morale-leave-warning {
+  font-size: 10px;
+  line-height: 1;
+  margin-right: 2px;
+}
+
+.morale-leave-warning.level-1 {
+  animation: warning-pulse-1 2s infinite;
+}
+
+.morale-leave-warning.level-2 {
+  animation: warning-pulse-2 1.5s infinite;
+}
+
+.morale-leave-warning.level-3 {
+  animation: warning-pulse-3 1s infinite;
+}
+
+@keyframes warning-pulse-1 {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes warning-pulse-2 {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes warning-pulse-3 {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.1); }
+}
+
+/* At-risk player styling */
+.morale-bar-container.at-risk {
+  position: relative;
+}
+
+.morale-bar-container.at-risk.risk-level-1 .morale-bar-track {
+  border-color: #ffcc00;
+  box-shadow: 0 0 4px rgba(255, 204, 0, 0.3);
+}
+
+.morale-bar-container.at-risk.risk-level-2 .morale-bar-track {
+  border-color: #ff8800;
+  box-shadow: 0 0 6px rgba(255, 136, 0, 0.4);
+}
+
+.morale-bar-container.at-risk.risk-level-3 .morale-bar-track {
+  border-color: #ff4444;
+  box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
+  animation: critical-glow 1s infinite;
+}
+
+@keyframes critical-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 12px rgba(255, 68, 68, 0.8); }
+}
+
+/* MoraleIndicator warning styles */
+.morale-indicator.at-risk {
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.morale-indicator.at-risk.risk-level-1 {
+  background: rgba(255, 204, 0, 0.15);
+}
+
+.morale-indicator.at-risk.risk-level-2 {
+  background: rgba(255, 136, 0, 0.2);
+}
+
+.morale-indicator.at-risk.risk-level-3 {
+  background: rgba(255, 68, 68, 0.25);
+  animation: indicator-critical-pulse 1s infinite;
+}
+
+@keyframes indicator-critical-pulse {
+  0%, 100% { background: rgba(255, 68, 68, 0.25); }
+  50% { background: rgba(255, 68, 68, 0.4); }
+}
+
+.morale-indicator-warning {
+  font-size: 9px;
+  margin-right: 3px;
+}
+
+.morale-indicator-warning.level-1 {
+  color: #ffcc00;
+}
+
+.morale-indicator-warning.level-2 {
+  color: #ff8800;
+}
+
+.morale-indicator-warning.level-3 {
+  color: #ff4444;
+  animation: warning-text-pulse 0.8s infinite;
+}
+
+@keyframes warning-text-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
