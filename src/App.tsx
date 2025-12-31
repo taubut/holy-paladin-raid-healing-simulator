@@ -144,7 +144,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.36.1';
+  const CURRENT_PATCH_VERSION = '0.36.2';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -2606,18 +2606,35 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.36.2 - Drama System Tuning</h3>
+                  <span className="patch-date">December 31, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Drama & Morale Balance</h4>
+                  <p style={{ color: '#aaa', fontStyle: 'italic', marginBottom: '8px' }}>Based on Reddit feedback - drama was too aggressive, causing 4+ gquits after just one boss!</p>
+                  <ul>
+                    <li><strong>Drama Chance Reduced</strong>: Base drama chance lowered from 15% to 8% per loot item</li>
+                    <li><strong>Max Drama Cap Reduced</strong>: Maximum drama chance capped at 40% (down from 60%)</li>
+                    <li><strong>Drama Penalty Reduced</strong>: Negative drama resolution morale hit reduced from -10/-20 to -6/-12</li>
+                    <li><strong>Loot Loss Penalty Reduced</strong>: Losing a roll morale hit reduced from -8/-15 to -5/-10</li>
+                    <li><strong>Warning Cooldown</strong>: Players can only receive one leave warning every 2 minutes (prevents rapid warning stacking)</li>
+                    <li><strong>Departure Roll</strong>: At 3 warnings, players now roll against their leave risk instead of guaranteed leaving (70-85% chance to stay)</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.36.1 - Bug Fixes</h3>
                   <span className="patch-date">December 31, 2025</span>
                 </div>
 
                 <div className="patch-section">
-                  <h4>Bug Fixes</h4>
                   <ul>
-                    <li><strong>HoT Healing Meter</strong>: Druid and Priest HoTs (Rejuvenation, Regrowth, Renew) now correctly count in the healing meter</li>
-                    <li><strong>Prayer of Healing</strong>: Now correctly heals the Priest's own party group instead of the clicked target's group (authentic Classic behavior)</li>
-                    <li><strong>Sulfuron Adds Reset</strong>: Flamewaker Priest adds now properly reset between raid weeks in Raid Leader mode</li>
-                    <li><strong>Trait Reroll Currency</strong>: Rerolling personality traits now correctly costs Renown instead of Reputation</li>
-                    <li><strong>Drama Text</strong>: Fixed "been here for weeks" drama quote appearing on first raid week</li>
+                    <li><strong>HoT Healing Meter</strong>: Druid and Priest HoTs now correctly count in the healing meter</li>
+                    <li><strong>Prayer of Healing</strong>: Now correctly heals the Priest's own party group (authentic Classic behavior)</li>
+                    <li><strong>Sulfuron Adds Reset</strong>: Flamewaker Priest adds now properly reset between raid weeks</li>
+                    <li><strong>Trait Reroll Currency</strong>: Rerolling traits now correctly costs Renown instead of Reputation</li>
+                    <li><strong>Drama Text</strong>: Fixed "been here for weeks" quote appearing on first raid week</li>
                   </ul>
                 </div>
 

@@ -2431,7 +2431,7 @@ export class GameEngine {
     // Base morale changes for each event type
     const baseChanges: Record<MoraleEventType, { min: number; max: number }> = {
       loot_received: { min: 15, max: 25 },
-      loot_lost: { min: -15, max: -8 },
+      loot_lost: { min: -10, max: -5 },  // Reduced from -15/-8 - stacks with drama too harshly
       boss_kill: { min: 5, max: 10 },
       wipe: { min: -8, max: -3 },
       benched: { min: -18, max: -10 },
@@ -2439,7 +2439,7 @@ export class GameEngine {
       friend_joined: { min: 5, max: 10 },
       promoted_to_raid: { min: 10, max: 15 },
       drama_resolved_positive: { min: 5, max: 15 },
-      drama_resolved_negative: { min: -20, max: -10 },
+      drama_resolved_negative: { min: -12, max: -6 },  // Reduced from -20/-10 - was too punishing
       guild_achievement: { min: 5, max: 10 },
       weekly_decay: { min: -3, max: 3 },  // Gradual return to baseline
       innervate_received: { min: 2, max: 2 },  // Small flavor bonus
@@ -2599,18 +2599,22 @@ export class GameEngine {
       // Trigger warning if morale is critically low (< 30) and risk is significant (> 10%)
       if (member.morale.current < 30 && risk > 0.10) {
         const currentWarnings = member.leaveWarnings || 0;
+        const now = Date.now();
+        const lastWarning = member.lastWarningTimestamp || 0;
+        const WARNING_COOLDOWN = 120000; // 2 minutes between warnings
 
-        // Only add new warning if they haven't reached 3 yet
-        if (currentWarnings < 3) {
+        // Only add new warning if they haven't reached 3 yet AND cooldown has passed
+        if (currentWarnings < 3 && (now - lastWarning) > WARNING_COOLDOWN) {
           const newWarningCount = currentWarnings + 1;
           member.leaveWarnings = newWarningCount;
+          member.lastWarningTimestamp = now;
 
           warnings.push({
             playerId: member.id,
             playerName: member.name,
             warningNumber: newWarningCount,
             reason: this.getLeaveWarningReason(member.morale.current, member.personality),
-            timestamp: Date.now(),
+            timestamp: now,
             morale: member.morale.current,
             leaveRisk: risk,
           });
@@ -2637,18 +2641,22 @@ export class GameEngine {
 
       if (player.morale.current < 30 && risk > 0.10) {
         const currentWarnings = player.leaveWarnings || 0;
+        const now = Date.now();
+        const lastWarning = player.lastWarningTimestamp || 0;
+        const WARNING_COOLDOWN = 120000; // 2 minutes between warnings
 
-        // Only add new warning if they haven't reached 3 yet
-        if (currentWarnings < 3) {
+        // Only add new warning if they haven't reached 3 yet AND cooldown has passed
+        if (currentWarnings < 3 && (now - lastWarning) > WARNING_COOLDOWN) {
           const newWarningCount = currentWarnings + 1;
           player.leaveWarnings = newWarningCount;
+          player.lastWarningTimestamp = now;
 
           warnings.push({
             playerId: player.id,
             playerName: player.name,
             warningNumber: newWarningCount,
             reason: this.getLeaveWarningReason(player.morale.current, player.personality),
-            timestamp: Date.now(),
+            timestamp: now,
             morale: player.morale.current,
             leaveRisk: risk,
           });
@@ -2656,8 +2664,8 @@ export class GameEngine {
           if (newWarningCount >= 3) {
             this.rollForDeparture(player.id, player.name, player.class, risk, player.equipment, player.gearScore);
           }
-        } else if (currentWarnings >= 3) {
-          // Already at 3 warnings and still unhappy - trigger departure
+        } else if (currentWarnings >= 3 && (now - lastWarning) > WARNING_COOLDOWN) {
+          // Already at 3 warnings and still unhappy after cooldown - trigger departure
           this.rollForDeparture(player.id, player.name, player.class, risk, player.equipment, player.gearScore);
         }
       } else if (player.morale.current >= 40) {
@@ -2714,18 +2722,30 @@ export class GameEngine {
     return reasons[Math.floor(Math.random() * reasons.length)];
   }
 
-  // Trigger departure at 3 warnings
+  // Trigger departure at 3 warnings - actually rolls against leave risk
   private rollForDeparture(
     playerId: string,
     playerName: string,
     playerClass: WoWClass,
-    _leaveRisk: number,
+    leaveRisk: number,
     equipment: Equipment,
     gearScore: number
   ): void {
     // Check if there's already a pending departure for this player
     const alreadyPending = this.state.franchisePendingDepartures.some(d => d.playerId === playerId);
     if (alreadyPending) return;
+
+    // Roll against leave risk - they might decide to stay
+    // At 30% risk (very low morale), 70% chance to stay
+    // At 15% risk (low morale), 85% chance to stay
+    if (Math.random() > leaveRisk) {
+      // They decided to stay for now - log it
+      this.addCombatLogEntry({
+        message: `${playerName} is considering leaving but decided to stay for now...`,
+        type: 'system',
+      });
+      return;
+    }
 
     // They're leaving!
     const departure: PlayerDeparture = {
@@ -2948,8 +2968,8 @@ export class GameEngine {
     player: { personality?: PersonalityTraitId[]; morale?: MoraleState },
     item: GearItem
   ): number {
-    // Base drama chance: 15%
-    let chance = 0.15;
+    // Base drama chance: 8% (reduced from 15% - was too aggressive)
+    let chance = 0.08;
 
     // Personality trait modifiers
     if (player.personality) {
@@ -2984,8 +3004,8 @@ export class GameEngine {
       chance *= 1.3;  // 30% more drama for epic raid items
     }
 
-    // Cap at 60% max drama chance
-    return Math.min(0.6, chance);
+    // Cap at 40% max drama chance (reduced from 60%)
+    return Math.min(0.4, chance);
   }
 
   // Create a drama event for a loot dispute

@@ -464,6 +464,7 @@ export interface RaidMember {
   morale?: MoraleState;                // Morale state (franchise mode)
   leaveWarnings?: number;              // 0-3, warnings before leaving (franchise mode)
   leaveRisk?: number;                  // 0-1, calculated risk of leaving (franchise mode)
+  lastWarningTimestamp?: number;       // Cooldown for warnings (franchise mode)
 }
 
 // Bench player - sits out of active raid but persists with their own gear
@@ -479,6 +480,7 @@ export interface BenchPlayer {
   morale?: MoraleState;                // Morale state (franchise mode)
   leaveWarnings?: number;              // 0-3, warnings before leaving (franchise mode)
   leaveRisk?: number;                  // 0-1, calculated risk of leaving (franchise mode)
+  lastWarningTimestamp?: number;       // Cooldown for warnings (franchise mode)
 }
 
 export interface Spell {
