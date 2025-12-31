@@ -144,7 +144,7 @@ function App() {
   });
   const [mobileTab, setMobileTab] = useState<'raid' | 'buffs' | 'log'>('raid');
   // Patch notes modal - track if user has seen current version
-  const CURRENT_PATCH_VERSION = '0.36.0';
+  const CURRENT_PATCH_VERSION = '0.36.1';
   const [showPatchNotes, setShowPatchNotes] = useState(false);
   const [hasSeenPatchNotes, setHasSeenPatchNotes] = useState(() => {
     const seenVersion = localStorage.getItem('seenPatchNotesVersion');
@@ -2606,6 +2606,22 @@ function App() {
               </div>
               <div className="patch-notes-content">
                 <div className="patch-version">
+                  <h3>Version 0.36.1 - Bug Fixes</h3>
+                  <span className="patch-date">December 31, 2025</span>
+                </div>
+
+                <div className="patch-section">
+                  <h4>Bug Fixes</h4>
+                  <ul>
+                    <li><strong>HoT Healing Meter</strong>: Druid and Priest HoTs (Rejuvenation, Regrowth, Renew) now correctly count in the healing meter</li>
+                    <li><strong>Prayer of Healing</strong>: Now correctly heals the Priest's own party group instead of the clicked target's group (authentic Classic behavior)</li>
+                    <li><strong>Sulfuron Adds Reset</strong>: Flamewaker Priest adds now properly reset between raid weeks in Raid Leader mode</li>
+                    <li><strong>Trait Reroll Currency</strong>: Rerolling personality traits now correctly costs Renown instead of Reputation</li>
+                    <li><strong>Drama Text</strong>: Fixed "been here for weeks" drama quote appearing on first raid week</li>
+                  </ul>
+                </div>
+
+                <div className="patch-version previous">
                   <h3>Version 0.36.0 - Raid Leader Mode: Franchise Mode</h3>
                   <span className="patch-date">December 26, 2025</span>
                 </div>

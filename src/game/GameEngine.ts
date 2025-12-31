@@ -2150,8 +2150,10 @@ export class GameEngine {
     const scaledMaxHealth = Math.round(encounter.maxHealth * hpScalar);
 
     // Create boss with scaled HP
+    // Deep clone adds array to prevent mutation of encounter definition between weeks
     this.state.boss = {
       ...encounter,
+      adds: encounter.adds?.map(add => ({ ...add })),
       maxHealth: scaledMaxHealth,
       currentHealth: scaledMaxHealth,
       ...(options?.golemaggTanks && { golemaggTanks: options.golemaggTanks }),
@@ -2909,7 +2911,7 @@ export class GameEngine {
     "I did more damage than {winner} this whole fight. Why do they get {item}?",
     "Do you even check who needs gear? {item} was a bigger upgrade for me!",
     "This loot council is a joke. {winner} gets {item} and I'm sitting here with nothing.",
-    "I've been loyal to this guild for weeks and THIS is how you treat me?",
+    "I've been nothing but loyal to this guild and THIS is how you treat me?",
   ];
 
   // Check if drama should trigger after loot is assigned
@@ -3323,15 +3325,15 @@ export class GameEngine {
     this.notify();
   }
 
-  // Reroll a raider's personality trait at the cost of reputation
-  // Returns true if successful, false if not enough reputation
+  // Reroll a raider's personality trait at the cost of renown
+  // Returns true if successful, false if not enough renown
   rerollRaiderTrait(raiderId: string, traitToReplace: PersonalityTraitId): boolean {
     if (!this.state.isRaidLeaderMode) return false;
 
-    // Check if we have enough reputation
-    if (this.state.franchiseReputation < TRAIT_REROLL_COST) {
+    // Check if we have enough renown
+    if (this.state.franchiseRenown < TRAIT_REROLL_COST) {
       this.addCombatLogEntry({
-        message: `Not enough reputation to reroll trait (need ${TRAIT_REROLL_COST}, have ${this.state.franchiseReputation})`,
+        message: `Not enough renown to reroll trait (need ${TRAIT_REROLL_COST}, have ${this.state.franchiseRenown})`,
         type: 'system',
       });
       return false;
@@ -3364,13 +3366,12 @@ export class GameEngine {
       player.personality[traitIndex] = newTrait;
     }
 
-    // Deduct reputation
-    this.state.franchiseReputation -= TRAIT_REROLL_COST;
-    this.updateReputationTier();
+    // Deduct renown
+    this.state.franchiseRenown -= TRAIT_REROLL_COST;
 
     // Log the change
     this.addCombatLogEntry({
-      message: `${player.name}'s "${oldTraitName}" trait rerolled to "${newTraitName}" (-${TRAIT_REROLL_COST} rep)`,
+      message: `${player.name}'s "${oldTraitName}" trait rerolled to "${newTraitName}" (-${TRAIT_REROLL_COST} renown)`,
       type: 'system',
     });
 
@@ -6026,11 +6027,16 @@ export class GameEngine {
     return remainingDamage;
   }
 
-  // Prayer of Healing - heals all party members in the target's group
-  private applyPrayerOfHealing(target: RaidMember, spell: Spell) {
-    // Find all alive members in the target's group
+  // Prayer of Healing - heals all party members in the PRIEST'S group (not target's group)
+  // In Classic WoW, PoH always heals the caster's party, no targeting needed
+  private applyPrayerOfHealing(_target: RaidMember, spell: Spell) {
+    // Find the priest (player) in the raid to get their group
+    const caster = this.state.raid.find(m => m.id === this.state.playerId);
+    if (!caster) return;
+
+    // Find all alive members in the priest's group
     const groupMembers = this.state.raid.filter(
-      m => m.group === target.group && m.isAlive
+      m => m.group === caster.group && m.isAlive
     );
 
     // Calculate base heal (same for all targets)
@@ -8781,12 +8787,19 @@ export class GameEngine {
                   member.currentHealth = Math.min(member.maxHealth, member.currentHealth + hot.healPerTick);
 
                   // Track HoT healing to the caster's stats
-                  const casterStats = this.state.aiHealerStats[hot.casterId];
-                  if (casterStats) {
-                    casterStats.healingDone += actualHeal;
+                  if (hot.casterId === this.state.playerId) {
+                    // Player-cast HoT - track to player stats
+                    this.state.healingDone += actualHeal;
+                    this.state.spellHealing[hot.spellId] = (this.state.spellHealing[hot.spellId] || 0) + actualHeal;
+                  } else {
+                    // AI healer HoT
+                    const casterStats = this.state.aiHealerStats[hot.casterId];
+                    if (casterStats) {
+                      casterStats.healingDone += actualHeal;
+                    }
+                    // Track as "other healers healing" for total metrics
+                    this.state.otherHealersHealing += actualHeal;
                   }
-                  // Also track as "other healers healing" for total metrics
-                  this.state.otherHealersHealing += actualHeal;
 
                   // Add combat log entry for HoT tick
                   this.state.combatLog.push({
